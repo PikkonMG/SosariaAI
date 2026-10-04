@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <RootNamespace>SosariaAI</RootNamespace>
+        <AssemblyName>SosariaAI</AssemblyName>
+        <Product>SosariaAI</Product>
+        <Version>0.1.0</Version>
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>14</LangVersion>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <!-- Social/GuildChatHook wraps the engine's speech packet handler, a function pointer. -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Configurations>Debug;Release</Configurations>
+        <!--
+            ModernUO is a sibling repository of SosariaAI. The path below crosses from
+            SosariaAI/src/SosariaAI/ into ModernUO/. It only works while the two
+            repositories sit side by side in the same parent folder.
+        -->
+        <ModernUODir>..\..\..\ModernUO</ModernUODir>
+        <!-- Main.cs loads plugin DLLs from the hard-coded Distribution/Assemblies folder. -->
+        <OutDir>$(ModernUODir)\Distribution\Assemblies</OutDir>
+        <!-- ModernUO already ships every dependency in Distribution. Only SosariaAI.dll lands there. -->
+        <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+    <Target Name="CleanPub" AfterTargets="Clean">
+        <Message Text="SosariaAI: Removing distribution assemblies..." />
+        <Delete Files="$(OutDir)\$(AssemblyName).dll" ContinueOnError="true" />
+        <Delete Files="$(OutDir)\$(AssemblyName).pdb" ContinueOnError="true" />
+        <Delete Files="$(OutDir)\$(AssemblyName).deps.json" ContinueOnError="true" />
+    </Target>
+    <!--
+        ModernUO does not ship SQLite. Only the SQLite managed DLLs and their native
+        runtimes/<rid>/native/ files are copied next to SosariaAI.dll. Memory/SqliteNative
+        points the native search at that folder.
+    -->
+    <Target Name="CopySqliteRuntime" AfterTargets="CopyFilesToOutputDirectory">
+        <ItemGroup>
+            <SqliteManagedFile Include="@(RuntimeCopyLocalItems)" Condition="$([System.String]::Copy('%(RuntimeCopyLocalItems.NuGetPackageId)').StartsWith('Microsoft.Data.Sqlite')) Or $([System.String]::Copy('%(RuntimeCopyLocalItems.NuGetPackageId)').StartsWith('SQLitePCLRaw.'))" />
+            <SqliteNativeFile Include="@(RuntimeTargetsCopyLocalItems)" Condition="'%(RuntimeTargetsCopyLocalItems.AssetType)' == 'native' And $([System.String]::Copy('%(RuntimeTargetsCopyLocalItems.NuGetPackageId)').StartsWith('SQLitePCLRaw.')) And $([System.String]::Copy('%(RuntimeTargetsCopyLocalItems.DestinationSubDirectory)').Replace('\', '/').EndsWith('/native/'))" />
+        </ItemGroup>
+        <Copy SourceFiles="@(SqliteManagedFile)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+        <Copy SourceFiles="@(SqliteNativeFile)" DestinationFiles="@(SqliteNativeFile->'$(OutDir)\%(DestinationSubDirectory)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    </Target>
+    <ItemGroup>
+        <ProjectReference Include="$(ModernUODir)\Projects\Logger\Logger.csproj" Private="false" PrivateAssets="All" IncludeAssets="None">
+            <IncludeInPackage>false</IncludeInPackage>
+        </ProjectReference>
+        <ProjectReference Include="$(ModernUODir)\Projects\Server\Server.csproj" Private="false" PrivateAssets="All" IncludeAssets="None">
+            <IncludeInPackage>false</IncludeInPackage>
+        </ProjectReference>
+        <ProjectReference Include="$(ModernUODir)\Projects\UOContent\UOContent.csproj" Private="false" PrivateAssets="All" IncludeAssets="None">
+            <IncludeInPackage>false</IncludeInPackage>
+        </ProjectReference>
+        <PackageReference Include="ModernUO.Serialization.Annotations" Version="4.2.0" />
+        <PackageReference Include="ModernUO.Serialization.Generator" Version="4.2.0" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    </ItemGroup>
+    <ItemGroup>
+        <AdditionalFiles Include="Migrations/*.v*.json" />
+        <!-- The default persona part library. PersonaPartsFile.ResourcePrefix reads these names. -->
+        <EmbeddedResource Include="Defaults/PersonaParts/*.json" LogicalName="SosariaAI.Defaults.PersonaParts.%(Filename)%(Extension)" />
+        <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+            <_Parameter1>SosariaAI.Tests</_Parameter1>
+        </AssemblyAttribute>
+    </ItemGroup>
+</Project>

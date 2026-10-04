@@ -1,0 +1,127 @@
+# =============================================================================
+# Build, test, and package output
+# =============================================================================
+
+# .NET build output
+bin/
+obj/
+
+# Test results and coverage
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+
+# NuGet and release packages
+*.nupkg
+*.snupkg
+artifacts/
+
+# =============================================================================
+# Generated and local runtime data
+# =============================================================================
+
+# Nav dumps. The runtime graphs live under ModernUO Distribution.
+src/SosariaAI/Navigation/Data/
+
+# A local ModernUO install used for live checks
+live-proof/
+
+# Python virtual environments
+.venv/
+
+# =============================================================================
+# Secrets and signing material: never commit
+# =============================================================================
+
+.env
+.env.*
+!.env.example
+secrets/
+.npmrc.local
+*.pem
+*.key
+*.p12
+*.pfx
+*.mobileprovision
+*.provisionprofile
+
+# =============================================================================
+# IDEs and editors
+# =============================================================================
+
+.vs/
+.vscode/
+.idea/
+.fleet/
+.cursor/
+.windsurf/
+.zed/
+.history/
+*.user
+*.swp
+*.swo
+*~
+
+# =============================================================================
+# AI coding tools
+# =============================================================================
+
+# Agent settings and state
+.claude/
+.claude-code/
+.codex/
+.aider/
+.cline/
+.continue/
+.kilo/
+.roo/
+.openhands/
+.agents/
+.serena/
+.superpowers/
+.impeccable/
+.pi/
+.pi-desktop/
+.pi-desktop-gui/
+.pi-subagents/
+
+# Agent memory and knowledge stores
+MEMORY.md
+.memory/
+.mem0/
+.openmemory/
+.knowledge/
+.context/
+.context7/
+
+# MCP servers
+.mcp/
+.mcp-server/
+.mcpservers/
+.playwright-mcp/
+
+# Agent design notes and specs
+/docs/superpowers/
+
+# Agent worktrees and sandboxes
+.worktrees/
+.sandbox/
+
+# =============================================================================
+# Operating system files
+# =============================================================================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =============================================================================
+# Merge and edit leftovers
+# =============================================================================
+
+*.orig
+*.rej
+*.bak
+*.tmp
