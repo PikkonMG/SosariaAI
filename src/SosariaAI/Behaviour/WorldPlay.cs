@@ -254,10 +254,11 @@ public static class WorldPlay
         TimeRules.Rested(LastRally.GetValueOrDefault(self), now, RallyCooldown);
 
     /// <summary>
-    /// Two guild enemies who fought leave each other be for a while. The same pairs met
-    /// forty times in two hours outside the same town gate.
+    /// Two enemies who fought leave each other be for a while. The same pairs met forty times
+    /// in two hours outside the same town gate. Kept for half an hour, Order and Chaos who had
+    /// fought once stood side by side at the Yew moongate: 17 of 27 meetings of one run held off.
     /// </summary>
-    public static readonly TimeSpan PairRest = TimeSpan.FromMinutes(30);
+    public static readonly TimeSpan PairRest = TimeSpan.FromMinutes(10);
     private static readonly Dictionary<(Serial, Serial), DateTime> LastPairFight = new();
 
     public static (Serial, Serial) PairKey(Serial first, Serial second) =>

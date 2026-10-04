@@ -9,6 +9,8 @@ namespace SosariaAI.Tests;
 
 public class WorldPlayWarnTests
 {
+    private const int PairRestMinutes = 10;
+
     static WorldPlayWarnTests() => Timer.Init(0);
 
     public WorldPlayWarnTests() => TestMap.EnsureInternal();
@@ -38,6 +40,13 @@ public class WorldPlayWarnTests
         Assert.Equal(WorldPlay.PairKey(Red, OtherRed), WorldPlay.PairKey(OtherRed, Red));
 
     // The rest itself is TimeRules.Rested (CommonRulesTests); the engine clock does not run here.
+    [Fact]
+    public void PairRest_TenMinutes_ShorterThanTheDeathGrace()
+    {
+        Assert.Equal(TimeSpan.FromMinutes(PairRestMinutes), WorldPlay.PairRest);
+        Assert.True(WorldPlay.PairRest <= WorldPlay.DeathGrace);
+    }
+
     [Fact]
     public void PairReady_APairThatNeverFoughtIsReady() =>
         Assert.True(WorldPlay.PairReady((Serial)0x7F3A, (Serial)0x7F3B, DateTime.UtcNow));
