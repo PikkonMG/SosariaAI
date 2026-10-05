@@ -11,7 +11,8 @@ namespace SosariaAI.Combat;
 /// not left, whatever the count of foes (<see cref="FightTrendRules"/>). A run is over when
 /// the pack and the thing it ran from are both well off; the same thing chasing it off
 /// twice in a minute is a hunt, and then only twice that gap is clear. The ground it ran
-/// from is left alone for a while after.
+/// from is left alone for a while after. A fighter a person keeps chasing turns on it once
+/// it healed up, or once the chase shows it cannot outrun the person.
 /// </summary>
 public static class RetreatRules
 {
@@ -158,6 +159,26 @@ public static class RetreatRules
     /// </summary>
     public static bool RunsOn(bool clear, bool chaserOnRunner, long runMs) =>
         !clear && chaserOnRunner && runMs < MaxChasedRunMs;
+
+    /// <summary>A runner that left hurt goes back in once it healed to this share of its hits.</summary>
+    public const double ComeBackFraction = 0.80;
+
+    /// <summary>A fighter a person still chases this long after the run began cannot outrun it.</summary>
+    public const int MaxPersonChaseMs = 45000;
+
+    /// <summary>
+    /// A runner that left hurt and healed up on the way goes back in, as a player ran off,
+    /// bandaged and came back. A run that began fit (a red leaving a stronger side) is not
+    /// undone by its own full hits on the first step.
+    /// </summary>
+    public static bool ComesBackHealed(double hitsAtRunStart, double hitsNow) =>
+        hitsAtRunStart < ComeBackFraction && hitsNow >= ComeBackFraction;
+
+    /// <summary>
+    /// A person still on the runner after <see cref="MaxPersonChaseMs"/> runs as fast as it:
+    /// the runner turns and fights, where it ran on for <see cref="MaxChasedRunMs"/> at any hits.
+    /// </summary>
+    public static bool CannotOutrun(long runMs) => runMs >= MaxPersonChaseMs;
 
     /// <summary>
     /// Clear when the nearest of the pack and the thing the run started from are both at

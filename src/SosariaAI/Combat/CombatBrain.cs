@@ -20,8 +20,9 @@ namespace SosariaAI.Combat;
 /// trade of blows, fights by its gear (melee, bow or spells) in a stance (its own rules, or
 /// Jev's in a fight that matters), steps clear of blows before a cast or a shot onto open
 /// ground, looks after its wounds, sings a bard's songs, draws one foe off a group, retreats
-/// by walkable ground away from the pack when the fight turns, turns on a lone chaser when the
-/// pack strings out, and ends the fight when the foe is gone.
+/// by walkable ground away from the pack when the fight turns, hides once out of sight, turns
+/// on a lone chaser when the pack strings out or on a person once healed or outrun, and ends
+/// the fight when the foe is gone.
 /// </summary>
 public static partial class CombatBrain
 {
@@ -48,6 +49,8 @@ public static partial class CombatBrain
     private const string StepClearLine = "step clear";
     private const string DrawLine = "draw";
     private const string HuntedLine = "hunted";
+    private const string HealedUp = "healed up";
+    private const string CannotOutrun = "cannot outrun";
 
     private static readonly ILogger logger = SosariaLog.For(typeof(CombatBrain));
 
@@ -518,6 +521,7 @@ public static partial class CombatBrain
     {
         var now = Core.TickCount;
         memory.Hunted = RetreatRules.IsHunted(from != null && from == memory.LastFleeFrom, memory.LastFleeAt, now);
+        memory.RunStartHits = Vitals.HitsFraction(character);
         memory.FleeFrom = from;
         memory.LastFleeFrom = from;
         memory.LastFleeAt = now;
@@ -626,7 +630,7 @@ public static partial class CombatBrain
         {
             if (!RetreatRules.RunsOn(
                     RetreatRules.IsClear(memory.Picture.NearestDistance, SourceDistance(character, memory), memory.Hunted),
-                    memory.FleeFrom is { Deleted: false, Alive: true } chaser && chaser.Combatant == character,
+                    ChaserOnRunner(character, memory) != null,
                     Core.TickCount - memory.LastFleeAt))
             {
                 LeaveGround(character, memory);
@@ -658,10 +662,15 @@ public static partial class CombatBrain
         }
 
         // Casting stops the feet, so a runner drinks and bandages but does not cast; a red's
-        // recall home once it broke contact is the one cast a run makes.
-        Care(character, memory, inFight: true, CastTiming.NoCircle, spellsAllowed: false);
+        // recall home once it broke contact is the one cast a run makes. A hidden runner does
+        // neither: a bandage or a potion shows it again.
+        if (!character.Hidden)
+        {
+            Care(character, memory, inFight: true, CastTiming.NoCircle, spellsAllowed: false);
+        }
 
-        if (TryRecallOut(character, memory, scanned) || TryTurnOnChaser(character, memory, picture))
+        if (TryRecallOut(character, memory, scanned) || TryFaceChaser(character, memory, picture, scanned) ||
+            HidesFromChasers(character, memory, scanned) || TryTurnOnChaser(character, memory, picture))
         {
             return;
         }
@@ -751,10 +760,47 @@ public static partial class CombatBrain
     private static bool WaitOutHeat(SosariaCharacter character)
     {
         character.KeepFleeing(TravelHeat.CoolsIn(character));
+        return HideOut(character);
+    }
 
+    /// <summary>
+    /// A runner out of every chaser's sight hides if it can, as a player ducked round a corner
+    /// so the chaser thought it gone. The chaser loses a foe it cannot see and gives it up
+    /// (<see cref="GiveUpIfLost"/>). True while the runner stands hidden.
+    /// </summary>
+    private static bool HidesFromChasers(SosariaCharacter character, Memory memory, bool scanned) =>
+        (character.Hidden ||
+         scanned && RecallOutRules.HidesOut(character.Skills.Hiding.Value) && !SeenByChasers(character, memory)) &&
+        HideOut(character);
+
+    /// <summary>True while a foe on this runner has it in its line of sight: hiding fails then (Hiding.OnUse).</summary>
+    private static bool SeenByChasers(SosariaCharacter character, Memory memory)
+    {
+        foreach (var sighting in memory.Foes)
+        {
+            if (sighting.AttacksSelf && sighting.Mobile.InLOS(character))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Hides where the runner stands when its Hiding is up to it (<see cref="RecallOutRules.HidesOut"/>),
+    /// and holds still while hidden: a step shows it again. True while it stands hidden.
+    /// </summary>
+    private static bool HideOut(SosariaCharacter character)
+    {
         if (!character.Hidden && RecallOutRules.HidesOut(character.Skills.Hiding.Value))
         {
             Server.Skills.UseSkill(character, SkillName.Hiding);
+
+            if (character.Hidden && SosariaSettings.LogActivity)
+            {
+                logger.Information("{Name} hides from the chase at {Location}", character.Name, character.Location);
+            }
         }
 
         if (!character.Hidden)
@@ -771,6 +817,41 @@ public static partial class CombatBrain
         memory.FleeFrom is { Deleted: false, Alive: true } source && source.Map == character.Map
             ? NavMetric.Chebyshev(character.Location, source.Location)
             : RoomSurvey.NoDistance;
+
+    /// <summary>The thing the run started from while it is still on the runner; null when it is not.</summary>
+    private static Mobile ChaserOnRunner(SosariaCharacter character, Memory memory) =>
+        memory.FleeFrom is { Deleted: false, Alive: true } chaser && chaser.Combatant == character ? chaser : null;
+
+    /// <summary>
+    /// A fighter a person keeps chasing turns on that person, as a player did: once it healed
+    /// up on the way to a fight it would hold (<see cref="RetreatRules.ComesBackHealed"/>), or
+    /// once the chase went on so long it cannot outrun the person (<see cref="RetreatRules.CannotOutrun"/>).
+    /// A worker, a runner without its arms and a hidden runner keep to the run. Without it a run
+    /// the person stayed on went on for <see cref="RetreatRules.MaxChasedRunMs"/>, at full hits too.
+    /// </summary>
+    private static bool TryFaceChaser(SosariaCharacter character, Memory memory, RoomPicture picture, bool scanned)
+    {
+        if (!scanned || character.Hidden || !IsFighter(character) || !SpareKit.Armed(character) ||
+            ChaserOnRunner(character, memory) is not { } chaser || !People.IsLivingPlayer(chaser))
+        {
+            return false;
+        }
+
+        var why = RetreatRules.ComesBackHealed(memory.RunStartHits, Vitals.HitsFraction(character)) &&
+                  HoldsGround(character, memory, picture)
+            ? HealedUp
+            : RetreatRules.CannotOutrun(Core.TickCount - memory.LastFleeAt)
+                ? CannotOutrun
+                : null;
+
+        if (why == null)
+        {
+            return false;
+        }
+
+        StandAtBay(character, memory, chaser, why);
+        return true;
+    }
 
     /// <summary>
     /// The ground a run left is declined for fresh fights a while (<see cref="RetreatRules.Avoids"/>):
@@ -840,13 +921,18 @@ public static partial class CombatBrain
     /// </summary>
     private static bool WorthStanding(SosariaCharacter character, Memory memory, RoomPicture picture)
     {
-        if (memory.FleeOrdered || picture.Attackers == 0 ||
-            (character.Build?.Role ?? CharacterRole.Worker) == CharacterRole.Worker ||
+        if (memory.FleeOrdered || picture.Attackers == 0 || !IsFighter(character) ||
             !FightTrendRules.LightDamage(memory.Trend, character.HitsMax))
         {
             return false;
         }
 
+        return HoldsGround(character, memory, picture);
+    }
+
+    /// <summary>True where the retreat test would not send this runner off again (<see cref="RetreatRules.HoldsGround"/>).</summary>
+    private static bool HoldsGround(SosariaCharacter character, Memory memory, RoomPicture picture)
+    {
         var nerve = NerveOf(character, memory);
 
         return RetreatRules.HoldsGround(
@@ -861,6 +947,10 @@ public static partial class CombatBrain
             ThreatMultiple()
         );
     }
+
+    /// <summary>A character with a fighting build; a worker only runs.</summary>
+    private static bool IsFighter(SosariaCharacter character) =>
+        (character.Build?.Role ?? CharacterRole.Worker) != CharacterRole.Worker;
 
     /// <summary>
     /// The foe a runner the blows barely hurt turns on: the one it ran from while that one is
@@ -877,17 +967,26 @@ public static partial class CombatBrain
 
     /// <summary>
     /// Stops running and fights <paramref name="foe"/> where it stands: a runner with nowhere
-    /// left to go (water, walls, a dead end) rather than pushing into them, or one the blows
-    /// barely hurt. It does not try to run again for <see cref="RetreatRules.AtBayMs"/>, long
-    /// enough for the trade of blows to show how the fight really goes; a hunted runner with
-    /// nowhere left to go does not run again this fight (<see cref="RetreatRules.StandsFast"/>).
+    /// left to go (water, walls, a dead end, or a person it cannot outrun) rather than pushing
+    /// on, one the blows barely hurt, or one that healed up. It does not try to run again for
+    /// <see cref="RetreatRules.AtBayMs"/>, long enough for the trade of blows to show how the
+    /// fight really goes, and a flee Jev ordered is dropped, or it would send the runner off at
+    /// once; a hunted runner with nowhere left to go does not run again this fight
+    /// (<see cref="RetreatRules.StandsFast"/>).
     /// </summary>
     private static void StandAtBay(SosariaCharacter character, Memory memory, Mobile foe, string why)
     {
         memory.CorneredTicks = 0;
         memory.AtBayUntil = Core.TickCount + RetreatRules.AtBayMs;
-        memory.StandsFast |= RetreatRules.StandsFast(memory.Hunted, why == Cornered);
+        memory.StandsFast |= RetreatRules.StandsFast(memory.Hunted, why is Cornered or CannotOutrun);
         memory.EscapeGoal = null;
+
+        if (memory.JevStance == CombatStance.Flee)
+        {
+            memory.JevStance = null;
+            memory.StanceUntil = 0;
+        }
+
         TurnToFight(character, foe);
 
         if (LogsOnce(character, why, foe))

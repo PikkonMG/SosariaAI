@@ -283,4 +283,40 @@ public class RetreatRulesTests
         Assert.False(RetreatRules.RunsOn(clear: false, chaserOnRunner: false, JustStarted));
         Assert.False(RetreatRules.RunsOn(clear: false, chaserOnRunner: true, RetreatRules.MaxChasedRunMs));
     }
+
+    [Fact]
+    public void ComesBackHealed_OnlyARunnerThatLeftHurtAndHealedUp()
+    {
+        const double FullHits = 1.0;
+
+        Assert.True(RetreatRules.ComesBackHealed(Hurt, RetreatRules.ComeBackFraction));
+        Assert.True(RetreatRules.ComesBackHealed(Hurt, FullHits));
+        Assert.False(RetreatRules.ComesBackHealed(Hurt, RetreatRules.ComeBackFraction - Tolerance));
+        Assert.False(RetreatRules.ComesBackHealed(Hurt, Hurt));
+
+        // A red that left a stronger side at full hits does not turn round on its first step.
+        Assert.False(RetreatRules.ComesBackHealed(FullHits, FullHits));
+        Assert.False(RetreatRules.ComesBackHealed(RetreatRules.ComeBackFraction, FullHits));
+    }
+
+    [Fact]
+    public void ComesBackHealed_SitsAboveEveryOneFoeStartLine()
+    {
+        // Back in at the start line a runner would leave again on the next few blows.
+        foreach (var baseLine in new[] { RetreatRules.WorkerLine, RetreatRules.FighterLine, RetreatRules.VeteranLine })
+        {
+            Assert.True(RetreatRules.ComeBackFraction > RetreatRules.StartLine(baseLine, NerveRules.MinNerve, OneAttacker));
+        }
+    }
+
+    [Fact]
+    public void CannotOutrun_APersonStillOnTheRunnerPastTheChaseLimit()
+    {
+        const long JustStarted = 0;
+
+        Assert.False(RetreatRules.CannotOutrun(JustStarted));
+        Assert.False(RetreatRules.CannotOutrun(RetreatRules.MaxPersonChaseMs - 1));
+        Assert.True(RetreatRules.CannotOutrun(RetreatRules.MaxPersonChaseMs));
+        Assert.True(RetreatRules.MaxPersonChaseMs < RetreatRules.MaxChasedRunMs);
+    }
 }

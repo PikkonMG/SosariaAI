@@ -9,7 +9,8 @@ public static class DefendRules
     /// <summary>
     /// A runner does not turn back on what it runs from, a person no more than a monster:
     /// turning back on a person flipped the body between flee and fight every think. The
-    /// combat brain stands it at bay when it is cornered or the blows barely hurt.
+    /// combat brain stands it at bay when it is cornered, the blows barely hurt, it healed up,
+    /// or it cannot outrun the person on it.
     /// </summary>
     public static bool ShouldFightBack(
         bool selfAlive,

@@ -414,8 +414,19 @@ that is, when every blow on it would land after the words of the spell end.
 While the heat lasts, it keeps running. A runner with Hiding 30 or more hides
 and stands still until the heat cools, then tries the recall again.
 
-A hunted runner that is cornered stands and fights to the end of that fight. A
-fighter that loses a living foe leaves that foe alone for 2 minutes.
+A runner with Hiding 30 or more hides once no attacker can see it, and stands
+still while hidden. It does not bandage or drink while hidden, because that
+shows it again. A chaser that cannot see its foe gives it up.
+
+A fighter that a person keeps chasing turns and fights that person in two
+cases. The first case is when it ran below 80% of its hits and healed back to
+80% on the way, and the fight is one it would hold. The second case is when the
+person is still on it 45 seconds after the run began. A worker, or a person
+without its arms, keeps running.
+
+A hunted runner that is cornered, or that cannot outrun the person hunting it,
+stands and fights to the end of that fight. A fighter that loses a living foe
+leaves that foe alone for 2 minutes.
 
 ### Gangs and hot spots
 

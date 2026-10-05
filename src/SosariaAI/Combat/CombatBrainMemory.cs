@@ -143,6 +143,9 @@ public static partial class CombatBrain
         public Mobile FleeFrom;
         public bool Hunted;
 
+        /// <summary>The share of its hits the runner had when the current run began.</summary>
+        public double RunStartHits;
+
         /// <summary>The last run, kept past the fight: a second one from the same thing soon after is a hunt.</summary>
         public Mobile LastFleeFrom;
         public long LastFleeAt;
@@ -209,6 +212,7 @@ public static partial class CombatBrain
             BrokenThisFight = 0;
             FleeFrom = null;
             Hunted = false;
+            RunStartHits = 0;
             PullFrom = null;
             PullSince = 0;
         }

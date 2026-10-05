@@ -24,10 +24,10 @@ public static class RecallOutRules
     public static bool ContactBroken(long soonestBlowMs, bool slowedByProtection) =>
         CastTiming.Holds(CastTiming.CastDelayMs(RecallCircle, slowedByProtection), soonestBlowMs);
 
-    /// <summary>A runner waiting out the heat hides when its Hiding reaches this: below it the tries only reveal it.</summary>
+    /// <summary>A runner hides when its Hiding reaches this: below it the tries only reveal it.</summary>
     public const double HideOutMinHiding = 30;
 
-    /// <summary>True when a runner waiting out the heat of battle tries to hide.</summary>
+    /// <summary>True when a runner tries to hide: out of its chasers' sight, or waiting out the heat of battle.</summary>
     public static bool HidesOut(double hiding) => hiding >= HideOutMinHiding;
 
     /// <summary>True when a recall refused for <paramref name="whyNot"/> is worth another try later in the run.</summary>
