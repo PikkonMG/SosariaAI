@@ -105,6 +105,33 @@ public static class DungeonEntryRules
     /// <summary>The line a recall to a dungeon door writes, easy to count.</summary>
     public static string RecalledToDoorLine(string name, string dungeon) => $"{name} recalled to the door of {dungeon}";
 
+    /// <summary>
+    /// The line a door pad that did not carry the person in writes: where it stood, the pad, and
+    /// what it found on the way, easy to count. Orc Cave walkers stood two tiles off its pads
+    /// for the whole step and gave the trip up, and nothing said why.
+    /// </summary>
+    public static string PadStuckLine(string name, Point3D at, Point3D pad, string why) =>
+        $"{name} stood {NavMetric.Chebyshev(at, pad)} tiles from the door pad at {pad} for {PadStepSeconds} s at {at}: {why}";
+
+    /// <summary>
+    /// What held a step onto the door pad back, for <see cref="PadStuckLine"/>: the person's
+    /// state, its step clock, the guard line, and the next step onto the pad with the engine's
+    /// verdict and the people standing on it.
+    /// </summary>
+    public static string PadStuckWhy(
+        bool frozen,
+        bool paralyzed,
+        bool casting,
+        bool clockReady,
+        bool heldAtGuardLine,
+        Point3D? nextStep,
+        bool engineAllowsStep,
+        int mobilesOnNextStep
+    ) =>
+        $"frozen {frozen}, paralyzed {paralyzed}, casting {casting}, step clock ready {clockReady}, " +
+        $"held at the guard line {heldAtGuardLine}, next step {nextStep?.ToString() ?? "none"}, " +
+        $"engine allows it {engineAllowsStep}, people on it {mobilesOnNextStep}";
+
     /// <summary>The leg after <paramref name="leg"/>, or null when that leg ends at the hall.</summary>
     public static DungeonLeg? After(DungeonLeg leg) =>
         leg switch

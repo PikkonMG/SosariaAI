@@ -37,6 +37,9 @@ public sealed class CharacterMotor
 
     private readonly SosariaCharacter _character;
     private PathFollower _path;
+
+    /// <summary>The goal the engine's path stalled on: the walk there follows the person's own tile route (<see cref="StepAlongRoute"/>).</summary>
+    private Point3D? _ownRouteGoal;
     private long _nextMoveAt;
     private Mobile _intentTarget;
     private IPoint3D _intentPoint;
@@ -174,6 +177,7 @@ public sealed class CharacterMotor
         if (_path?.Goal != goal)
         {
             _path = NewPath(goal);
+            _ownRouteGoal = null;
         }
 
         RenewIntent(null, goal, range);
@@ -190,12 +194,25 @@ public sealed class CharacterMotor
 
         var couldMove = CanMoveNow && !InBadState();
         var before = _character.Location;
+        var at = new Point3D(goal.X, goal.Y, goal.Z);
+
+        if (couldMove && _ownRouteGoal == at && !_character.InRange(at, range) && StepAlongRoute(at, range, StepWalker()))
+        {
+            return true;
+        }
 
         if (_path.Follow(range))
         {
             _path = null;
+            _ownRouteGoal = null;
             ClearMoveIntent();
             return false;
+        }
+
+        if (couldMove && _character.Location == before && StepAlongRoute(at, range, StepWalker()))
+        {
+            _ownRouteGoal = at;
+            return true;
         }
 
         var progressed = _character.Location != before || !couldMove;
@@ -288,6 +305,11 @@ public sealed class CharacterMotor
         {
             ResetApproach();
             return true;
+        }
+
+        if (couldMove && _character.Location == at)
+        {
+            StepAlongRoute(target.Location, range, StepWalker());
         }
 
         TrackApproach(target, couldMove);
@@ -495,6 +517,40 @@ public sealed class CharacterMotor
     }
 
     private PathFollower NewPath(IPoint3D goal) => new(_character, goal) { Mover = DoMoveImpl };
+
+    /// <summary>
+    /// One step toward <paramref name="goal"/> along the first straight leg of the person's own
+    /// tile route, judged by the engine's own step (<see cref="TileRoute"/>). The engine's path
+    /// checks the items on a tile it steps onto but not the corners of a diagonal past them, and
+    /// when its step is refused it walks straight at the goal: walkers set down north of the
+    /// posts round the Orc Cave pads walked into them until their step ran out. Keeps off armed
+    /// traps and, for a red, the guards (<see cref="DoMove"/>). False when no route or step serves.
+    /// </summary>
+    public bool StepAlongRoute(Point3D goal, int range, TileWalker walker)
+    {
+        if (InBadState() || !CanMoveNow || walker == null)
+        {
+            return false;
+        }
+
+        var at = _character.Location;
+        var route = TileRoute.Find(at, goal, walker, isIndoor: null, range);
+
+        if (route.Count == 0 || NavMetric.Chebyshev(at, route[0]) is not (var legTiles and > 0))
+        {
+            return false;
+        }
+
+        var next = new Point3D(
+            WalkLine.Lerp(at.X, route[0].X, WalkLine.Step, legTiles),
+            WalkLine.Lerp(at.Y, route[0].Y, WalkLine.Step, legTiles),
+            at.Z
+        );
+
+        return DoMove(_character.GetDirectionTo(next));
+    }
+
+    private TileWalker StepWalker() => Standable.Walker(_character.Map);
 
     /// <summary>Steps to one side of the facing, then the other. False when both sides are blocked.</summary>
     public bool StepAside()

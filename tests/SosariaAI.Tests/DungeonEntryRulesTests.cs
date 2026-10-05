@@ -118,6 +118,22 @@ public class DungeonEntryRulesTests
         Assert.Equal("Iolo recalled to the door of Destard", DungeonEntryRules.RecalledToDoorLine("Iolo", "Destard"));
 
     [Fact]
+    public void PadStuckLine_SaysWhereAndWhatHeldTheStep()
+    {
+        var at = new Point3D(1015, 1432, 0);
+        var pad = new Point3D(1013, 1433, 0);
+        var why = DungeonEntryRules.PadStuckWhy(false, false, false, true, false, new Point3D(1014, 1432, 0), true, 2);
+
+        Assert.Equal(
+            "Iolo stood 2 tiles from the door pad at (1013, 1433, 0) for 20 s at (1015, 1432, 0): " +
+            "frozen False, paralyzed False, casting False, step clock ready True, held at the guard line False, " +
+            "next step (1014, 1432, 0), engine allows it True, people on it 2",
+            DungeonEntryRules.PadStuckLine("Iolo", at, pad, why)
+        );
+        Assert.Contains("next step none", DungeonEntryRules.PadStuckWhy(false, false, false, true, false, null, false, 0));
+    }
+
+    [Fact]
     public void RecallsAgain_AFizzleIsRecastWhileCastsAndTheWaitLast()
     {
         var retryEnds = Start + DungeonEntryRules.DoorRecallRetryWait;

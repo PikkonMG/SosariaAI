@@ -39,6 +39,19 @@ public static class GateTravel
     /// <summary>A walk with this reach ends on the pad itself (<see cref="CharacterMotor.MoveToPoint"/>).</summary>
     private const int OntoPadRange = 0;
 
+    /// <summary>
+    /// One step of the walk onto a pad, along the person's own tile route onto it, which keeps
+    /// off the other pads (<see cref="CharacterMotor.StepAlongRoute"/>, <see cref="Standable.PadShyWalker"/>).
+    /// With no route, the motor's own walk onto the pad.
+    /// </summary>
+    public static void WalkOntoPad(SosariaCharacter character, Point3D pad)
+    {
+        if (!character.Motor.StepAlongRoute(pad, OntoPadRange, Standable.PadShyWalker(character.Map)))
+        {
+            character.Motor.MoveToPoint(pad, OntoPadRange);
+        }
+    }
+
     public const int MoongateOpenSound = 0x20E;
     public const int MoongateArriveSound = 0x1FE;
 
@@ -104,7 +117,7 @@ public static class GateTravel
 
         if (distance > 1)
         {
-            character.Motor.MoveToPoint(pad);
+            WalkOntoPad(character, pad.Location);
             return GateStep.Waiting;
         }
 

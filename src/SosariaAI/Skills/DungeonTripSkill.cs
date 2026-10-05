@@ -745,13 +745,14 @@ public sealed class DungeonTripSkill : Skill, IHuntingSkill
 
         if (DungeonEntryRules.PadStepExpired(now, _padStarted))
         {
+            LogPadStuck();
             return NextDoorPad() ? SkillStatus.Running : SkillStatus.Failed;
         }
 
         if (DungeonEntryRules.NeedsApproach(_character.Location, _pad) ||
             DungeonEntryRules.PathsOntoPad(now, _padStarted) && NavMetric.Chebyshev(_character.Location, _pad) > 0)
         {
-            _character.Motor.MoveToPoint(_padItem);
+            GateTravel.WalkOntoPad(_character, _pad);
             return SkillStatus.Running;
         }
 
@@ -761,6 +762,44 @@ public sealed class DungeonTripSkill : Skill, IHuntingSkill
             GateStep.Waiting => SkillStatus.Running,
             _ => SkillStatus.Failed
         };
+    }
+
+    /// <summary>Writes what held the step onto the door pad back (<see cref="DungeonEntryRules.PadStuckLine"/>).</summary>
+    private void LogPadStuck()
+    {
+        if (!SosariaSettings.LogActivity)
+        {
+            return;
+        }
+
+        var map = _character.Map;
+        var at = _character.Location;
+        var next = GatePad.EntryStep(Standable.Walker(map), at, _pad);
+        var engineAllows = next is { } step && Standable.TryStep(map, at.X, at.Y, at.Z, step.X, step.Y, out _);
+        var people = 0;
+
+        if (next is { } tile)
+        {
+            foreach (var mobile in map.GetMobilesAt(tile))
+            {
+                if (mobile != _character)
+                {
+                    people++;
+                }
+            }
+        }
+
+        var why = DungeonEntryRules.PadStuckWhy(
+            _character.Frozen,
+            _character.Paralyzed,
+            _character.Spell?.IsCasting == true,
+            _character.Motor.CanMoveNow,
+            _character.Motor.HeldAtGuardLine,
+            next,
+            engineAllows,
+            people
+        );
+        logger.Information("{Line}", DungeonEntryRules.PadStuckLine(_character.Name, at, _pad, why));
     }
 
     /// <summary>
