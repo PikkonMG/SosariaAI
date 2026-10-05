@@ -217,4 +217,70 @@ public class RetreatRulesTests
         Assert.False(RetreatRules.ShouldTurnOnChaser(NoTurns, false, true, false, true));
         Assert.False(RetreatRules.ShouldTurnOnChaser(NoTurns, false, true, true, false));
     }
+
+    [Fact]
+    public void HoldsGround_ATimidFighterDoesNotStandWhereTheNumbersSendItOffAgain()
+    {
+        const int Power = 100;
+        const int TimidDare = 60;
+        const int TwoAttackers = 2;
+        const int Room = 150;
+        const int NoAllies = 0;
+
+        Assert.True(RetreatRules.IsOutnumbered(TwoAttackers, Room, TimidDare, Multiple));
+        Assert.False(
+            RetreatRules.HoldsGround(Healthy, RetreatRules.FighterLine, TimidNerve, TwoAttackers, TimidDare, Room, true, NoAllies, Multiple)
+        );
+        Assert.True(
+            RetreatRules.HoldsGround(Healthy, RetreatRules.FighterLine, PlainNerve, TwoAttackers, Power, Room, true, NoAllies, Multiple)
+        );
+    }
+
+    [Fact]
+    public void HoldsGround_NeverWhereTheRetreatTestWouldRunAtOnce()
+    {
+        double[] nerves = [TimidNerve, PlainNerve, BoldNerve];
+        int[] attackerCounts = [0, OneAttacker, ThreeAttackers];
+        int[] rooms = [SmallRoom, HugeRoom, EnormousRoom];
+        double[] hitFractions = [Hurt, HalfHits, Healthy];
+        const int NoAllies = 0;
+
+        foreach (var nerve in nerves)
+        {
+            foreach (var attackers in attackerCounts)
+            {
+                foreach (var room in rooms)
+                {
+                    foreach (var hits in hitFractions)
+                    {
+                        if (!RetreatRules.HoldsGround(hits, RetreatRules.FighterLine, nerve, attackers, Dare, room, true, NoAllies, Multiple))
+                        {
+                            continue;
+                        }
+
+                        Assert.False(
+                            RetreatRules.ShouldRetreat(
+                                hits,
+                                RetreatRules.Line(RetreatRules.FighterLine, nerve, attackers),
+                                RetreatRules.IsOutnumbered(attackers, room, Dare, Multiple),
+                                gambling: false,
+                                FightOutlook.Unknown
+                            )
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void RunsOn_PastItsTime_OnlyWhileTheChaserIsStillOnAndTheRunIsNotTooLong()
+    {
+        const long JustStarted = 0;
+
+        Assert.True(RetreatRules.RunsOn(clear: false, chaserOnRunner: true, JustStarted));
+        Assert.False(RetreatRules.RunsOn(clear: true, chaserOnRunner: true, JustStarted));
+        Assert.False(RetreatRules.RunsOn(clear: false, chaserOnRunner: false, JustStarted));
+        Assert.False(RetreatRules.RunsOn(clear: false, chaserOnRunner: true, RetreatRules.MaxChasedRunMs));
+    }
 }

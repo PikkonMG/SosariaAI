@@ -120,4 +120,12 @@ public class HuntEndDecisionTests
         count = HuntEndDecision.CountLowHits(count, false, true);
         Assert.Equal(2, count);
     }
+
+    [Fact]
+    public void Routed_RunOffTheGroundTooOften_EndsAsFightsGoneBadly()
+    {
+        Assert.Equal(HuntEndReason.None, HuntEndDecision.Routed(HuntEndReason.None, HuntEndDecision.RunsOffLimit - 1, HuntEndDecision.RunsOffLimit));
+        Assert.Equal(HuntEndReason.Hurt, HuntEndDecision.Routed(HuntEndReason.None, HuntEndDecision.RunsOffLimit, HuntEndDecision.RunsOffLimit));
+        Assert.Equal(HuntEndReason.PackFull, HuntEndDecision.Routed(HuntEndReason.PackFull, HuntEndDecision.RunsOffLimit, HuntEndDecision.RunsOffLimit));
+    }
 }

@@ -108,7 +108,7 @@ public static class RedGangRunRules
             suppliesLow
         );
 
-        return reason == HuntEndReason.None && runsOff >= RunsOffLimit ? HuntEndReason.Hurt : reason;
+        return HuntEndDecision.Routed(reason, runsOff, RunsOffLimit);
     }
 
     /// <summary>

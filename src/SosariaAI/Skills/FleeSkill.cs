@@ -134,16 +134,18 @@ public sealed class FleeSkill : Skill
     public static bool ShouldGiveUp(int failedLegs, DateTime now, DateTime started) =>
         failedLegs >= MaxFailedLegs || (started != default && now - started >= FleeLimit);
 
+    /// <summary>Where a runner heads when it can: the door of its own house, else the nearest bank under the guards.</summary>
+    public static Point3D? SafePlace(SosariaCharacter character) =>
+        HouseBases.SafeDoor(character) ??
+        NavWorld.DestinationsFor(character.HomeFacet)
+            ?.Nearest(character.Location, DestinationKind.Bank)
+            ?.Arrival;
+
     private bool StartLeg(Point3D threat)
     {
         _walk?.Abort();
         _walk = null;
-        var safety = HouseBases.SafeDoor(_character) ??
-                     NavWorld.DestinationsFor(_character.HomeFacet)
-                         ?.Nearest(_character.Location, DestinationKind.Bank)
-                         ?.Arrival;
-
-        if (EscapeRoute.PickGoal(_character, threat, FleeRules.CoveredTiles, safety, _failedGoals) is not { } goal)
+        if (EscapeRoute.PickGoal(_character, threat, FleeRules.CoveredTiles, SafePlace(_character), _failedGoals) is not { } goal)
         {
             return false;
         }

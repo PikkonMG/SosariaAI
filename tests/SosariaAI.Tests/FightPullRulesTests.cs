@@ -107,9 +107,27 @@ public class FightPullRulesTests
         const int Crowd = 3;
         const int Close = 2;
 
-        Assert.True(FightPullRules.KeepsDrawing(Started, Crowd, Close));
-        Assert.False(FightPullRules.KeepsDrawing(FightPullRules.DrawMs, Crowd, Close));
-        Assert.False(FightPullRules.KeepsDrawing(Started, FightPullRules.SoleTarget, Close));
-        Assert.False(FightPullRules.KeepsDrawing(Started, Crowd, FightPullRules.DrawClearTiles));
+        Assert.True(FightPullRules.KeepsDrawing(true, Started, Crowd, Close));
+        Assert.False(FightPullRules.KeepsDrawing(true, FightPullRules.DrawMs, Crowd, Close));
+        Assert.False(FightPullRules.KeepsDrawing(true, Started, FightPullRules.SoleTarget, Close));
+        Assert.False(FightPullRules.KeepsDrawing(true, Started, Crowd, FightPullRules.DrawClearTiles));
+    }
+
+    [Fact]
+    public void KeepsDrawing_EndsOnceTheTargetStopsFollowing()
+    {
+        const long Started = 0;
+        const int Crowd = 3;
+        const int Close = 2;
+
+        Assert.False(FightPullRules.KeepsDrawing(false, Started, Crowd, Close));
+    }
+
+    [Fact]
+    public void WaitsForFirstBlow_OnlyBeforeTheDrawWithTheTargetNotYetOnTheDrawer()
+    {
+        Assert.True(FightPullRules.WaitsForFirstBlow(drawStarted: false, targetFollows: false));
+        Assert.False(FightPullRules.WaitsForFirstBlow(drawStarted: false, targetFollows: true));
+        Assert.False(FightPullRules.WaitsForFirstBlow(drawStarted: true, targetFollows: false));
     }
 }

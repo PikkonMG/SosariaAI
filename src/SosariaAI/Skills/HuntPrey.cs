@@ -26,7 +26,8 @@ public static class HuntPrey
 
     /// <summary>
     /// The nearest prey within <paramref name="radius"/> of <paramref name="center"/> that the
-    /// hunter has not passed over, or null.
+    /// hunter has not passed over and that does not stand on ground its last run left
+    /// (<see cref="CombatBrain.AvoidsGround"/>), or null.
     /// </summary>
     public static Mobile Nearest(SosariaCharacter hunter, Point3D center, int radius, IReadOnlySet<Serial> passed)
     {
@@ -40,7 +41,7 @@ public static class HuntPrey
 
         foreach (var mobile in hunter.Map.GetMobilesInRange(center, radius))
         {
-            if (passed.Contains(mobile.Serial) || !IsPrey(hunter, mobile))
+            if (passed.Contains(mobile.Serial) || !IsPrey(hunter, mobile) || CombatBrain.AvoidsGround(hunter, mobile.Location))
             {
                 continue;
             }

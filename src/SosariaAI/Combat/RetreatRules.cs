@@ -85,6 +85,28 @@ public static class RetreatRules
         nerve >= GambleNerve && attackers <= SingleAttacker && foeFraction < selfFraction * GambleEdge;
 
     /// <summary>
+    /// A runner the blows barely hurt stops only where the retreat test would not send it off
+    /// again (<see cref="ShouldRetreat"/>): fit above the start line for every attacker on it,
+    /// not outnumbered, and a room its dare would fight. Weighed on its bare power and one
+    /// attacker, a fighter of low nerve stood at bay, ran "outnumbered" when the bay ran out,
+    /// and stood again on the next mob, over and over.
+    /// </summary>
+    public static bool HoldsGround(
+        double hitsFraction,
+        double baseLine,
+        double nerve,
+        int attackers,
+        int dare,
+        int roomThreat,
+        bool hasHealing,
+        int alliesPower,
+        double threatMultiple
+    ) =>
+        hitsFraction >= StartLine(baseLine, nerve, Math.Max(SingleAttacker, attackers)) &&
+        !IsOutnumbered(attackers, roomThreat, dare, threatMultiple) &&
+        DangerRules.ShouldFight(dare, roomThreat, hitsFraction, hasHealing, alliesPower, threatMultiple);
+
+    /// <summary>
     /// A winning trade holds down to <see cref="FightTrendRules.WinningFloor"/>, through the
     /// numbers and the raised line. Otherwise the numbers or the hit line send it off, unless
     /// it gambles.
@@ -124,6 +146,18 @@ public static class RetreatRules
     public const int AvoidRadiusTiles = FightPullRules.IsolateRange + 1;
 
     public static int ClearAt(bool hunted) => hunted ? HuntedClearTiles : ClearTiles;
+
+    /// <summary>A run its chaser stays on goes on past its own time, but no longer than this from its start.</summary>
+    public const int MaxChasedRunMs = 180000;
+
+    /// <summary>
+    /// A run whose time is up goes on while it is not clear and the thing it ran from is still
+    /// on the runner, up to <see cref="MaxChasedRunMs"/>. Stopping on the clock with the chaser
+    /// at its back, a miner run down by a red stopped, was hit, swung back and ran again, 18
+    /// times in ten minutes, and never got home.
+    /// </summary>
+    public static bool RunsOn(bool clear, bool chaserOnRunner, long runMs) =>
+        !clear && chaserOnRunner && runMs < MaxChasedRunMs;
 
     /// <summary>
     /// Clear when the nearest of the pack and the thing the run started from are both at

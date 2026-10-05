@@ -100,6 +100,16 @@ public static class HuntEndDecision
         lastKillAt != default &&
         now - lastKillAt <= PayingWindow;
 
+    /// <summary>
+    /// A hunter run off its ground this many times on one hunt gives the ground up: the spawn
+    /// there is more than it can hold, and each walk back brought the pack onto it again.
+    /// </summary>
+    public const int RunsOffLimit = 3;
+
+    /// <summary>A hunt or a run that goes on is ended as fights gone badly once it was run off <paramref name="limit"/> times.</summary>
+    public static HuntEndReason Routed(HuntEndReason reason, int runsOff, int limit) =>
+        reason == HuntEndReason.None && runsOff >= limit ? HuntEndReason.Hurt : reason;
+
     public static int CountLowHits(int previousCount, bool wasBelow, bool isBelow)
     {
         if (isBelow && !wasBelow)

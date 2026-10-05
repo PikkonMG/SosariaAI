@@ -624,9 +624,17 @@ public static partial class CombatBrain
     {
         if (!character.CheckFlee())
         {
-            LeaveGround(character, memory);
-            EndFight(character, memory);
-            return;
+            if (!RetreatRules.RunsOn(
+                    RetreatRules.IsClear(memory.Picture.NearestDistance, SourceDistance(character, memory), memory.Hunted),
+                    memory.FleeFrom is { Deleted: false, Alive: true } chaser && chaser.Combatant == character,
+                    Core.TickCount - memory.LastFleeAt))
+            {
+                LeaveGround(character, memory);
+                EndFight(character, memory);
+                return;
+            }
+
+            character.BeginFlee(FleeSpan());
         }
 
         var scanned = ScanIfDue(character, memory);
@@ -658,7 +666,7 @@ public static partial class CombatBrain
             return;
         }
 
-        if (WorthStanding(character, memory, picture) && NearestAttacker(character, memory) is { } barelyHurting)
+        if (WorthStanding(character, memory, picture) && FoeAtBay(character, memory) is { } barelyHurting)
         {
             StandAtBay(character, memory, barelyHurting, BlowsBarelyHurt);
             return;
@@ -781,13 +789,21 @@ public static partial class CombatBrain
     }
 
     /// <summary>
-    /// A melee pull backs off the middle of the group while the foe it pulled follows, for a
-    /// few seconds at most, and turns to fight once only the target is near or the group is
-    /// well behind (<see cref="FightPullRules.KeepsDrawing"/>). True while it still backs off.
+    /// A melee pull walks in for its first blow (<see cref="FightPullRules.WaitsForFirstBlow"/>),
+    /// then backs off the middle of the group while the foe it pulled follows, for a few
+    /// seconds at most, and turns to fight once only the target is near or the group is well
+    /// behind (<see cref="FightPullRules.KeepsDrawing"/>). True while it still backs off.
     /// </summary>
     private static bool Draws(SosariaCharacter character, Memory memory, Mobile foe)
     {
         if (memory.PullFrom is not { } group)
+        {
+            return false;
+        }
+
+        var follows = foe.Combatant == character;
+
+        if (FightPullRules.WaitsForFirstBlow(memory.PullSince != 0, follows))
         {
             return false;
         }
@@ -799,7 +815,7 @@ public static partial class CombatBrain
             memory.PullSince = now;
         }
 
-        if (FightPullRules.KeepsDrawing(now - memory.PullSince, memory.Picture.Count, NavMetric.Chebyshev(character.Location, group)))
+        if (FightPullRules.KeepsDrawing(follows, now - memory.PullSince, memory.Picture.Count, NavMetric.Chebyshev(character.Location, group)))
         {
             StepClear(character, group);
             return true;
@@ -832,18 +848,32 @@ public static partial class CombatBrain
         }
 
         var nerve = NerveOf(character, memory);
-        var hits = Vitals.HitsFraction(character);
 
-        return hits >= RetreatRules.StartLine(BaseLineOf(character), nerve, RetreatRules.SingleAttacker) &&
-               DangerRules.ShouldFight(
-                   CharacterPower.For(character),
-                   picture.Threat,
-                   hits,
-                   HuntSkill.HasHealing(character),
-                   Party.AlliesPower(character),
-                   ThreatMultiple()
-               );
+        return RetreatRules.HoldsGround(
+            Vitals.HitsFraction(character),
+            BaseLineOf(character),
+            nerve,
+            picture.Attackers,
+            NerveRules.DarePower(CharacterPower.For(character), nerve, AlliesOn(memory, memory.FleeFrom)),
+            picture.Threat,
+            HuntSkill.HasHealing(character),
+            Party.AlliesPower(character),
+            ThreatMultiple()
+        );
     }
+
+    /// <summary>
+    /// The foe a runner the blows barely hurt turns on: the one it ran from while that one is
+    /// still on it and in reach, else the nearest that is. Turning on the nearest alone put
+    /// one or two blows on each mob of a pack in turn.
+    /// </summary>
+    private static Mobile FoeAtBay(SosariaCharacter character, Memory memory) =>
+        memory.FleeFrom is { Deleted: false, Alive: true } left &&
+        left.Map == character.Map &&
+        left.Combatant == character &&
+        character.InRange(left, RoomSurvey.MeleeStragglerReach)
+            ? left
+            : NearestAttacker(character, memory);
 
     /// <summary>
     /// Stops running and fights <paramref name="foe"/> where it stands: a runner with nowhere
@@ -968,7 +998,7 @@ public static partial class CombatBrain
                 return StepClear(character, pack);
             }
 
-            if (EscapeRoute.PickGoal(character, pack, EscapeRules.LegTiles, safety: null, memory.StalledEscapes) is not { } goal)
+            if (EscapeRoute.PickGoal(character, pack, EscapeRules.LegTiles, SafetyFrom(character, memory), memory.StalledEscapes) is not { } goal)
             {
                 memory.NextEscapePickAt = Core.TickCount + RetreatRules.EscapeRepickMs;
                 return StepClear(character, pack);
@@ -999,6 +1029,14 @@ public static partial class CombatBrain
         memory.EscapeGoal = null;
         return StepClear(character, pack);
     }
+
+    /// <summary>
+    /// A run from a person leans toward a safe place (<see cref="FleeSkill.SafePlace"/>): a
+    /// house door or the guards of a bank, where a red breaks off. Run straight away from it,
+    /// a miner led its red round the wild for ten minutes. A run from monsters runs away only.
+    /// </summary>
+    private static Point3D? SafetyFrom(SosariaCharacter character, Memory memory) =>
+        People.IsLivingPlayer(memory.FleeFrom) ? FleeSkill.SafePlace(character) : null;
 
     /// <summary>One step back from the pack by the ground; true while the body could not step yet or did.</summary>
     private static bool StepClear(SosariaCharacter character, Point3D pack) =>

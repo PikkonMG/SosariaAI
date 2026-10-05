@@ -126,4 +126,33 @@ public class FocusRulesTests
         Assert.True(FocusRules.ShouldSwitch(FocusRules.AttackerTier, Far, false, Whole, FocusRules.AttackerTier, Middle, true));
         Assert.False(FocusRules.ShouldSwitch(FocusRules.AttackerTier, Far, true, Whole, FocusRules.AttackerTier, Near, false));
     }
+
+    [Fact]
+    public void HeldTier_TheFoeAFighterIsOnRanksAtLeastAsAnAttacker()
+    {
+        Assert.Equal(FocusRules.AttackerTier, FocusRules.HeldTier(FocusRules.PlainTier));
+        Assert.Equal(FocusRules.AttackerTier, FocusRules.HeldTier(FocusRules.FriendAttackerTier));
+        Assert.Equal(FocusRules.OutlawTier, FocusRules.HeldTier(FocusRules.OutlawTier));
+    }
+
+    [Fact]
+    public void ShouldSwitch_AMobWalkedUpTo_KeepsTheFightFromTheNextMobThatSwings()
+    {
+        Assert.False(FocusRules.ShouldSwitch(FocusRules.PlainTier, Middle, false, Whole, FocusRules.AttackerTier, Middle, true));
+        Assert.False(FocusRules.ShouldSwitch(FocusRules.PlainTier, Middle, false, Whole, FocusRules.FriendAttackerTier, Near, false));
+        Assert.True(FocusRules.ShouldSwitch(FocusRules.PlainTier, Far, false, Whole, FocusRules.AttackerTier, Middle, true));
+        Assert.True(FocusRules.ShouldSwitch(FocusRules.PlainTier, Far, false, Whole, FocusRules.OutlawTier, Far, false));
+    }
+
+    [Fact]
+    public void InDeclinedGroup_OnlyNearTheDeclinedFoeWhileTheHoldLasts()
+    {
+        const long DeclinedAt = 50000;
+        const long NeverDeclined = 0;
+
+        Assert.True(FocusRules.InDeclinedGroup(DeclinedAt, DeclinedAt, FightPullRules.IsolateRange));
+        Assert.False(FocusRules.InDeclinedGroup(DeclinedAt, DeclinedAt, FightPullRules.IsolateRange + 1));
+        Assert.False(FocusRules.InDeclinedGroup(DeclinedAt, DeclinedAt + FocusRules.DeclineHoldMs, Near));
+        Assert.False(FocusRules.InDeclinedGroup(NeverDeclined, DeclinedAt, Near));
+    }
 }

@@ -151,6 +151,10 @@ public static partial class CombatBrain
         public Point3D AvoidAt;
         public long AvoidUntil;
 
+        /// <summary>Where the foe stood that the last engage call left alone, and when; zero when it took the fight.</summary>
+        public Point3D DeclinedNear;
+        public long DeclinedAt;
+
         /// <summary>The middle of the group a melee pull backs off, and when the draw began.</summary>
         public Point3D? PullFrom;
         public long PullSince;

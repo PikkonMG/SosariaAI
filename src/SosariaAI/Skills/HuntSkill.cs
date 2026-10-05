@@ -80,6 +80,7 @@ public sealed class HuntSkill : Skill, IHuntingSkill
     private DateTime _lastPreyAt;
     private DateTime _lastKillAt;
     private int _stays;
+    private int _runsAtStart;
     private bool _startedLogged;
     private HuntEndReason _endReason;
     private bool _suppliesLowAtStart;
@@ -299,12 +300,14 @@ public sealed class HuntSkill : Skill, IHuntingSkill
             return SkillStatus.Running;
         }
 
-        if (WalksBackToGround(InArea(), ChasingPreyInReach()))
+        var middleAvoided = CombatBrain.AvoidsGround(_character, _character.Home);
+
+        if (WalksBackToGround(InArea(), ChasingPreyInReach(), middleAvoided))
         {
             return _character.Motor.MoveToPoint(_character.Home) ? SkillStatus.Running : FailHunt(NoWalkBackWhy);
         }
 
-        Seek();
+        Seek(middleAvoided);
         return SkillStatus.Running;
     }
 
@@ -339,9 +342,12 @@ public sealed class HuntSkill : Skill, IHuntingSkill
     /// A retreat, or a chase that lost its prey, can end outside the ground: the hunter walks
     /// back to its middle. A chase after prey still in reach goes on past the edge. Walking
     /// back at the edge of a thirteen-tile dungeon room turned every chase round, and the
-    /// hunters of Wrong watched the jukas past the room's edge for the whole run.
+    /// hunters of Wrong watched the jukas past the room's edge for the whole run. A middle on
+    /// the ground the last run left (<see cref="CombatBrain.AvoidsGround"/>) waits: walking
+    /// back took the hunter into the pack it had just run from.
     /// </summary>
-    public static bool WalksBackToGround(bool onGround, bool chasingPreyInReach) => !onGround && !chasingPreyInReach;
+    public static bool WalksBackToGround(bool onGround, bool chasingPreyInReach, bool middleAvoided) =>
+        !onGround && !chasingPreyInReach && !middleAvoided;
 
     public static bool ShouldRest(bool recovering, double hitsFraction, bool inCombat) =>
         recovering
@@ -489,16 +495,20 @@ public sealed class HuntSkill : Skill, IHuntingSkill
         _lowHitsCount = HuntEndDecision.CountLowHits(_lowHitsCount, _wasBelow, isBelow);
         _wasBelow = isBelow;
 
-        var reason = HuntEndDecision.Reason(
-            Core.Now,
-            _endsAt,
-            packFull,
-            hitsFraction,
-            _stopBelowHitsFraction,
-            _lowHitsCount,
-            _lastPreyAt,
-            _emptyLimit,
-            HuntEndDecision.RanLowOnRun(_suppliesLowAtStart, SupplyCheck.IsLow(_character))
+        var reason = HuntEndDecision.Routed(
+            HuntEndDecision.Reason(
+                Core.Now,
+                _endsAt,
+                packFull,
+                hitsFraction,
+                _stopBelowHitsFraction,
+                _lowHitsCount,
+                _lastPreyAt,
+                _emptyLimit,
+                HuntEndDecision.RanLowOnRun(_suppliesLowAtStart, SupplyCheck.IsLow(_character))
+            ),
+            Math.Max(0, _character.Memory.Danger.RecentRuns(Core.Now) - _runsAtStart),
+            HuntEndDecision.RunsOffLimit
         );
 
         if (HuntEndDecision.ShouldStay(reason, Core.Now, _lastKillAt, _stays))
@@ -747,6 +757,7 @@ public sealed class HuntSkill : Skill, IHuntingSkill
         _hunting = true;
         _endsAt = Core.Now + _duration;
         _lastPreyAt = Core.Now;
+        _runsAtStart = _character.Memory.Danger.RecentRuns(Core.Now);
         _character.LastHuntAt = Core.Now;
         _character.Home = new Point3D(
             _area.X + _area.Width / 2,
@@ -851,16 +862,33 @@ public sealed class HuntSkill : Skill, IHuntingSkill
     }
 
     /// <summary>
-    /// Walks toward the prey the last scan found; with none in reach, strolls the ground. Prey
-    /// the hunter walked up to and still would not fight, or could not reach, is passed over
-    /// for the rest of the hunt.
+    /// Walks toward the prey the last scan found; with none in reach, strolls the ground, or
+    /// stands where it is while the ground's middle lies where its last run left. Prey the
+    /// hunter walked up to and still would not fight, prey in a group the combat brain would
+    /// not fight (<see cref="CombatBrain.Declined"/>), or prey it could not reach, is passed
+    /// over for the rest of the hunt.
     /// </summary>
-    private void Seek()
+    private void Seek(bool middleAvoided)
     {
         if (_prey is not { Deleted: false, Alive: true } prey || !InReach(prey))
         {
             _prey = null;
-            _character.Motor.LoiterInHome(IdleWanderSkill.WanderChanceToNotMove);
+
+            if (middleAvoided)
+            {
+                _character.Motor.Stop();
+            }
+            else
+            {
+                _character.Motor.LoiterInHome(IdleWanderSkill.WanderChanceToNotMove);
+            }
+
+            return;
+        }
+
+        if (CombatBrain.Declined(_character, prey))
+        {
+            PassOver(prey);
             return;
         }
 

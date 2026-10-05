@@ -22,11 +22,18 @@ public static class FightPullRules
     public static bool NeedsIsolate(int extraHostilesInRange) => extraHostilesInRange > 0;
 
     /// <summary>
-    /// The draw goes on while its time lasts, more than the target is still near, and the
-    /// group is still close behind.
+    /// A melee pull walks in and lands its first blow before it backs off: nothing follows a
+    /// fighter that never touched it. Backing off first drew nothing, then walked back into
+    /// the middle of the group it meant to split.
     /// </summary>
-    public static bool KeepsDrawing(long drawingMs, int hostilesNear, int tilesFromGroup) =>
-        drawingMs < DrawMs && hostilesNear > SoleTarget && tilesFromGroup < DrawClearTiles;
+    public static bool WaitsForFirstBlow(bool drawStarted, bool targetFollows) => !drawStarted && !targetFollows;
+
+    /// <summary>
+    /// The draw goes on while the target follows, its time lasts, more than the target is
+    /// still near, and the group is still close behind.
+    /// </summary>
+    public static bool KeepsDrawing(bool targetFollows, long drawingMs, int hostilesNear, int tilesFromGroup) =>
+        targetFollows && drawingMs < DrawMs && hostilesNear > SoleTarget && tilesFromGroup < DrawClearTiles;
 
     public static bool CanPullOne(
         int power,

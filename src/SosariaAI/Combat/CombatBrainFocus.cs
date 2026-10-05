@@ -59,6 +59,21 @@ public static partial class CombatBrain
         return true;
     }
 
+    /// <summary>True when <paramref name="mobile"/> stands in the group the last engage call left alone (<see cref="FocusRules.InDeclinedGroup"/>).</summary>
+    public static bool Declined(SosariaCharacter character, Mobile mobile) =>
+        character != null && mobile != null &&
+        Memories.TryGetValue(character, out var memory) &&
+        FocusRules.InDeclinedGroup(memory.DeclinedAt, Core.TickCount, NavMetric.Chebyshev(mobile.Location, memory.DeclinedNear));
+
+    /// <summary>
+    /// True while <paramref name="at"/> lies on the ground the last run left (<see cref="RetreatRules.Avoids"/>).
+    /// A hunt keeps off it as the engage call does, or it walks back into the pack it ran from.
+    /// </summary>
+    public static bool AvoidsGround(SosariaCharacter character, Point3D at) =>
+        character != null &&
+        Memories.TryGetValue(character, out var memory) &&
+        RetreatRules.Avoids(memory.AvoidUntil, Core.TickCount, NavMetric.Chebyshev(at, memory.AvoidAt), alreadyInFight: false);
+
     private static bool ScanIfDue(SosariaCharacter character, Memory memory)
     {
         if (!ScanPace.Due(Core.TickCount, ref memory.NextScanAt, ScanPace.DangerMs, character.Serial.Value))
@@ -471,6 +486,8 @@ public static partial class CombatBrain
             memory.Picture.Attackers > 0 || character.Combatant is { Deleted: false, Alive: true }
         );
         var choice = NerveRules.Decide(facts);
+        memory.DeclinedAt = choice == EngageChoice.Decline ? Core.TickCount : 0;
+        memory.DeclinedNear = focus.Mobile.Location;
 
         switch (choice)
         {

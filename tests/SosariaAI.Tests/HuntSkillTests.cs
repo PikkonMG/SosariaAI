@@ -6,10 +6,16 @@ namespace SosariaAI.Tests;
 public class HuntSkillTests
 {
     [Theory]
-    [InlineData(true, false, false)]
-    [InlineData(true, true, false)]
-    [InlineData(false, true, false)]
-    [InlineData(false, false, true)]
-    public void WalksBackToGround_OnlyOffTheGroundWithNoPreyInReachToChase(bool onGround, bool chasing, bool walksBack) =>
-        Assert.Equal(walksBack, HuntSkill.WalksBackToGround(onGround, chasing));
+    [InlineData(true, false, false, false)]
+    [InlineData(true, true, false, false)]
+    [InlineData(false, true, false, false)]
+    [InlineData(false, false, false, true)]
+    [InlineData(false, false, true, false)]
+    public void WalksBackToGround_OnlyOffTheGroundWithNoPreyToChaseAndAMiddleNotRunFrom(
+        bool onGround,
+        bool chasing,
+        bool middleAvoided,
+        bool walksBack
+    ) =>
+        Assert.Equal(walksBack, HuntSkill.WalksBackToGround(onGround, chasing, middleAvoided));
 }

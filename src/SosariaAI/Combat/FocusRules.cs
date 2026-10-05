@@ -1,3 +1,4 @@
+using System;
 using Server.Mobiles;
 using SosariaAI.Common;
 
@@ -45,6 +46,16 @@ public static class FocusRules
     /// <summary>Only an attacker this close takes the fight from a nearly beaten foe.</summary>
     public const int ArmsReachTiles = 1;
 
+    /// <summary>A group the engage call left alone stays left alone this long: a few danger scans that each ask again.</summary>
+    public const int DeclineHoldMs = 3000;
+
+    /// <summary>
+    /// A mob standing in the group the engage call just left alone. A hunter does not walk up
+    /// to it: walking up to a group it would not fight brought the whole group onto it.
+    /// </summary>
+    public static bool InDeclinedGroup(long declinedAt, long now, int tilesFromDeclined) =>
+        declinedAt != 0 && now - declinedAt < DeclineHoldMs && tilesFromDeclined <= FightPullRules.IsolateRange;
+
     public static int Tier(bool isPerson, bool isRed, bool isGray, bool attacksPerson, bool attacksSelf, bool attacksFriend)
     {
         if (isPerson && (isRed || isGray && attacksPerson))
@@ -80,9 +91,18 @@ public static class FocusRules
         };
 
     /// <summary>
-    /// Whether a new foe takes the fight: a higher rank, or a clearly nearer attacker of the same
-    /// rank. A nearly beaten foe (<see cref="FinishHitsFraction"/>) is finished first: only an
-    /// attacker at arm's reach takes the fight from it.
+    /// The foe a fighter is on holds at least the attacker rank, whether it hit back yet or
+    /// not: the fight is the fighter's own. Ranked plain, a mob walked up to lost the fight to
+    /// every other mob that swung on the way, and a hunter hit one or two blows on each mob
+    /// of a forest and had them all on it.
+    /// </summary>
+    public static int HeldTier(int tier) => Math.Max(tier, AttackerTier);
+
+    /// <summary>
+    /// Whether a new foe takes the fight: a higher rank than the held one (<see cref="HeldTier"/>),
+    /// or a clearly nearer attacker of the same rank. A nearly beaten foe
+    /// (<see cref="FinishHitsFraction"/>) is finished first: only an attacker at arm's reach
+    /// takes the fight from it.
     /// </summary>
     public static bool ShouldSwitch(
         int currentTier,
@@ -99,9 +119,11 @@ public static class FocusRules
             return candidateAttacksSelf && candidateDistance <= ArmsReachTiles;
         }
 
-        if (candidateTier != currentTier)
+        var heldTier = HeldTier(currentTier);
+
+        if (candidateTier != heldTier)
         {
-            return candidateTier > currentTier;
+            return candidateTier > heldTier;
         }
 
         return candidateAttacksSelf && ClearlyNearer(candidateDistance, currentDistance, currentAttacksSelf);
