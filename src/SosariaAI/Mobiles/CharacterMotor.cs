@@ -519,12 +519,14 @@ public sealed class CharacterMotor
     private PathFollower NewPath(IPoint3D goal) => new(_character, goal) { Mover = DoMoveImpl };
 
     /// <summary>
-    /// One step toward <paramref name="goal"/> along the first straight leg of the person's own
-    /// tile route, judged by the engine's own step (<see cref="TileRoute"/>). The engine's path
+    /// One step toward <paramref name="goal"/>: the first tile of the person's own tile walk,
+    /// judged by the engine's own step (<see cref="TileRoute.FirstStep"/>). The engine's path
     /// checks the items on a tile it steps onto but not the corners of a diagonal past them, and
     /// when its step is refused it walks straight at the goal: walkers set down north of the
-    /// posts round the Orc Cave pads walked into them until their step ran out. Keeps off armed
-    /// traps and, for a red, the guards (<see cref="DoMove"/>). False when no route or step serves.
+    /// posts round the Orc Cave pads walked into them until their step ran out. A straight line
+    /// toward the walk's first waypoint cut the same corner, past a post the engine lets no
+    /// player pass. Keeps off armed traps and, for a red, the guards (<see cref="DoMove"/>).
+    /// False when no walk or step serves.
     /// </summary>
     public bool StepAlongRoute(Point3D goal, int range, TileWalker walker)
     {
@@ -533,21 +535,8 @@ public sealed class CharacterMotor
             return false;
         }
 
-        var at = _character.Location;
-        var route = TileRoute.Find(at, goal, walker, isIndoor: null, range);
-
-        if (route.Count == 0 || NavMetric.Chebyshev(at, route[0]) is not (var legTiles and > 0))
-        {
-            return false;
-        }
-
-        var next = new Point3D(
-            WalkLine.Lerp(at.X, route[0].X, WalkLine.Step, legTiles),
-            WalkLine.Lerp(at.Y, route[0].Y, WalkLine.Step, legTiles),
-            at.Z
-        );
-
-        return DoMove(_character.GetDirectionTo(next));
+        return TileRoute.FirstStep(_character.Location, goal, walker, range) is { } next &&
+               DoMove(_character.GetDirectionTo(next));
     }
 
     private TileWalker StepWalker() => Standable.Walker(_character.Map);

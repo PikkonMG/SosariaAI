@@ -213,6 +213,26 @@ public static class TileRoute
             ? Search(start, goal, range, CellBudget(NavMetric.Chebyshev(start, goal)), walker, isIndoor, out _, out _) ?? []
             : [];
 
+    /// <summary>
+    /// The first tile of the walk from <paramref name="from"/> to <paramref name="to"/>, within
+    /// the cells the trip earns on the world thread (<see cref="WorldCellBudget"/>): a step the
+    /// walker's own rule allows. A straight line toward the first waypoint of
+    /// <see cref="Find(Point3D, Point3D, TileWalker, Func{int, int, int, bool}, int)"/> is not
+    /// the walk: beside a post it cuts past the corner the walk went round, and the engine
+    /// lets a player cut no corner. Null when there is no walk, or the walker has arrived.
+    /// </summary>
+    /// <param name="arrivalRange">Tiles short of <paramref name="to"/> that still count as arrival.</param>
+    public static Point3D? FirstStep(Point3D from, Point3D to, TileWalker walker, int arrivalRange)
+    {
+        if (!TryPlan(from, to, walker, arrivalRange, out var start, out var goal, out var range, out _))
+        {
+            return null;
+        }
+
+        var trail = Search(start, goal, range, WorldCellBudget(NavMetric.Chebyshev(start, goal)), walker, isIndoor: null, out _, out _);
+        return trail is { Count: > 0 } && trail[0] != start ? trail[0] : null;
+    }
+
     /// <summary>The start on the walker's floor and the goal the search aims at, or the reason there is none.</summary>
     private static bool TryPlan(
         Point3D from,

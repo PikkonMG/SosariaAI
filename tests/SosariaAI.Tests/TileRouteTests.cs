@@ -357,6 +357,36 @@ public class TileRouteTests
 
     private static bool WallAcross(int x, int y, int z) => Open(x, y, z) && y != 20 && x < 30;
 
+    /// <summary>
+    /// The Orc Cave door in small: a walker beside a post, two tiles from the pad. The straight
+    /// line toward the pad steps into the post, and the diagonal past it has the post on one
+    /// side, which a player may not cut. The walk goes down first, then round.
+    /// </summary>
+    private static readonly Point3D BesideThePost = new(3, 2, 0);
+
+    private static readonly Point3D PadPastThePost = new(1, 3, 0);
+    private static readonly Point3D DownFromThePost = new(3, 3, 0);
+
+    private static bool PostAt(int x, int y, int z) => x == 2 && y == 2;
+
+    [Fact]
+    public void FirstStep_PostBesideTheStraightLine_StepsRoundIt()
+    {
+        var walker = TestWalkers.Ground((x, y, z) => !PostAt(x, y, z), null);
+
+        var step = TileRoute.FirstStep(BesideThePost, PadPastThePost, walker, arrivalRange: 0);
+
+        Assert.Equal(DownFromThePost, step);
+    }
+
+    [Fact]
+    public void FirstStep_AtTheGoal_IsNull() =>
+        Assert.Null(TileRoute.FirstStep(PadPastThePost, PadPastThePost, TestWalkers.Flat, arrivalRange: 0));
+
+    [Fact]
+    public void FirstStep_NoWay_IsNull() =>
+        Assert.Null(TileRoute.FirstStep(new Point3D(CorridorMid, 0, 0), new Point3D(CorridorMid, 40, 0), TestWalkers.Ground(WallAcross, null), arrivalRange: 0));
+
     [Fact]
     public void Find_NullWalker_IsEmpty()
     {
