@@ -197,7 +197,8 @@ public static class CharacterSpawner
 
     /// <summary>
     /// Where a person logs in: its scattered spot, else its site, else a tile by the bank
-    /// nearest its site, as a player whose house spot was taken logs in at the bank. False
+    /// nearest its site, as a player whose house spot was taken logs in at the bank. A spot
+    /// inside a dungeon is never used (<see cref="SpawnPlacementRules.OutsideDungeons"/>). False
     /// only when even the bank has no free tile; <paramref name="rejects"/> then counts the
     /// tests that turned the tiles down.
     /// </summary>
@@ -213,18 +214,32 @@ public static class CharacterSpawner
     )
     {
         atBank = false;
+        var dungeonAt = DungeonGround.PlacesToLeave(map);
 
         // A dock or shore site scattered wide lands a copy in the sea, and a 16-tile
         // search round that spot finds only more sea. Fall back to the site itself.
-        if (TryResolveSpawnLocation(map, configured, home, rejects, out location) ||
-            TryResolveSpawnLocation(map, home, home, rejects, out location))
+        if (TryResolveSpawnLocation(map, configured, home, rejects, out location) && OutsideDungeons(location, dungeonAt, rejects) ||
+            TryResolveSpawnLocation(map, home, home, rejects, out location) && OutsideDungeons(location, dungeonAt, rejects))
         {
             return true;
         }
 
         atBank = true;
         var bank = NavWorld.DestinationsFor(facet)?.Nearest(home, DestinationKind.Bank);
-        return bank != null && HomeSpotRules.TryBankTile(map, bank.Arrival, uniqueId, rejects, out location);
+        return bank != null && HomeSpotRules.TryBankTile(map, bank.Arrival, uniqueId, rejects, out location) &&
+               OutsideDungeons(location, dungeonAt, rejects);
+    }
+
+    /// <summary>True when the spot lies in no dungeon; a spot inside one is counted in <paramref name="rejects"/>.</summary>
+    private static bool OutsideDungeons(Point3D at, Func<Point3D, string> dungeonAt, Dictionary<SpawnReject, int> rejects)
+    {
+        if (SpawnPlacementRules.OutsideDungeons(at, dungeonAt))
+        {
+            return true;
+        }
+
+        HomeSpotRules.Count(rejects, SpawnReject.InDungeon);
+        return false;
     }
 
     // One line per crowded site instead of one error per person, naming the test that turned the site down.

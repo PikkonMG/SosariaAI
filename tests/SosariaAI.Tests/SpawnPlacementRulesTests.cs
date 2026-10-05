@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Server;
 using SosariaAI.Navigation;
@@ -57,5 +58,26 @@ public class SpawnPlacementRulesTests
 
         Assert.Equal("no free tile the engine would spawn on 2, no route out to the roads 189", SpawnPlacementRules.Summary(rejects));
         Assert.Equal(string.Empty, SpawnPlacementRules.Summary(null));
+    }
+
+    [Fact]
+    public void OutsideDungeons_RefusesASpotADungeonCovers()
+    {
+        var inDeceit = new Point3D(5187, 639, 0);
+        var britainBank = new Point3D(1434, 1699, 0);
+        Func<Point3D, string> dungeonAt = at => at == inDeceit ? "Deceit" : null;
+
+        Assert.False(SpawnPlacementRules.OutsideDungeons(inDeceit, dungeonAt));
+        Assert.True(SpawnPlacementRules.OutsideDungeons(britainBank, dungeonAt));
+        Assert.True(SpawnPlacementRules.OutsideDungeons(inDeceit, null));
+    }
+
+    [Fact]
+    public void InDungeon_IsTheLastTest_AndNamedInTheSummary()
+    {
+        var rejects = new Dictionary<SpawnReject, int> { [SpawnReject.Sealed] = 4, [SpawnReject.InDungeon] = 2 };
+
+        Assert.Equal(SpawnReject.InDungeon, SpawnPlacementRules.Decisive(rejects));
+        Assert.Equal("no route out to the roads 4, inside a dungeon 2", SpawnPlacementRules.Summary(rejects));
     }
 }

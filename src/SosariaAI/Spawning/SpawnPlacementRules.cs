@@ -17,7 +17,10 @@ public enum SpawnReject
     NoWalkLine,
 
     /// <summary>A free tile that no route proof leads out of to the world's roads.</summary>
-    Sealed
+    Sealed,
+
+    /// <summary>A tile inside a dungeon: a new person never spawns there, it walks, recalls or gates in.</summary>
+    InDungeon
 }
 
 /// <summary>
@@ -73,8 +76,17 @@ public static class SpawnPlacementRules
             SpawnReject.NoFloor => "no floor on the site's level",
             SpawnReject.Blocked => "no free tile the engine would spawn on",
             SpawnReject.NoWalkLine => "no straight walk to the site",
+            SpawnReject.InDungeon => "inside a dungeon",
             _ => "no route out to the roads"
         };
+
+    /// <summary>
+    /// True when <paramref name="at"/> lies in no dungeon <paramref name="dungeonAt"/> names. A new
+    /// person, on a fresh shard's first boot or later, never spawns in a dungeon: it gets there
+    /// on foot, by a rune or by a gate, as a player does.
+    /// </summary>
+    public static bool OutsideDungeons(Point3D at, Func<Point3D, string> dungeonAt) =>
+        string.IsNullOrWhiteSpace(dungeonAt?.Invoke(at));
 
     /// <summary>The boot summary's list of failed tests: "no floor on the site's level 120, ..." in test order.</summary>
     public static string Summary(IReadOnlyDictionary<SpawnReject, int> counts)
