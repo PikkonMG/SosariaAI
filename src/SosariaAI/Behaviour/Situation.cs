@@ -79,6 +79,9 @@ public sealed record Situation
 
     public bool CanUpgradeGear { get; init; }
 
+    /// <summary>Orders this crafter took and has not handed over.</summary>
+    public int OpenOrders { get; init; }
+
     /// <summary>Not riding, and an owned mount stands in reach to climb onto.</summary>
     public bool CanMount { get; init; }
 

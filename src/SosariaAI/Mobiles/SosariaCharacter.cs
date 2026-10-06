@@ -39,7 +39,7 @@ namespace SosariaAI.Mobiles;
 /// walks it. Think rate drops when no player is within
 /// <see cref="PresenceFocus.NearPlayerTiles"/>. Combat and ghosts stay fast.
 /// </summary>
-[SerializationGenerator(4)]
+[SerializationGenerator(5)]
 public partial class SosariaCharacter : PlayerMobile
 {
     private static readonly ILogger logger = SosariaLog.For(typeof(SosariaCharacter));
@@ -217,6 +217,10 @@ public partial class SosariaCharacter : PlayerMobile
     /// <summary>Each job's failure streak at one target, by job and target (<see cref="JobTargetRest"/>).</summary>
     [SerializableField(40, setter: "private")]
     private Dictionary<string, string> _targetStreaks = new();
+
+    /// <summary>Orders this crafter took, one <see cref="CraftOrderCodec"/> line each (<see cref="CraftOrders"/>).</summary>
+    [SerializableField(41, setter: "private")]
+    private List<string> _orderLines = [];
 
     [Constructible]
     public SosariaCharacter()
@@ -2124,6 +2128,7 @@ public partial class SosariaCharacter : PlayerMobile
                 CharactersFile.GraveyardRequiredPower
             ) || FriendFellAtHunt(),
             CanUpgradeGear = UpgradeGearSkill.OfferFor(this) != null,
+            OpenOrders = CraftOrders.Count,
             CanMount = !Mounted && MayClimbOn(ownedMount),
             CanBuyMount = MountBuyRules.MayBuy(Mounted, ownedMount != null, Followers, MountBuyRules.HorseSlots, FollowersMax) &&
                           MountBuyRules.CanAfford(gold),
@@ -3357,7 +3362,8 @@ public partial class SosariaCharacter : PlayerMobile
             HitsMax = HitsMax,
             IsAlive = Alive,
             LeadsGroup = BacksInvite(),
-            Travelling = OnTrip()
+            Travelling = OnTrip(),
+            TakesOrders = Routine?.CurrentSkill is CraftStationSkill && OrderDesk.MayTakeOrder(this)
         };
     }
 

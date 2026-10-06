@@ -24,7 +24,16 @@ public enum TradeIntentKind
     Sell,
 
     /// <summary>An answer to a WTB: "i have one", "i have one 5k".</summary>
-    HaveOne
+    HaveOne,
+
+    /// <summary>A shout for goods wanted: "wtb GM plate chest", "looking for a gm katana".</summary>
+    Want,
+
+    /// <summary>A request for work: "can you make me a gm katana", "do you take orders".</summary>
+    Order,
+
+    /// <summary>A question after an order: "is my order ready", "here to pick up".</summary>
+    OrderStatus
 }
 
 /// <summary>

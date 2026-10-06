@@ -11,7 +11,7 @@ namespace SosariaAI.Tests;
 public class TalkLibraryTests
 {
     private const int MinCategories = 90;
-    private const int MaxCategories = 140;
+    private const int MaxCategories = 150;
     private const int MinLinesPerCategory = 10;
     private const string Category = "test_talk";
 
@@ -229,5 +229,15 @@ public class TalkLibraryTests
     {
         Assert.Equal(TalkCategory.ChaosBattle, WorldPlay.AlignmentFightCategory(Server.Guilds.GuildType.Chaos));
         Assert.Equal(TalkCategory.OrderBattle, WorldPlay.AlignmentFightCategory(Server.Guilds.GuildType.Order));
+    }
+
+    [Fact]
+    public void Keeps_OrderTalkOnlyWhereTheCodeTakesOrders()
+    {
+        Assert.False(TalkDefaults.Keeps(TalkCategory.SmithTalk, "gm smith here, taking orders"));
+        Assert.False(TalkDefaults.Keeps(TalkCategory.SmithTalk, "anyone need repairs?"));
+        Assert.False(TalkDefaults.Keeps(TalkCategory.CraftAsk, "u take orders {name}?"));
+        Assert.True(TalkDefaults.Keeps(TalkCategory.CraftTakingOrders, "taking orders, {item} and more"));
+        Assert.True(TalkDefaults.Keeps(TalkCategory.SmithTalk, "ingots r so expensive"));
     }
 }

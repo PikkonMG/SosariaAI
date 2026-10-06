@@ -149,7 +149,7 @@ public class CrafterWorkTests
         Assert.NotEqual(GoalPlanRules.TradeWork, plan.Id);
     }
 
-    private static Situation Worker(DayPart part, string trade) =>
+    private static Situation Worker(DayPart part, string trade, int openOrders = 0) =>
         new()
         {
             Needs = new NeedsSnapshot
@@ -162,6 +162,19 @@ public class CrafterWorkTests
             InTownRegion = true,
             BankCrowdOpen = true,
             Tendencies = PersonProfileRules.RollTendencies("smith", PersonClass.Smith, PersonTrait.None),
-            CraftTrade = trade
+            CraftTrade = trade,
+            OpenOrders = openOrders
         };
+
+    [Fact]
+    public void Weight_ACrafterWithOrdersStaysAndWorks()
+    {
+        var free = Worker(DayPart.Work, SkillKinds.Smith);
+        var busy = Worker(DayPart.Work, SkillKinds.Smith, openOrders: 1);
+
+        Assert.Equal(JobRules.Weight(JobKind.Craft, free) * JobRules.OrderCraftBoost, JobRules.Weight(JobKind.Craft, busy), precision: 6);
+        Assert.Equal(0, JobRules.Weight(JobKind.Travel, busy));
+        Assert.Equal(0, JobRules.Weight(JobKind.Hunt, busy));
+        Assert.Equal(JobRules.Weight(JobKind.Bank, free), JobRules.Weight(JobKind.Bank, busy), precision: 6);
+    }
 }

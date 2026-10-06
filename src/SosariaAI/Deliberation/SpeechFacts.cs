@@ -53,6 +53,9 @@ public static class SpeechFacts
 
         /// <summary>True when the step running now really takes the speaker somewhere.</summary>
         public bool Travelling { get; init; }
+
+        /// <summary>True when the speaker works at its station and can take an order now.</summary>
+        public bool TakesOrders { get; init; }
     }
 
     public static bool Contradicts(string say, Snapshot facts)
@@ -88,6 +91,11 @@ public static class SpeechFacts
         }
 
         if (!facts.Travelling && PromiseLines.ClaimsTrip(say))
+        {
+            return true;
+        }
+
+        if (OrderLines.ClaimsRepairs(say) || !facts.TakesOrders && OrderLines.OffersWork(say))
         {
             return true;
         }
@@ -134,12 +142,13 @@ public static class SpeechFacts
 
     /// <summary>
     /// True when a written persona line claims nothing the speaker cannot back — no trade
-    /// shout, no away flag, no death talk, no invite, no trip and no group pace: a written line
-    /// has no group or trip behind it. Questions pass: a reply may ask them.
+    /// shout, no away flag, no death talk, no invite, no trip, no group pace, no order offer or
+    /// request and no repair offer: a written line has no group, trip or order desk behind it.
+    /// Questions pass: a reply may ask them.
     /// </summary>
     public static bool ClaimsFree(string say) =>
         !string.IsNullOrWhiteSpace(say) && !ContainsAny(say, UnbackedClaims) &&
-        !PromiseLines.IsPromise(say) && !ClaimsLeading(say);
+        !PromiseLines.IsPromise(say) && !ClaimsLeading(say) && !OrderLines.IsOrderTalk(say) && !OrderLines.ClaimsRepairs(say);
 
     /// <summary>
     /// True when a line can be said unprovoked — no question for a room that will not answer,

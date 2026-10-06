@@ -113,6 +113,13 @@ public sealed class Haggle
         return new Haggle(HaggleSide.Buys, opening, ceiling, temper);
     }
 
+    /// <summary>A price that is not haggled: an order's deposit or its pickup. It is agreed from the start.</summary>
+    public static Haggle Fixed(int price)
+    {
+        var ask = Math.Max(GoldWords.SmallestPrice, price);
+        return new Haggle(HaggleSide.Sells, ask, ask, HaggleTemper.Hard) { Agreed = ask };
+    }
+
     public static double FloorShare(HaggleTemper temper) =>
         temper switch
         {

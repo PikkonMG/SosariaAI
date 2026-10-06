@@ -14,6 +14,11 @@ public class SkillTierRulesTests
     /// <summary>The share of tamers, in percent, the tamer weights put at Expert or better.</summary>
     private const int TamerExpertOrBetterPercent = 85;
 
+    private const int CrafterGrandmasterPercent = 15;
+    private const int CrafterShareLowPercent = 12;
+    private const int CrafterShareHighPercent = 18;
+    private const int PercentScale = 100;
+
     [Fact]
     public void Roll_FallsOnABellCurve_WithFewGrandmasters()
     {
@@ -98,5 +103,35 @@ public class SkillTierRulesTests
         }
 
         Assert.Equal(EraBuildCaps.SkillCap, SkillTierRules.PrimarySkill(SkillTier.Grandmaster));
+    }
+
+    [Fact]
+    public void CrafterWeights_SumToOneHundred_WithTheNamedGrandmasterShare()
+    {
+        Assert.Equal(PercentScale, SkillTierRules.CrafterWeights.Sum());
+        Assert.Equal(CrafterGrandmasterPercent, SkillTierRules.CrafterWeights[(int)SkillTier.Grandmaster]);
+    }
+
+    [Fact]
+    public void Roll_Smiths_AboutOneInSevenIsAGrandmaster()
+    {
+        var grandmasters = 0;
+
+        for (var i = 0; i < People; i++)
+        {
+            if (SkillTierRules.Roll($"Felucca:anvil#{i}", Salt, PersonClass.Smith) == SkillTier.Grandmaster)
+            {
+                grandmasters++;
+            }
+        }
+
+        Assert.InRange(grandmasters * PercentScale / People, CrafterShareLowPercent, CrafterShareHighPercent);
+    }
+
+    [Fact]
+    public void WeightsFor_GatherersKeepTheCommonCurve()
+    {
+        Assert.Same(SkillTierRules.Weights, SkillTierRules.WeightsFor(PersonClass.Miner));
+        Assert.Same(SkillTierRules.CrafterWeights, SkillTierRules.WeightsFor(PersonClass.Tailor));
     }
 }

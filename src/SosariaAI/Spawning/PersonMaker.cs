@@ -77,6 +77,9 @@ public static class PersonMaker
         if (PersonJobs.Of(template.Build) == PersonJobs.Worker)
         {
             CraftCareerRules.Apply(person, CraftCareerRules.RollCareer(uniqueId), uniqueId);
+
+            // A maker rolls its tier on the crafters' curve, so its experience follows the career.
+            person.Build = WithExperience(template.Build, PersonProfileRules.Roll(uniqueId, person).IsVeteran);
         }
 
         if (PersonJobs.Of(template.Build) == PersonJobs.Tamer)

@@ -1,3 +1,4 @@
+using System;
 using Server;
 using Server.Items;
 using Server.Logging;
@@ -229,6 +230,26 @@ public static class BankTeller
         }
 
         return -withdrawn;
+    }
+
+    /// <summary>
+    /// Asks the banker in earshot for <paramref name="amount"/> gold, up to one withdraw's ceiling,
+    /// aloud as a player does. False when no banker hears it.
+    /// </summary>
+    public static bool Withdraw(SosariaCharacter person, int amount)
+    {
+        if (amount <= 0 || FindBanker(person) == null)
+        {
+            return false;
+        }
+
+        person.DoSpeech(
+            BankTellerRules.WithdrawLine(Math.Min(amount, BankTellerRules.WithdrawCeiling(Core.ML))),
+            [BankTellerRules.WithdrawKeyword],
+            MessageType.Regular,
+            person.SpeechHue
+        );
+        return true;
     }
 
     /// <summary>

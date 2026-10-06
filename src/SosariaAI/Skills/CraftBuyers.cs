@@ -20,6 +20,8 @@ public static class CraftBuyers
     private sealed class ProductFacts
     {
         public int PeopleValue;
+        public int ShopValue;
+        public GoodsClaim Claim = new(Appraisal.Other, 1, false, Appraisal.NoMagic);
         public readonly Dictionary<Type, int> TablePrices = new();
     }
 
@@ -40,9 +42,10 @@ public static class CraftBuyers
 
     /// <summary>
     /// What a piece of <paramref name="product"/> fetches from the vendors' sell
-    /// <paramref name="tables"/> or from people; 0 when nobody buys it.
+    /// <paramref name="tables"/>, from people, or as shop stock (<paramref name="shopValue"/>);
+    /// 0 when nobody buys it.
     /// </summary>
-    public static int WorthOf(Type product, IReadOnlyList<IShopSellInfo> tables)
+    public static int WorthOf(Type product, IReadOnlyList<IShopSellInfo> tables, int shopValue = 0)
     {
         if (product == null)
         {
@@ -60,7 +63,30 @@ public static class CraftBuyers
             }
         }
 
-        return CraftTradeRules.PieceWorth(best, facts.PeopleValue);
+        return CraftTradeRules.PieceWorth(best, facts.PeopleValue, shopValue);
+    }
+
+    /// <summary>The market table's middle value of an exceptional piece of <paramref name="product"/>, or 0 when the mark adds nothing.</summary>
+    public static int ShopValueOf(Type product) => product == null ? 0 : FactsOf(product).ShopValue;
+
+    /// <summary>What a plain piece of <paramref name="product"/> is as a claim: its row and piece.</summary>
+    public static GoodsClaim ClaimOfType(Type product) =>
+        product == null ? new GoodsClaim(Appraisal.Other, 1, false, Appraisal.NoMagic) : FactsOf(product).Claim;
+
+    // The market table's middle value of the exceptional piece, or 0 for goods the mark does not price.
+    private static int ExceptionalValueOf(GoodsClaim claim) =>
+        claim.Row.IsGear || claim.Row.Key == Appraisal.ClothingKey
+            ? (claim with { Exceptional = true }).Value(Appraisal.MidRoll)
+            : 0;
+
+    // A sample's claim. A sample whose wear layer the art table did not set reads its piece from
+    // the type's name, so a plate gorget is a gorget either way.
+    private static GoodsClaim ClaimOfSample(Item sample, Type product)
+    {
+        var claim = Appraisal.ClaimOf(sample);
+        return claim.Row.Kind == GoodsKind.Armor && claim.Piece == ArmorPiece.Whole
+            ? claim with { Piece = Appraisal.PieceNamed(product.Name) }
+            : claim;
     }
 
     /// <summary>
@@ -92,7 +118,19 @@ public static class CraftBuyers
     {
         if (!Facts.TryGetValue(product, out var facts))
         {
-            facts = new ProductFacts { PeopleValue = WithSample(product, PeopleValueOf) };
+            facts = new ProductFacts();
+
+            // One sample reads every fact the run keeps for the product.
+            WithSample(
+                product,
+                sample =>
+                {
+                    facts.PeopleValue = PeopleValueOf(sample);
+                    facts.Claim = ClaimOfSample(sample, product);
+                    facts.ShopValue = ExceptionalValueOf(facts.Claim);
+                    return facts.PeopleValue;
+                }
+            );
             Facts[product] = facts;
         }
 

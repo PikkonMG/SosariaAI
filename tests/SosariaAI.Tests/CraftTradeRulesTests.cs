@@ -372,4 +372,14 @@ public class CraftTradeRulesTests
         Assert.False(CraftTradeRules.PaysForTool(0, 0));
         Assert.True(CraftTradeRules.PaysForTool(penPrice, penPrice) && !CraftTradeRules.PaysForUnit(penPrice, penPrice));
     }
+
+    [Fact]
+    public void PieceWorth_ShopValueBeatsTheCounter()
+    {
+        const int counter = 151;
+        const int shop = 2400;
+
+        Assert.Equal(shop, CraftTradeRules.PieceWorth(counter, 0, shop));
+        Assert.Equal(counter, CraftTradeRules.PieceWorth(counter, 0, 0));
+    }
 }

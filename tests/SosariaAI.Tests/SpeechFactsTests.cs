@@ -175,4 +175,13 @@ public class SpeechFactsTests
         Assert.True(SpeechFacts.AmbientSafe("my mace broke again heh"));
         Assert.True(SpeechFacts.AmbientSafe("bank sitting till my regs restock"));
     }
+
+    [Fact]
+    public void Contradicts_TakingOrdersOnlyWhenTheCrafterCan()
+    {
+        Assert.True(SpeechFacts.Contradicts("taking orders", new SpeechFacts.Snapshot { IsAlive = true, TakesOrders = false }));
+        Assert.False(SpeechFacts.Contradicts("taking orders", new SpeechFacts.Snapshot { IsAlive = true, TakesOrders = true }));
+        Assert.True(SpeechFacts.Contradicts("anyone need repairs?", new SpeechFacts.Snapshot { IsAlive = true, TakesOrders = true }));
+        Assert.False(SpeechFacts.ClaimsFree("gm smith here, taking orders"));
+    }
 }

@@ -4,7 +4,8 @@ namespace SosariaAI.Combat;
 
 /// <summary>
 /// A shard is mostly middling players with a few grandmasters. Tiers fall on a bell
-/// curve, seeded by the person's id; tamers lean high (<see cref="TamerWeights"/>). A tier sets the class skills and how much of the
+/// curve, seeded by the person's id; tamers lean high (<see cref="TamerWeights"/>), and makers
+/// too (<see cref="CrafterWeights"/>). A tier sets the class skills and how much of the
 /// era stat cap the person has trained.
 /// </summary>
 public static class SkillTierRules
@@ -29,6 +30,19 @@ public static class SkillTierRules
     public const int TamerAdeptWeight = 22;
     public const int TamerMasterWeight = 20;
     public const int TamerGrandmasterWeight = 18;
+
+    /// <summary>
+    /// Crafters of the period were often high: a shard knew several grandmaster smiths and
+    /// tailors by name, and a player bought GM plate from them. The weights sum to 100 and put
+    /// about one maker in seven at Grandmaster. Gatherers keep the common curve.
+    /// </summary>
+    public const int CrafterNoviceWeight = 8;
+    public const int CrafterApprenticeWeight = 12;
+    public const int CrafterJourneymanWeight = 18;
+    public const int CrafterExpertWeight = 18;
+    public const int CrafterAdeptWeight = 15;
+    public const int CrafterMasterWeight = 14;
+    public const int CrafterGrandmasterWeight = 15;
 
     public const double NoviceSkill = 45;
     public const double ApprenticeSkill = 55;
@@ -59,11 +73,20 @@ public static class SkillTierRules
         TamerMasterWeight, TamerGrandmasterWeight
     ];
 
-    /// <summary>The tier of a person of <paramref name="personClass"/>: tamers on their own curve.</summary>
+    public static readonly int[] CrafterWeights =
+    [
+        CrafterNoviceWeight, CrafterApprenticeWeight, CrafterJourneymanWeight, CrafterExpertWeight, CrafterAdeptWeight,
+        CrafterMasterWeight, CrafterGrandmasterWeight
+    ];
+
+    /// <summary>The tier of a person of <paramref name="personClass"/>: tamers and makers on their own curve.</summary>
     public static SkillTier Roll(string uniqueId, int salt, PersonClass personClass) =>
         (SkillTier)PersonDice.Weighted(uniqueId, salt, WeightsFor(personClass));
 
-    public static int[] WeightsFor(PersonClass personClass) => personClass == PersonClass.Tamer ? TamerWeights : Weights;
+    public static int[] WeightsFor(PersonClass personClass) =>
+        personClass == PersonClass.Tamer ? TamerWeights
+        : PersonClassRules.IsMaker(personClass) ? CrafterWeights
+        : Weights;
 
     /// <summary>A fixture keeps its authored veteran flag; the dice only pick within it.</summary>
     public static SkillTier ForFixture(bool veteran, string uniqueId, int salt)

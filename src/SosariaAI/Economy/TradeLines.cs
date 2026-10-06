@@ -27,7 +27,17 @@ public enum TradeLineKind
     HaveOne,
     NotMine,
     ShortOfGold,
-    Released
+    Released,
+    StockList,
+    OrderQuote,
+    OrderTaken,
+    OrderReady,
+    OrderNotReady,
+    OrderCannotMake,
+    OrderTooHard,
+    OrderTooBusy,
+    OrderWhat,
+    OrderBusy
 }
 
 /// <summary>
@@ -63,7 +73,21 @@ public static class TradeLines
         [TradeLineKind.HaveOne] = ["i got a {noun}, {price}", "have a {noun} here. {price}", "{noun}? got one, {price}"],
         [TradeLineKind.NotMine] = ["not mine", "whats this for?", "here, keep it"],
         [TradeLineKind.ShortOfGold] = ["hold on, short on gold", "dont have it on me, sorry"],
-        [TradeLineKind.Released] = ["np", "k", "no worries"]
+        [TradeLineKind.Released] = ["np", "k", "no worries"],
+        [TradeLineKind.StockList] = ["got {noun}", "{noun}. which one?", "have {noun}"],
+        [TradeLineKind.OrderQuote] =
+        [
+            "{noun}? {price}, half up front ({theirs}). deposit stays mine if u back out",
+            "can do {noun} for {price}. {theirs} now, rest on pickup, no refunds"
+        ],
+        [TradeLineKind.OrderTaken] = ["got it. ill start on the {noun}", "deal. ur {noun} is next in line"],
+        [TradeLineKind.OrderReady] = ["ur {noun} is ready. {price} more", "{noun} done! {price} and its yours"],
+        [TradeLineKind.OrderNotReady] = ["still working on ur {noun}", "not yet, {noun} soon"],
+        [TradeLineKind.OrderCannotMake] = ["cant make {noun}, not my trade", "not my trade, sorry"],
+        [TradeLineKind.OrderTooHard] = ["{noun} is past my skill", "cant make {noun} yet"],
+        [TradeLineKind.OrderTooBusy] = ["too many orders, come back later", "busy, try me later"],
+        [TradeLineKind.OrderWhat] = ["what do u need? i make {noun}", "sure, what u want? {noun}?"],
+        [TradeLineKind.OrderBusy] = ["1 sec, with a customer", "hold on, busy right now"]
     };
 
     public static string For(TradeLineKind kind, int roll, string noun, int price, int theirs)

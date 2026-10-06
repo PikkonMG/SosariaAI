@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Server;
 using SosariaAI.Deliberation;
 using SosariaAI.Economy;
@@ -11,11 +12,15 @@ namespace SosariaAI.Behaviour;
 /// event once, before any listener hears it, so a line is read once and routed once: into the
 /// haggle the person is already in; to the hawker a "how much" or "what u got" is aimed at; to
 /// the buyer who crosses the floor for a WTS shouted at a bank; to the character whose WTB an
-/// "i have one" answers; to the hawker whose goods an "ill take it" buys. The cheap parser reads it; only an unsure line inside a live haggle goes
+/// "i have one" answers; to the hawker whose goods an "ill take it" buys; a WTB to a crafter
+/// with the piece in stock; a request for work or a question after an order to the order desk
+/// (<see cref="OrderDesk"/>). The cheap parser reads it; only an unsure line inside a live haggle goes
 /// to Jev. World thread only.
 /// </summary>
 public static class TradeTalk
 {
+    private const string WaresSeparator = ", ";
+
     private static bool _hooked;
 
     public static void Configure()
@@ -53,10 +58,17 @@ public static class TradeTalk
             return;
         }
 
-        var intent = TradeParser.Read(text, listenerName: null, engaged: false, standing: 0);
+        // A quote waiting for a yes makes "ok" and "yes" count, as inside a haggle.
+        var intent = TradeParser.Read(text, listenerName: null, engaged: OrderDesk.HasQuote(speaker), standing: 0);
 
         switch (intent.Kind)
         {
+            case TradeIntentKind.Accept when OrderDesk.HasQuote(speaker):
+                OrderDesk.Accept(speaker);
+                break;
+            case TradeIntentKind.Decline when OrderDesk.HasQuote(speaker):
+                OrderDesk.Decline(speaker);
+                break;
             case TradeIntentKind.AskStock:
             case TradeIntentKind.AskPrice:
             case TradeIntentKind.Offer:
@@ -69,12 +81,30 @@ public static class TradeTalk
             case TradeIntentKind.HaveOne:
                 AnswerWant(speaker, intent);
                 break;
+            case TradeIntentKind.Want:
+                OfferStock(speaker, intent);
+                break;
+            case TradeIntentKind.Order:
+                OrderDesk.Ask(speaker, text, intent);
+                break;
+            case TradeIntentKind.OrderStatus:
+                OrderDesk.Status(speaker);
+                break;
         }
     }
 
     private static void Continue(TradeSession session, Mobile speaker, string text)
     {
         var intent = TradeParser.Read(text, session.Character.Name, engaged: true, session.Standing);
+
+        // "how much for the legs" while the smith quotes its katana: it quotes the legs instead.
+        if (intent.Goods is { } named && session.Phase == TradePhase.Talk && session.Side == HaggleSide.Sells &&
+            !session.Sells(named) && ShopStock.Named(session.Character, named) != null)
+        {
+            session.End(null);
+            AskSeller(speaker, text, intent);
+            return;
+        }
 
         if (intent.Sure)
         {
@@ -100,6 +130,7 @@ public static class TradeTalk
     }
 
     // "how much", "what u got", "3k for the hally", "ill take it": the hawker it is aimed at answers.
+    // A crafter asked what it has names its best few pieces with their prices.
     private static void AskSeller(Mobile speaker, string text, TradeIntent intent)
     {
         if (TradeMarket.SellerFor(speaker, text, intent.Goods) is not { } found)
@@ -109,7 +140,40 @@ public static class TradeTalk
 
         var session = TradeSession.Selling(found.Seller, speaker, found.Goods, found.Offer.Asking);
         TradeSessions.Open(session);
+
+        if (intent.Kind == TradeIntentKind.AskStock &&
+            ShopStock.Best(found.Seller, CraftShopRules.ListedPieces) is { Count: > 1 } wares)
+        {
+            TradeVoice.Say(
+                found.Seller,
+                speaker,
+                TradeLines.For(TradeLineKind.StockList, Utility.Random(int.MaxValue), WaresText(wares), 0, 0)
+            );
+            return;
+        }
+
         session.Hear(TradeParser.Read(text, found.Seller.Name, engaged: true, session.Standing));
+    }
+
+    // "GM plate chest 3.5k, GM katana 1.2k".
+    private static string WaresText(List<Item> wares) =>
+        string.Join(WaresSeparator, wares.ConvertAll(piece => $"{Appraisal.NounOf(piece)} {GoldWords.Spoken(ShopStock.AskingOf(piece))}"));
+
+    // "wtb gm plate chest": a crafter in walking range with one in stock answers with its price.
+    private static void OfferStock(Mobile speaker, TradeIntent intent)
+    {
+        if (intent.Goods is not { } wanted || TradeMarket.StockFor(speaker, wanted) is not { } found)
+        {
+            return;
+        }
+
+        var asking = ShopStock.AskingOf(found.Piece);
+        TradeSessions.Open(TradeSession.Selling(found.Crafter, speaker, found.Piece, asking));
+        TradeVoice.Say(
+            found.Crafter,
+            speaker,
+            TradeLines.For(TradeLineKind.HaveOne, Utility.Random(int.MaxValue), Appraisal.NounOf(found.Piece), asking, 0)
+        );
     }
 
     // "WTS GM halberd 5k" at a bank: somebody who wants it walks over.

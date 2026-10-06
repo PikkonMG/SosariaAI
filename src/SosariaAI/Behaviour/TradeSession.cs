@@ -30,7 +30,8 @@ public enum TradePhase
 /// still and faces the person while it lasts (the routine waits), answers every trade line with
 /// the haggle's next number, and after "deal" opens a real trade window when the person can see
 /// one — the goods or the coin already on the character's side — or waits for a bare drop when
-/// they cannot. A haggle nobody comes back to goes cold. World thread only.
+/// they cannot. A haggle nobody comes back to goes cold. A fixed deal (<see cref="Fixed"/>) takes
+/// an order's deposit or hands its work over at a set price. World thread only.
 /// </summary>
 public sealed class TradeSession
 {
@@ -50,15 +51,18 @@ public sealed class TradeSession
     private int _stalls;
     private DateTime _lastHeard;
     private DateTime _phaseSince;
+    private Action<bool> _settled;
+    private bool _paid;
+    private int _payerGoldBefore;
 
-    private TradeSession(SosariaCharacter character, Mobile partner, Haggle haggle, Item goods, GoodsClaim claim)
+    private TradeSession(SosariaCharacter character, Mobile partner, Haggle haggle, Item goods, GoodsClaim claim, string noun = null)
     {
         Character = character;
         Partner = partner;
         _haggle = haggle;
         _goods = goods;
         _claim = claim;
-        Noun = goods != null ? Appraisal.NounOf(goods) : claim.Noun;
+        Noun = noun ?? (goods != null ? Appraisal.NounOf(goods) : claim.Noun);
         _lastHeard = Core.Now;
         _phaseSince = Core.Now;
         Phase = haggle.Side == HaggleSide.Sells ? TradePhase.Talk : TradePhase.Approach;
@@ -81,6 +85,9 @@ public sealed class TradeSession
 
     public bool Ended { get; private set; }
 
+    /// <summary>True when the character sells goods that are what <paramref name="named"/> describes.</summary>
+    public bool Sells(GoodsClaim named) => Side == HaggleSide.Sells && _goods != null && named.Matches(_goods);
+
     /// <summary>A character holding <paramref name="goods"/> for sale at <paramref name="asking"/>.</summary>
     public static TradeSession Selling(SosariaCharacter character, Mobile buyer, Item goods, int asking) =>
         new(character, buyer, Haggle.Selling(asking, TemperOf(character)), goods, Appraisal.ClaimOf(goods));
@@ -94,6 +101,28 @@ public sealed class TradeSession
         var fixedLot = claim with { Amount = claim.Lot };
         var haggle = Haggle.Buying(fixedLot.Value(Appraisal.MidRoll), TradeHandOff.Purse(character), TemperOf(character));
         return new TradeSession(character, seller, haggle, null, fixedLot) { _pendingAsk = theirAsk };
+    }
+
+    /// <summary>
+    /// A deal at a set price: an order's deposit (no goods; the coin is all) or its pickup (the
+    /// finished work on the character's side). It starts agreed, says <paramref name="opening"/>,
+    /// and tells <paramref name="settled"/> once, at the end, whether the coin was paid.
+    /// </summary>
+    public static TradeSession Fixed(
+        SosariaCharacter character, Mobile buyer, Item goods, int price, string noun, TradeLineKind opening, Action<bool> settled
+    )
+    {
+        var session = new TradeSession(
+            character, buyer, Haggle.Fixed(price), goods, goods == null ? default : Appraisal.ClaimOf(goods), noun
+        )
+        {
+            _settled = settled,
+            Phase = TradePhase.HandOff
+        };
+
+        session.OpenWindow();
+        session.Say(opening, session.Agreed, 0);
+        return session;
     }
 
     public static HaggleTemper TemperOf(SosariaCharacter character)
@@ -259,6 +288,7 @@ public sealed class TradeSession
         }
 
         TradeSessions.Close(this);
+        _settled?.Invoke(_paid);
     }
 
     private void Approach(DateTime now)
@@ -364,13 +394,16 @@ public sealed class TradeSession
 
         if (Side == HaggleSide.Sells)
         {
-            if (!HoldsGoods())
+            if (_goods != null)
             {
-                window.Cancel();
-                return;
-            }
+                if (!HoldsGoods())
+                {
+                    window.Cancel();
+                    return;
+                }
 
-            window.Stock(_goods);
+                window.Stock(_goods);
+            }
         }
         else if (!StockGold(window))
         {
@@ -436,6 +469,8 @@ public sealed class TradeSession
 
         if (met && !window.WeAccepted)
         {
+            // The coin on their side left their pack: their pack plus it is what they had.
+            _payerGoldBefore = (Partner.Backpack?.GetAmount(typeof(Gold)) ?? 0) + paid;
             window.Accept();
 
             if (!window.IsOpen)
@@ -474,7 +509,9 @@ public sealed class TradeSession
         _theirAccepted = false;
 
         var done = Side == HaggleSide.Sells
-            ? _goods is { Deleted: false } && !_goods.IsChildOf(Character.Backpack)
+            ? _goods == null
+                ? CraftOrderRules.CoinCrossed(_payerGoldBefore, Partner.Backpack?.GetAmount(typeof(Gold)) ?? 0, Agreed)
+                : _goods is { Deleted: false } && !_goods.IsChildOf(Character.Backpack)
             : _offered is { Count: > 0 } && _offered.TrueForAll(item => item.IsChildOf(Character.Backpack));
 
         _offered.Clear();
@@ -491,6 +528,7 @@ public sealed class TradeSession
     // The deal with the person is done: the log line, the shard's trade count and the thanks.
     private void Closed(bool throughWindow)
     {
+        _paid = true;
         Log(
             Side == HaggleSide.Sells
                 ? $"{Character.Name} sold {Noun} to {Partner.Name} for {Agreed} gold"
@@ -578,7 +616,12 @@ public sealed class TradeSession
         }
 
         Character.Backpack.DropItem(gold);
-        TradeHandOff.Give(Partner, _goods);
+
+        // A deposit has no goods to hand back: the coin is the deal.
+        if (_goods != null)
+        {
+            TradeHandOff.Give(Partner, _goods);
+        }
         Closed(throughWindow: false);
         return true;
     }
@@ -602,7 +645,9 @@ public sealed class TradeSession
         return true;
     }
 
+    // A deposit holds nothing and never loses it.
     private bool HoldsGoods() =>
+        _goods == null ||
         _goods is { Deleted: false } &&
         (_goods.IsChildOf(Character.Backpack) ||
          _window is { IsOpen: true } && _goods.IsChildOf(_window.Ours));

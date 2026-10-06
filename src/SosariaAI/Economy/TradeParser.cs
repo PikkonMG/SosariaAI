@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using SosariaAI.Configuration;
 
 namespace SosariaAI.Economy;
 
@@ -22,6 +23,22 @@ public static class TradeParser
     private const char ShoutMark = '>';
 
     private static readonly string[] SellOpeners = ["wts", "selling", "s>"];
+
+    private static readonly string[] WantOpeners = ["wtb", "buying", "b>"];
+
+    private static readonly string[] WantPhrases = ["looking for", "lf"];
+
+    // "i need a gm katana", "make me gm plate gloves": a need or a request with goods named is work.
+    private static readonly string[] WorkPhrases =
+    [
+        "i need a", "i need an", "i need some", "need a", "need an", "make me", "craft me", "can you make", "can u make",
+        "could you make", "could u make"
+    ];
+
+    private static readonly string[] OrderStatusPhrases =
+    [
+        "my order", "order ready", "is it ready", "ready yet", "pick up", "pickup", "pick it up", "is it done", "done yet"
+    ];
 
     private static readonly string[] HaveOnePhrases =
     [
@@ -98,6 +115,21 @@ public static class TradeParser
         if (IsSellShout(words, padded))
         {
             return goods == null ? TradeIntent.Nothing : new TradeIntent(TradeIntentKind.Sell, price, goods, true);
+        }
+
+        if (!engaged && IsWantShout(words, padded))
+        {
+            return goods == null ? TradeIntent.Nothing : new TradeIntent(TradeIntentKind.Want, price, goods, true);
+        }
+
+        if (!engaged && (OrderLines.AsksForWork(text) || goods != null && HasAny(padded, WorkPhrases)))
+        {
+            return new TradeIntent(TradeIntentKind.Order, price, goods, true);
+        }
+
+        if (!engaged && HasAny(padded, OrderStatusPhrases))
+        {
+            return new TradeIntent(TradeIntentKind.OrderStatus, 0, goods, true);
         }
 
         if (HasAny(padded, DeclinePhrases) || engaged && words.Count <= 2 && IsAnyWord(words[0], WeakDeclineWords))
@@ -210,6 +242,9 @@ public static class TradeParser
 
     private static bool IsSellShout(List<string> words, string padded) =>
         IsAnyWord(words[0], SellOpeners) || padded.Contains(" wts ", StringComparison.Ordinal);
+
+    private static bool IsWantShout(List<string> words, string padded) =>
+        IsAnyWord(words[0], WantOpeners) || padded.Contains(" wtb ", StringComparison.Ordinal) || HasAny(padded, WantPhrases);
 
     private static bool IsOnlyNumber(List<string> words, List<HeardNumber> numbers) =>
         numbers.Count == 1 && words.Count == 1;

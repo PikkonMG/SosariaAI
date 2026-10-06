@@ -284,7 +284,7 @@ public static class PersonaDraftRules
             var line = source[i]?.Trim();
 
             if (IsChatLine(line, allowName) &&
-                !PromiseLines.IsPromise(line) &&
+                !PromiseLines.IsPromise(line) && !OrderLines.IsOrderTalk(line) && !OrderLines.ClaimsRepairs(line) &&
                 spoken.Add(SpokenRepeat.Normalize(line)))
             {
                 kept.Add(line);

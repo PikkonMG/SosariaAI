@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Server;
+using Server.Engines.Craft;
 using Server.Items;
 using SosariaAI.Behaviour;
 using SosariaAI.Configuration;
@@ -53,6 +54,12 @@ public class BankStockTests
     private const string PlateLegsType = "PlateLegs";
     private const string IngotsKey = "ingots";
     private const string WoodKey = "wood";
+    private const int MoreThanCap = CraftShopRules.PackStockCap + 2;
+    private const int OrderPrice = 3300;
+    private const int OrderDeposit = 1650;
+    private const int SetPieces = 6;
+    private const double GrandmasterSkill = 100;
+    private static readonly DateTime OrderPlaced = new(2026, 10, 6, 12, 0, 0, DateTimeKind.Utc);
 
     private static readonly Point3D Bank = new(20, 20, 0);
     private static readonly TimeSpan WantFor = TimeSpan.FromMinutes(1);
@@ -72,6 +79,20 @@ public class BankStockTests
 
         // Goods for sale are told from kit pieces by type name, looked up in the content.
         AssemblyHandler.Assemblies ??= [typeof(Item).Assembly, typeof(Katana).Assembly];
+
+        // What a smith makes comes off the engine's blacksmithy list, which the server builds at boot.
+        if (DefBlacksmithy.CraftSystem == null)
+        {
+            DefBlacksmithy.Initialize();
+        }
+
+        if (DefAlchemy.CraftSystem == null)
+        {
+            DefAlchemy.Initialize();
+        }
+
+        // A crafter's odds read its skills, which the server's table names at boot.
+        TestSkills.EnsureTable();
     }
 
     [Fact]
@@ -811,6 +832,13 @@ public class BankStockTests
         return item;
     }
 
+    // Worn as the engine reads a layer, without the equip handlers a bare test item cannot run.
+    private static void Wear(Mobile wearer, Item item)
+    {
+        item.Parent = wearer;
+        wearer.Items.Add(item);
+    }
+
     private static T InPack<T>(Mobile owner, T item) where T : Item
     {
         owner.Backpack.AddItem(item);
@@ -825,6 +853,8 @@ public class BankStockTests
             {
                 BankCrowd.ClearHawkerOffer(character);
                 BankStock.DropWant(character);
+                CraftShopBoard.Forget(character);
+                OrderDesk.Decline(character);
             }
         }
 
@@ -842,6 +872,470 @@ public class BankStockTests
         if (ItemBounds.Bounds == null)
         {
             typeof(ItemBounds).GetProperty(nameof(ItemBounds.Bounds))!.SetValue(null, new Rectangle2D[ArtTileCount]);
+        }
+    }
+
+    [Fact]
+    public void ShopStock_GmMakeIsStock_PlainAndOrderPiecesAreNot()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+        var katana = InPack(smith, Piece(new Katana((Serial)_nextItem++) { Quality = WeaponQuality.Exceptional }));
+        var dagger = InPack(smith, Piece(new Dagger((Serial)_nextItem++)));
+        var ordered = InPack(smith, Piece(new PlateChest((Serial)_nextItem++) { Quality = ArmorQuality.Exceptional, Layer = Layer.InnerTorso }));
+
+        try
+        {
+            smith.AddCraftOrder(
+                new CraftOrder("t1", 0x77, "Ann", ["PlateChest"], OrderPrice, OrderDeposit, Core.Now, [ordered.Serial.Value])
+            );
+
+            Assert.Equal(new List<Item> { katana }, ShopStock.InPack(smith));
+            Assert.False(HawkerGoods.IsForSale(smith, ordered));
+            Assert.Contains(ordered, HawkerGoods.KeptToHawk(smith, CraftMarket.TradeOf(smith)));
+            Assert.DoesNotContain(dagger, ShopStock.InPack(smith));
+            Assert.Equal(ShopStock.AskingOf(katana), ShopStock.AskingOf(katana));
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void Balance_PastTheCapGoesToTheBank_ALowPackTakesItBack()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+
+        for (var i = 0; i < MoreThanCap; i++)
+        {
+            InPack(smith, Piece(new Katana((Serial)_nextItem++) { Quality = WeaponQuality.Exceptional }));
+        }
+
+        try
+        {
+            Assert.Equal((MoreThanCap - CraftShopRules.PackStockCap, 0), ShopStock.Balance(smith));
+            Assert.Equal(CraftShopRules.PackStockCap, ShopStock.InPack(smith).Count);
+
+            foreach (var piece in ShopStock.InPack(smith).GetRange(0, CraftShopRules.PackStockCap - 1))
+            {
+                piece.Delete();
+            }
+
+            Assert.Equal((0, MoreThanCap - CraftShopRules.PackStockCap), ShopStock.Balance(smith));
+            Assert.Empty(ShopStock.InBank(smith));
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void Board_ListsAnOpenShopUntilItCloses()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+        var shop = new StationStall(smith);
+
+        try
+        {
+            shop.Tick(Core.Now);
+            Assert.Contains(smith, CraftShopBoard.Near(smith.Map, Bank, NearTiles));
+
+            shop.Close();
+            Assert.DoesNotContain(smith, CraftShopBoard.Near(smith.Map, Bank, NearTiles));
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void SellerFor_NamedPieceFromShopStock()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+        var buyer = Character(PersonClass.Warrior, Beside(NearTiles));
+        var katana = InPack(smith, Piece(new Katana((Serial)_nextItem++) { Quality = WeaponQuality.Exceptional }));
+        var legs = InPack(smith, Piece(new PlateLegs((Serial)_nextItem++) { Quality = ArmorQuality.Exceptional, Layer = Layer.Pants }));
+        const string question = "how much for the plate legs";
+
+        try
+        {
+            BankCrowd.SetHawkerOffer(smith, new HawkerOffer(katana.Serial, ShopStock.AskingOf(katana), Appraisal.NounOf(katana)));
+            Assert.True(Appraisal.TryRead(TradeParser.Words(question), out var claim, out _));
+
+            var found = TradeMarket.SellerFor(buyer, question, claim);
+
+            Assert.NotNull(found);
+            Assert.Same(legs, found.Value.Goods);
+            Assert.Equal(ShopStock.AskingOf(legs), found.Value.Offer.Asking);
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void Resolve_NamedTypeOrTheWholeSuit()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+        const string chestLine = "make me a gm plate chest";
+        const string suitLine = "i need a full plate suit";
+
+        try
+        {
+            var trade = CraftMarket.TradeOf(smith);
+            Assert.True(Appraisal.TryRead(TradeParser.Words(chestLine), out var chest, out _));
+            Assert.True(Appraisal.TryRead(TradeParser.Words(suitLine), out var suit, out _));
+
+            Assert.Equal(["PlateChest"], OrderItems.Resolve(trade, TradeParser.Words(chestLine), chest));
+            Assert.Equal(SetPieces, OrderItems.Resolve(trade, TradeParser.Words(suitLine), suit).Count);
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void TagPiece_APlainPieceIsNotTagged_AnExceptionalOneIs()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+        var plain = InPack(smith, Piece(new PlateChest((Serial)_nextItem++) { Layer = Layer.InnerTorso }));
+        var gm = InPack(smith, Piece(new PlateChest((Serial)_nextItem++) { Quality = ArmorQuality.Exceptional, Layer = Layer.InnerTorso }));
+
+        try
+        {
+            smith.AddCraftOrder(new CraftOrder("t2", 0x78, "Bo", ["PlateChest"], OrderPrice, OrderDeposit, Core.Now, []));
+
+            Assert.Equal(typeof(PlateChest), OrderDesk.NextToMake(smith));
+            Assert.False(OrderDesk.TagPiece(smith, plain));
+            Assert.True(OrderDesk.TagPiece(smith, gm));
+            Assert.True(smith.CraftOrders[0].Ready);
+            Assert.Null(OrderDesk.NextToMake(smith));
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void TaggedPiece_IsNeverForSale()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+        var gm = InPack(smith, Piece(new PlateChest((Serial)_nextItem++) { Quality = ArmorQuality.Exceptional, Layer = Layer.InnerTorso }));
+
+        try
+        {
+            smith.AddCraftOrder(new CraftOrder("t3", 0x79, "Cy", ["PlateChest"], OrderPrice, OrderDeposit, Core.Now, [gm.Serial.Value]));
+
+            Assert.False(HawkerGoods.IsForSale(smith, gm));
+            Assert.DoesNotContain(gm, ShopStock.InPack(smith));
+            Assert.False(BankDepositSkill.IsTossable(smith, gm, HawkerGoods.KeptToHawk(smith, CraftMarket.TradeOf(smith))));
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void HandOverToBot_PaysTheRestAndTakesTheWork()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+        var fighter = Character(PersonClass.Warrior, Beside(NextTile));
+        var gm = InPack(smith, Piece(new PlateChest((Serial)_nextItem++) { Quality = ArmorQuality.Exceptional, Layer = Layer.InnerTorso }));
+        InPack(fighter, Registered(new Gold((Serial)_nextItem++) { Amount = GearPurse }));
+
+        try
+        {
+            smith.AddCraftOrder(
+                new CraftOrder("t4", fighter.Serial.Value, fighter.Name, ["PlateChest"], OrderPrice, OrderDeposit, Core.Now, [gm.Serial.Value])
+            );
+
+            Assert.Equal(new List<Item> { gm }, OrderDesk.HandOverToBot(smith, fighter));
+            Assert.True(gm.IsChildOf(fighter.Backpack));
+            Assert.Equal(OrderPrice - OrderDeposit, smith.Backpack.GetAmount(typeof(Gold)));
+            Assert.Empty(smith.CraftOrders);
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void Sweep_AnExpiredOrderGoesAndItsPieceIsStock()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+        var gm = InPack(smith, Piece(new PlateChest((Serial)_nextItem++) { Quality = ArmorQuality.Exceptional, Layer = Layer.InnerTorso }));
+
+        try
+        {
+            smith.AddCraftOrder(new CraftOrder("t5", 0x7A, "Di", ["PlateChest"], OrderPrice, OrderDeposit, OrderPlaced, [gm.Serial.Value]));
+
+            OrderDesk.Sweep(smith, OrderPlaced + CraftOrderRules.PickupWindow);
+
+            Assert.Empty(smith.CraftOrders);
+            Assert.Contains(gm, ShopStock.InPack(smith));
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void Betters_GmPlateOverPlainPlate_NotOverGm()
+    {
+        var fighter = Character(PersonClass.Warrior, Bank);
+        var worn = Piece(new PlateChest((Serial)_nextItem++) { Layer = Layer.InnerTorso });
+        var gm = Piece(new PlateChest((Serial)_nextItem++) { Quality = ArmorQuality.Exceptional, Layer = Layer.InnerTorso });
+        var gmLegs = Piece(new PlateLegs((Serial)_nextItem++) { Quality = ArmorQuality.Exceptional, Layer = Layer.Pants });
+
+        try
+        {
+            Wear(fighter, worn);
+
+            Assert.True(CraftedGear.Betters(fighter, gm));
+            Assert.True(CraftedGear.Betters(fighter, gmLegs));
+            worn.Quality = ArmorQuality.Exceptional;
+            Assert.False(CraftedGear.Betters(fighter, gm));
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void OfferFor_AStockedCrafterOnTheBoard()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+        var fighter = Character(PersonClass.Warrior, Beside(NearTiles));
+        var gm = InPack(smith, Piece(new PlateChest((Serial)_nextItem++) { Quality = ArmorQuality.Exceptional, Layer = Layer.InnerTorso }));
+        Wear(fighter, Piece(new PlateChest((Serial)_nextItem++) { Layer = Layer.InnerTorso }));
+        InPack(fighter, Registered(new Gold((Serial)_nextItem++) { Amount = GearPurse }));
+
+        try
+        {
+            CraftShopBoard.Note(smith);
+
+            var offer = CraftedGear.OfferFor(fighter);
+
+            Assert.NotNull(offer);
+            Assert.Equal(GearBuyKind.Crafted, offer.Value.Kind);
+            Assert.Equal(smith.Serial.Value, offer.Value.CrafterSerial);
+            Assert.Equal(ShopStock.AskingOf(gm), offer.Value.Price);
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void OfferFor_AReadyOrderComesFirst()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+        var fighter = Character(PersonClass.Warrior, Beside(NearTiles));
+        var held = InPack(smith, Piece(new PlateLegs((Serial)_nextItem++) { Quality = ArmorQuality.Exceptional, Layer = Layer.Pants }));
+        InPack(smith, Piece(new PlateChest((Serial)_nextItem++) { Quality = ArmorQuality.Exceptional, Layer = Layer.InnerTorso }));
+        Wear(fighter, Piece(new PlateChest((Serial)_nextItem++) { Layer = Layer.InnerTorso }));
+        InPack(fighter, Registered(new Gold((Serial)_nextItem++) { Amount = GearPurse }));
+
+        try
+        {
+            smith.AddCraftOrder(
+                new CraftOrder("t6", fighter.Serial.Value, fighter.Name, ["PlateLegs"], OrderPrice, OrderDeposit, Core.Now, [held.Serial.Value])
+            );
+            CraftShopBoard.Note(smith);
+
+            Assert.Equal(GearBuyKind.Pickup, CraftedGear.Pickup(fighter)?.Kind);
+            Assert.NotEqual(GearBuyKind.Pickup, CraftedGear.OfferFor(fighter)?.Kind);
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void Orders_AFreshCharacterHasNone()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+
+        try
+        {
+            Assert.Empty(smith.CraftOrders);
+            Assert.False(smith.IsOrderPiece(null));
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void BestKept_NeverAnOrderPiece()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+        var held = InPack(smith, Piece(new PlateChest((Serial)_nextItem++) { Quality = ArmorQuality.Exceptional, Layer = Layer.InnerTorso }));
+        var katana = InPack(smith, Piece(new Katana((Serial)_nextItem++) { Quality = WeaponQuality.Exceptional }));
+
+        try
+        {
+            smith.AddCraftOrder(new CraftOrder("f1", 0x7B, "Ed", ["PlateChest"], OrderPrice, OrderDeposit, Core.Now, [held.Serial.Value]));
+
+            Assert.Same(katana, HawkerGoods.BestKept(smith));
+            katana.Delete();
+            Assert.Null(HawkerGoods.BestKept(smith));
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void OfferFor_NoStock_OrdersTheGmVersionOfAPlainPiece()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+        var fighter = Character(PersonClass.Warrior, Beside(NearTiles));
+        smith.Skills.Blacksmith.Base = GrandmasterSkill;
+        Wear(fighter, Piece(new PlateGloves((Serial)_nextItem++) { Layer = Layer.Gloves }));
+        InPack(fighter, Registered(new Gold((Serial)_nextItem++) { Amount = GearPurse }));
+
+        try
+        {
+            CraftShopBoard.Note(smith);
+
+            var offer = CraftedGear.OfferFor(fighter);
+
+            Assert.Equal(GearBuyKind.Order, offer?.Kind);
+            Assert.Equal("PlateGloves", offer?.ItemTypeName);
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void PriceFor_WorkTheMarkCannotPrice_IsRefused()
+    {
+        var alchemist = Character(PersonClass.Alchemist, Bank, SkillKinds.Alchemy);
+        alchemist.Skills.Alchemy.Base = GrandmasterSkill;
+
+        try
+        {
+            Assert.Equal(0, OrderDesk.PriceFor(alchemist, "GreaterHealPotion"));
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void HandOverToBot_APieceGoneFromThePack_NoGoldMoves()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+        var fighter = Character(PersonClass.Warrior, Beside(NextTile));
+        var thief = Character(PersonClass.Thief, Beside(NearTiles));
+        var gm = InPack(smith, Piece(new PlateChest((Serial)_nextItem++) { Quality = ArmorQuality.Exceptional, Layer = Layer.InnerTorso }));
+        InPack(fighter, Registered(new Gold((Serial)_nextItem++) { Amount = GearPurse }));
+
+        try
+        {
+            smith.AddCraftOrder(
+                new CraftOrder("f2", fighter.Serial.Value, fighter.Name, ["PlateChest"], OrderPrice, OrderDeposit, Core.Now, [gm.Serial.Value])
+            );
+            thief.Backpack.DropItem(gm);
+
+            Assert.Empty(OrderDesk.HandOverToBot(smith, fighter));
+            Assert.Equal(GearPurse, fighter.Backpack.GetAmount(typeof(Gold)));
+            Assert.True(gm.IsChildOf(thief.Backpack));
+            Assert.Single(smith.CraftOrders);
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void Accept_RechecksTheOrderCap()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+        var buyer = Character(PersonClass.Warrior, Beside(NearTiles));
+        smith.Skills.Blacksmith.Base = GrandmasterSkill;
+        const string ask = "make me gm plate gloves";
+
+        try
+        {
+            OrderDesk.Ask(buyer, ask, TradeParser.Read(ask, listenerName: null, engaged: false, standing: 0));
+            Assert.True(OrderDesk.HasQuote(buyer));
+
+            for (var i = 0; i < CraftOrderRules.MaxOpenOrders; i++)
+            {
+                smith.AddCraftOrder(new CraftOrder($"cap{i}", 0x90u + (uint)i, "X", ["PlateGloves"], OrderPrice, OrderDeposit, Core.Now, []));
+            }
+
+            OrderDesk.Accept(buyer);
+
+            Assert.Null(TradeSessions.FindFor(buyer));
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void SellerFor_FullPlate_DoesNotQuoteOnePiece()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+        var buyer = Character(PersonClass.Warrior, Beside(NearTiles));
+        var katana = InPack(smith, Piece(new Katana((Serial)_nextItem++) { Quality = WeaponQuality.Exceptional }));
+        var legs = InPack(smith, Piece(new PlateLegs((Serial)_nextItem++) { Quality = ArmorQuality.Exceptional, Layer = Layer.Pants }));
+        const string question = "how much for full plate";
+
+        try
+        {
+            BankCrowd.SetHawkerOffer(smith, new HawkerOffer(katana.Serial, ShopStock.AskingOf(katana), Appraisal.NounOf(katana)));
+            Assert.True(Appraisal.TryRead(TradeParser.Words(question), out var claim, out _));
+
+            Assert.NotSame(legs, TradeMarket.SellerFor(buyer, question, claim)?.Goods);
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void UpgradeOffer_APaidOrderIsPickedUpBeforeShopBuys()
+    {
+        var smith = Character(PersonClass.Smith, Bank, SkillKinds.Smith);
+        var fighter = Character(PersonClass.Warrior, Beside(NearTiles));
+        var held = InPack(smith, Piece(new PlateLegs((Serial)_nextItem++) { Quality = ArmorQuality.Exceptional, Layer = Layer.Pants }));
+        InPack(fighter, Registered(new Gold((Serial)_nextItem++) { Amount = GearPurse }));
+
+        try
+        {
+            smith.AddCraftOrder(
+                new CraftOrder("f3", fighter.Serial.Value, fighter.Name, ["PlateLegs"], OrderPrice, OrderDeposit, Core.Now, [held.Serial.Value])
+            );
+            CraftShopBoard.Note(smith);
+
+            Assert.Equal(GearBuyKind.Pickup, UpgradeGearSkill.OfferFor(fighter)?.Kind);
+        }
+        finally
+        {
+            Clean();
         }
     }
 }

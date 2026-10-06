@@ -23,11 +23,12 @@ public static class HawkerGoods
         MostValuable(person?.Backpack?.Items ?? [], item => IsForSale(person, item));
 
     /// <summary>
-    /// The finished goods a crafter of <paramref name="trade"/> holds back from the shop to hawk
-    /// at the bank: its best few pieces or stacks of its own make for sale
-    /// (<see cref="CraftTradeRules.PiecesToKeep"/>). A stack counts only when the trade makes it:
-    /// an alchemist keeps its heal potions for the bank floor, where they fetch the market price
-    /// a shop counter never paid. Anyone who lives by no station trade holds nothing back.
+    /// The finished goods a crafter of <paramref name="trade"/> holds back from the shop: all its
+    /// shop stock (<see cref="ShopStock"/>) and the pieces held for its orders, then, while it has
+    /// fewer than <see cref="CraftTradeRules.HawkerStock"/>, its best other pieces or stacks of its
+    /// own make (<see cref="CraftTradeRules.PiecesToKeep"/>). A stack counts only when the trade
+    /// makes it: an alchemist keeps its heal potions for the bank floor, where they fetch the market
+    /// price a shop counter never paid. Anyone who lives by no station trade holds nothing back.
     /// </summary>
     public static HashSet<Item> KeptToHawk(SosariaCharacter person, CraftTrade trade)
     {
@@ -43,14 +44,18 @@ public static class HawkerGoods
 
         foreach (var item in person.Backpack.Items)
         {
-            if ((!item.Stackable || MadeToSell(trade, item)) && IsForSale(person, item) && Appraisal.RowOf(item) != Appraisal.Other)
+            if (ShopStock.IsStock(person, item, trade) || person.IsOrderPiece(item))
+            {
+                kept.Add(item);
+            }
+            else if ((!item.Stackable || MadeToSell(trade, item)) && IsForSale(person, item) && Appraisal.RowOf(item) != Appraisal.Other)
             {
                 pieces.Add(item);
                 values.Add(Appraisal.Value(item, Appraisal.MidRoll));
             }
         }
 
-        foreach (var index in CraftTradeRules.PiecesToKeep(values))
+        foreach (var index in CraftTradeRules.PiecesToKeep(values, Math.Max(0, CraftTradeRules.HawkerStock - kept.Count)))
         {
             kept.Add(pieces[index]);
         }
@@ -63,16 +68,16 @@ public static class HawkerGoods
     /// for anyone who lives by no station trade or kept nothing.
     /// </summary>
     public static Item BestKept(SosariaCharacter person) =>
-        MostValuable(KeptToHawk(person, CraftMarket.TradeOf(person)), _ => true);
+        MostValuable(KeptToHawk(person, CraftMarket.TradeOf(person)), item => !person.IsOrderPiece(item));
 
     /// <summary>
-    /// Goods to hold up and shout about: tradable, and not a supply the person burns unless its
-    /// own trade makes it.
+    /// Goods to hold up and shout about: tradable, not held for an order, and not a supply the
+    /// person burns unless its own trade makes it.
     /// </summary>
     public static bool IsForSale(SosariaCharacter person, Item item)
     {
         var trade = CraftMarket.TradeOf(person);
-        return IsTradable(person, item, trade) && (!IsSupply(item) || MadeToSell(trade, item)) &&
+        return IsTradable(person, item, trade) && !person.IsOrderPiece(item) && (!IsSupply(item) || MadeToSell(trade, item)) &&
                trade?.BurnsStock(item.GetType()) != true;
     }
 

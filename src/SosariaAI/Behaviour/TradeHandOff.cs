@@ -58,15 +58,7 @@ public static class TradeHandOff
 
         var shortfall = price - pack.GetAmount(typeof(Gold));
 
-        if (shortfall > 0 && BankTeller.FindBanker(payer) != null)
-        {
-            payer.DoSpeech(
-                BankTellerRules.WithdrawLine(shortfall),
-                [BankTellerRules.WithdrawKeyword],
-                MessageType.Regular,
-                payer.SpeechHue
-            );
-        }
+        BankTeller.Withdraw(payer, shortfall);
 
         return pack.ConsumeTotal(typeof(Gold), price);
     }

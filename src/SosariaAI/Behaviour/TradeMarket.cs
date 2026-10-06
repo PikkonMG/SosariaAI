@@ -52,7 +52,8 @@ public static class TradeMarket
 
     /// <summary>
     /// The seller a person's trade question is aimed at: a character in talking range holding goods
-    /// up, the one named first, then one selling the goods named, then the nearest.
+    /// up, the one named first, then one selling the goods named, then the nearest. A crafter quotes
+    /// the piece of its shop stock the person named, not only the one held up.
     /// </summary>
     public static (SosariaCharacter Seller, Item Goods, HawkerOffer Offer)? SellerFor(Mobile speaker, string text, GoodsClaim? goods)
     {
@@ -68,20 +69,59 @@ public static class TradeMarket
                 continue;
             }
 
+            var (piece, asking) = goods is { Piece: not ArmorPiece.FullSet } named && ShopStock.Named(seller, named) is { } match
+                ? (match, ShopStock.AskingOf(match))
+                : (item, offer.Asking);
+
             var score = SellerScore(
                 AttentionGate.MentionsName(text, seller.Name),
-                goods is { } named && named.Row == Appraisal.RowOf(item),
+                goods is { } wanted && wanted.Row == Appraisal.RowOf(piece),
                 (int)speaker.GetDistanceToSqrt(seller)
             );
 
             if (score > bestScore)
             {
                 bestScore = score;
-                best = (seller, item, offer);
+                best = (seller, piece, piece == item ? offer : new HawkerOffer(piece.Serial, asking, Appraisal.NounOf(piece)));
             }
         }
 
         return best;
+    }
+
+    /// <summary>
+    /// The crafter within walking range of a person's WTB whose shop stock holds the goods wanted,
+    /// and the piece; the nearest wins. Null when none does.
+    /// </summary>
+    public static (SosariaCharacter Crafter, Item Piece)? StockFor(Mobile speaker, GoodsClaim wanted)
+    {
+        // A whole suit is an order, not one piece off the shelf.
+        if (wanted.Piece == ArmorPiece.FullSet)
+        {
+            return null;
+        }
+
+        (SosariaCharacter, Item)? pick = null;
+        var best = double.MaxValue;
+
+        foreach (var mobile in speaker.GetMobilesInRange(TradeRanges.WalkOverRange))
+        {
+            if (mobile is not SosariaCharacter crafter || !Present(crafter) || TradeSessions.IsBusy(crafter) ||
+                !People.Perceives(crafter, speaker) || ShopStock.Named(crafter, wanted) is not { } piece)
+            {
+                continue;
+            }
+
+            var distance = speaker.GetDistanceToSqrt(crafter);
+
+            if (distance < best)
+            {
+                best = distance;
+                pick = (crafter, piece);
+            }
+        }
+
+        return pick;
     }
 
     /// <summary>A named seller beats one with the goods asked for, which beats a nearer one.</summary>

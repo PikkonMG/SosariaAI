@@ -439,4 +439,52 @@ public class FloorTradeTests
             typeof(ItemBounds).GetProperty(nameof(ItemBounds.Bounds))!.SetValue(null, new Rectangle2D[ArtTileCount]);
         }
     }
+
+    [Fact]
+    public void Deposit_FoldedWindow_SavesNoOrder()
+    {
+        var smith = Character(PersonClass.Smith, Bank);
+        var buyer = Character(PersonClass.Warrior, Beside(NextTile));
+        InPack(buyer, Coins(Purse));
+        var placed = false;
+
+        try
+        {
+            var session = TradeSession.Fixed(smith, buyer, null, Price, "GM katana", TradeLineKind.SellerAccept, paid => placed = paid);
+            TradeSessions.Open(session);
+
+            session.End(TradeLineKind.Released);
+
+            Assert.False(placed);
+            Assert.Equal(0, smith.Backpack.GetAmount(typeof(Gold)));
+            Assert.Equal(Purse, buyer.Backpack.GetAmount(typeof(Gold)));
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void Deposit_DroppedCoinPaysAndPlaces()
+    {
+        var smith = Character(PersonClass.Smith, Bank);
+        var buyer = Character(PersonClass.Warrior, Beside(NextTile));
+        var coins = Coins(Price);
+        var placed = false;
+
+        try
+        {
+            var session = TradeSession.Fixed(smith, buyer, null, Price, "GM katana", TradeLineKind.SellerAccept, paid => placed = paid);
+            TradeSessions.Open(session);
+
+            Assert.True(session.Receive(coins));
+            Assert.True(placed);
+            Assert.Equal(Price, smith.Backpack.GetAmount(typeof(Gold)));
+        }
+        finally
+        {
+            Clean();
+        }
+    }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using SosariaAI.Combat;
+using SosariaAI.Economy;
 
 namespace SosariaAI.Skills;
 
@@ -239,10 +240,14 @@ public static class CraftTradeRules
 
     /// <summary>
     /// What a finished piece fetches: the best price a counter in reach pays, else a share of what
-    /// people pay for it (<see cref="UnvendedShareTenths"/>), else nothing: nobody buys it.
+    /// people pay for it (<see cref="UnvendedShareTenths"/>), and never less than what shop stock
+    /// adds (<paramref name="shopValue"/>, see <see cref="CraftShopRules.ShopShare"/>).
     /// </summary>
-    public static int PieceWorth(int vendorPrice, int peopleValue) =>
-        vendorPrice > 0 ? vendorPrice : Math.Max(0, peopleValue) * UnvendedShareTenths / Tenths;
+    public static int PieceWorth(int vendorPrice, int peopleValue, int shopValue = 0) =>
+        Math.Max(
+            Math.Max(0, shopValue),
+            vendorPrice > 0 ? vendorPrice : Math.Max(0, peopleValue) * UnvendedShareTenths / Tenths
+        );
 
     /// <summary>True when the item has made nothing in enough batches in a row to be dropped for the session.</summary>
     public static bool DropsItem(int emptyBatchesOnItem) => emptyBatchesOnItem >= EmptyBatchesPerItem;
@@ -307,21 +312,11 @@ public static class CraftTradeRules
 
     /// <summary>
     /// The places in <paramref name="values"/> of the finished pieces a crafter holds back from
-    /// the shop to hawk at the bank: the <see cref="HawkerStock"/> worth the most, the first
-    /// of equal pieces. The rest go over the counter.
+    /// the shop to hawk at the bank: the <paramref name="room"/> worth the most, the first of
+    /// equal pieces. The rest go over the counter.
     /// </summary>
-    public static List<int> PiecesToKeep(IReadOnlyList<int> values)
-    {
-        var order = new List<int>();
-
-        for (var i = 0; i < (values?.Count ?? 0); i++)
-        {
-            order.Add(i);
-        }
-
-        order.Sort((a, b) => values[b] != values[a] ? values[b].CompareTo(values[a]) : a.CompareTo(b));
-        return order.GetRange(0, Math.Min(HawkerStock, order.Count));
-    }
+    public static List<int> PiecesToKeep(IReadOnlyList<int> values, int room = HawkerStock) =>
+        CraftShopRules.BestFirst(values, room);
 
     public static bool SessionOver(TimeSpan elapsed, TimeSpan length) => elapsed >= length;
 

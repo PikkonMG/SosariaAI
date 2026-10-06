@@ -96,6 +96,11 @@ public static class JobRules
 
     public const double Full = 1.0;
 
+    /// <summary>A crafter with orders open works this much more.</summary>
+    public const double OrderCraftBoost = 4.0;
+
+    private const double NoWeight = 0.0;
+
     public const double TendencyFloor = 0.5;
     public const double TendencySpan = 1.5;
     public const double BankCrowdBoost = 1.8;
@@ -185,8 +190,23 @@ public static class JobRules
         var weight = Leaning(job, situation, needs, drives, fighter) * TendencyFactor(job, situation?.Tendencies) *
                      SupplyFactor(job, situation);
         return weight * DayFactor(job, needs.DayPart, IsCrafter(situation)) * DangerFactor(job, situation) *
-               HomeFactor(job, situation);
+               HomeFactor(job, situation) * OrderFactor(job, situation);
     }
+
+    /// <summary>
+    /// A crafter with orders open stays in its town and works: the craft job weighs
+    /// <see cref="OrderCraftBoost"/> times more, and trips out of town weigh nothing until the
+    /// orders are handed over. Its bank and shops stay as they were.
+    /// </summary>
+    public static double OrderFactor(JobKind job, Situation situation) =>
+        situation?.OpenOrders > 0 && IsCrafter(situation)
+            ? job switch
+            {
+                JobKind.Craft => OrderCraftBoost,
+                JobKind.Hunt or JobKind.Dungeon or JobKind.Travel => NoWeight,
+                _ => Full
+            }
+            : Full;
 
     /// <summary>A person whose class lives by a station trade it runs.</summary>
     public static bool IsCrafter(Situation situation) => !string.IsNullOrWhiteSpace(situation?.CraftTrade);

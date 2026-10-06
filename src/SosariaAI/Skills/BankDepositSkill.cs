@@ -199,6 +199,7 @@ public sealed class BankDepositSkill : Skill
         PackAnimals.Unload(_character);
         SpareKit.AtCounter(_character);
         Deposit();
+        BalanceShopStock();
         JunkLeftovers();
         GoldDeposited = BankTeller.DepositSurplus(_character);
         BankTeller.WithdrawShortfall(_character);
@@ -221,6 +222,22 @@ public sealed class BankDepositSkill : Skill
     {
         _arrivedAt = SkillClock.Shift(_arrivedAt, held);
         _walk?.Resume(held);
+    }
+
+    // A crafter banks shop stock past what it carries and takes pieces back out when its pack runs low.
+    private void BalanceShopStock()
+    {
+        var (banked, taken) = ShopStock.Balance(_character);
+
+        if (banked + taken > 0 && SosariaSettings.LogActivity)
+        {
+            logger.Information(
+                "{Name} moved {Banked} pieces of shop stock to its bank and took {Taken} out",
+                _character.Name,
+                banked,
+                taken
+            );
+        }
     }
 
     private void EndLeaderTrip()
@@ -271,7 +288,7 @@ public sealed class BankDepositSkill : Skill
     /// <summary>
     /// What no shop bought and no box wants goes on the floor, the way a player tosses the
     /// vendor-trash sword after the run: plain gear only, never a kit piece, a supply, the
-    /// spare weapon kept in the pack, or the pieces a crafter holds back to hawk
+    /// spare weapon kept in the pack, or a crafter's shop stock, order pieces and pieces held back to hawk
     /// (<see cref="HawkerGoods.KeptToHawk"/>). Crafters tossed 212 of their own pieces on the
     /// bank floor in one evening, just before their bank trade, and no fighter ever bought gear
     /// from one.

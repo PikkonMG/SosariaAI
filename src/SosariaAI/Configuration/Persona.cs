@@ -246,7 +246,8 @@ public sealed class Persona
     /// to whoever stands near, and nothing behind it ever goes along or leaves, so a promise
     /// line is never said. This holds for every preset, generated and hand-edited file.
     /// </summary>
-    private static bool IsSayable(string line) => !PromiseLines.IsPromise(line);
+    private static bool IsSayable(string line) =>
+        !PromiseLines.IsPromise(line) && !OrderLines.IsOrderTalk(line) && !OrderLines.ClaimsRepairs(line);
 
     private static string Pick(List<string> lines, Predicate<string> fits)
     {

@@ -13,13 +13,24 @@ public enum GearBuyKind
     Robe,
 
     /// <summary>A piece for the spare kit a red keeps in its bank box: carried to the bank, never worn.</summary>
-    Spare
+    Spare,
+
+    /// <summary>A GM piece out of a crafter's shop stock, bought at its station.</summary>
+    Crafted,
+
+    /// <summary>An order for a GM piece, placed at a crafter's station with half paid down.</summary>
+    Order,
+
+    /// <summary>The pickup of a ready order: the rest paid, the work taken.</summary>
+    Pickup
 }
 
 /// <summary>
 /// One buy: the piece, a spare type the shop may stock instead, the shelf price the purse
 /// must cover, the rank it brings, where it is sold, what it replaces, and whether it
 /// betters a worn piece (<paramref name="Upgrade"/>) or fills an empty place.
+/// <paramref name="CrafterSerial"/> is the crafter a crafted buy, an order or a pickup goes to;
+/// 0 for a shop buy.
 /// </summary>
 public readonly record struct GearOffer(
     string ItemTypeName,
@@ -30,7 +41,8 @@ public readonly record struct GearOffer(
     string FallbackDestination,
     GearBuyKind Kind,
     GearSlot? Slot,
-    bool Upgrade
+    bool Upgrade,
+    uint CrafterSerial = 0
 );
 
 /// <summary>

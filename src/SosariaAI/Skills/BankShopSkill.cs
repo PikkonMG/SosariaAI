@@ -228,7 +228,9 @@ public sealed class BankShopSkill : Skill
     // A WTS for the goods at the market table's price, and the offer buyers read. Returns the asking price.
     private int HoldUp(Item goods, int roll)
     {
-        var asking = Appraisal.Value(goods, roll % Appraisal.PercentScale);
+        var asking = ShopStock.IsStock(_character, goods, CraftMarket.TradeOf(_character))
+            ? ShopStock.AskingOf(goods)
+            : Appraisal.Value(goods, roll % Appraisal.PercentScale);
         var noun = Appraisal.NounOf(goods);
         ChatLines.Shout(_character, selling: true, noun, GoldWords.Spoken(asking));
         BankCrowd.SetHawkerOffer(_character, new HawkerOffer(goods.Serial, asking, noun));

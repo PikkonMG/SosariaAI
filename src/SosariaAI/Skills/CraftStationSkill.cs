@@ -37,7 +37,9 @@ namespace SosariaAI.Skills;
 /// batch ends with the goods sold to a vendor in reach, a few pieces kept back to hawk at the
 /// bank, and one activity line; a grandmaster calls out an exceptional piece. Goods no vendor
 /// in reach took are sold on the next supply trip or on a walk to the shop at the end of the
-/// session. A crafter holds its station for most of
+/// session. Between batches it keeps a shop at the station (<see cref="StationStall"/>). Open orders
+/// come first (<see cref="OrderDesk"/>): their pieces are made before goods for the shop, and each
+/// exceptional one is held for its buyer. A crafter holds its station for most of
 /// an evening, burns real stock it bought for real coin, and waits out a dry spell asking for
 /// more.
 /// </summary>
@@ -110,6 +112,7 @@ public abstract class CraftStationSkill : Skill
     private bool _dried;
     private bool _spareBatch;
     private string _shortOf;
+    private StationStall _stationStall;
 
     protected CraftStationSkill(CraftTrade trade) =>
         _trade = trade ?? throw new ArgumentNullException(nameof(trade));
@@ -124,6 +127,7 @@ public abstract class CraftStationSkill : Skill
     {
         _character = character;
         Reset();
+        _stationStall = new StationStall(character);
 
         if (!MayWork(character) || _trade.System == null)
         {
@@ -159,10 +163,29 @@ public abstract class CraftStationSkill : Skill
     {
         if (!MayWork(_character))
         {
+            _stationStall?.Close();
             return Fail("cannot work now");
         }
 
-        return _phase switch
+        var status = TickPhase();
+
+        // The shop is open only while the crafter works at its station.
+        if (status == SkillStatus.Running && AtStationPhase)
+        {
+            _stationStall.Tick(Core.Now);
+        }
+        else
+        {
+            _stationStall.Close();
+        }
+
+        return status;
+    }
+
+    private bool AtStationPhase => _phase is Phase.Prepare or Phase.Craft or Phase.Sell or Phase.Dry;
+
+    private SkillStatus TickPhase() =>
+        _phase switch
         {
             Phase.WalkShop => AfterWalk(ArriveAtShop, WalkFailed),
             Phase.WalkStation => AfterWalk(StartPrepare, StartPrepare),
@@ -175,7 +198,6 @@ public abstract class CraftStationSkill : Skill
             Phase.BankStock => BankStockStep(),
             _ => AfterWalk(SellAndEnd, EndSession)
         };
-    }
 
     public override void Abort()
     {
@@ -183,6 +205,7 @@ public abstract class CraftStationSkill : Skill
         _walk = null;
         _bankStock?.Abort();
         _bankStock = null;
+        _stationStall?.Close();
         _character = null;
     }
 
@@ -385,7 +408,8 @@ public abstract class CraftStationSkill : Skill
             return SkillStatus.Running;
         }
 
-        _product = ChooseProduct(system, vendors, atStation: true);
+        var order = OrderProduct(system, atStation: true);
+        _product = order ?? ChooseProduct(system, vendors, atStation: true);
 
         // A gatherer standing at the shop sells its load before the crafter walks off for stock.
         if (_product == null && CraftMarket.BuyFromGatherers(_character, _trade) > 0)
@@ -403,6 +427,13 @@ public abstract class CraftStationSkill : Skill
         if (_batchLeft <= 0)
         {
             _unstocked.Add(_product.ItemType);
+
+            // The stock for an order is worth a walk to the shop that shelves it.
+            if (order != null)
+            {
+                StartSupplyTrip(needTool: false);
+            }
+
             return SkillStatus.Running;
         }
 
@@ -627,7 +658,7 @@ public abstract class CraftStationSkill : Skill
             KeepSpareTool(system, vendors);
         }
 
-        if (_tool != null && ChooseProduct(system, vendors, atStation: false) is { } product)
+        if (_tool != null && (OrderProduct(system, atStation: false) ?? ChooseProduct(system, vendors, atStation: false)) is { } product)
         {
             StockBatch(product, vendors, CraftTradeRules.SupplyCrafts);
         }
@@ -781,6 +812,13 @@ public abstract class CraftStationSkill : Skill
 
         foreach (var item in _character.Backpack?.Items ?? [])
         {
+            // A new exceptional piece an open order needs is held for its buyer.
+            if (!_spareBatch && item is { Deleted: false } && item.GetType() == _product.ItemType &&
+                !_productBefore.Contains(item.Serial))
+            {
+                OrderDesk.TagPiece(_character, item);
+            }
+
             if (item is { Deleted: false } && item.GetType() == _product.ItemType && !_productBefore.Contains(item.Serial) &&
                 CraftTradeRules.AnnouncesMasterwork(_character.Skills[_trade.Skill].Value, Appraisal.IsExceptional(item)))
             {
@@ -1073,7 +1111,8 @@ public abstract class CraftStationSkill : Skill
     /// <summary>
     /// The item to make: one someone buys, weighted by the gold a try earns
     /// (<see cref="CraftTradeRules.Pick"/>). The buyers are the vendors round the station and the
-    /// people who want the goods (<see cref="CraftBuyers"/>); materials are priced at what the
+    /// people who want the goods (<see cref="CraftBuyers"/>), and shop stock while the crafter has
+    /// room for more (<see cref="ShopStock"/>); materials are priced at what the
     /// crafter pays under those shelves (<see cref="CraftMarketRules.MaterialUnitPrice"/>). At the
     /// station the engine's own check must pass (the anvil and forge in reach, the spell in the
     /// scribe's book); at a supply counter the pick only says what stock to buy, so that check
@@ -1086,6 +1125,7 @@ public abstract class CraftStationSkill : Skill
         var gold = _character.Backpack?.GetAmount(typeof(Gold)) ?? 0;
         var buyers = VendorDeal.VendorsNear(_character.Map, _shop, CraftStations.SupplySearchRadius);
         var tables = CraftBuyers.TablesOf(buyers);
+        var shopRoom = ShopStock.HasRoom(_character);
 
         for (var i = 0; i < system.CraftItems.Count; i++)
         {
@@ -1103,7 +1143,7 @@ public abstract class CraftStationSkill : Skill
                 continue;
             }
 
-            var worth = CraftBuyers.WorthOf(item.ItemType, tables);
+            var worth = CraftBuyers.WorthOf(item.ItemType, tables, shopRoom ? ShopWorth(system, item, chance) : 0);
             candidates.Add(item);
             options.Add(
                 new CraftOption(
@@ -1119,6 +1159,17 @@ public abstract class CraftStationSkill : Skill
         var pick = CraftTradeRules.Pick(options, Utility.Random(int.MaxValue));
         return pick == CraftTradeRules.NoPick ? null : candidates[pick];
     }
+
+    // What shop stock adds to a try of the item: its exceptional chance of the piece's value.
+    private int ShopWorth(CraftSystem system, CraftItem item, double chance) =>
+        CraftShopRules.ShopShare(item.GetExceptionalChance(system, chance, _character), CraftBuyers.ShopValueOf(item.ItemType));
+
+    // The next piece an open order needs, when the crafter may try it here.
+    private CraftItem OrderProduct(CraftSystem system, bool atStation) =>
+        OrderDesk.NextToMake(_character) is { } type && system.CraftItems.SearchFor(type) is { } item &&
+        MayTry(system, item, atStation)
+            ? item
+            : null;
 
     private bool MayTry(CraftSystem system, CraftItem item, bool atStation) =>
         IsCraftable(item) && !_rejected.Contains(item.ItemType) && !_unstocked.Contains(item.ItemType) &&

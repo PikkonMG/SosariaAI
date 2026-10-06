@@ -26,7 +26,9 @@ namespace SosariaAI.Skills;
 /// that wants nothing more for itself buys, a piece a trip, what the spare kit in its bank box
 /// lacks, and carries it to the bank (<see cref="SpareKit"/>). A red shops only where a stocked
 /// shop stands out of the guards' reach (<see cref="ShopFinder.NearestStocked"/>); a red that
-/// finds none buys no gear for <see cref="SpareKitRules.ShopMissRest"/>.
+/// finds none buys no gear for <see cref="SpareKitRules.ShopMissRest"/>. A fighter that wants
+/// nothing from the shop goes for GM gear at a crafter's station (<see cref="CraftedGear"/>): a
+/// piece of shop stock, an order, or the pickup of one.
 /// </summary>
 public sealed class UpgradeGearSkill : Skill
 {
@@ -40,6 +42,7 @@ public sealed class UpgradeGearSkill : Skill
     public const string ShopWalkFailedWhy = "the walk to the shop failed";
     public const string NotOnShelfWhy = "no shop had the piece";
     public const string NoLegalShopWhy = "no shop out of the guards' reach sells the piece";
+    public const string NoCrafterWalkWhy = "no walk to the crafter's station";
 
     private static readonly ILogger logger = SosariaLog.For(typeof(UpgradeGearSkill));
 
@@ -49,6 +52,7 @@ public sealed class UpgradeGearSkill : Skill
     private SosariaCharacter _character;
     private TravelSkill _walk;
     private DealVisit _visit;
+    private CraftedTrip _trip;
     private GearOffer _offer;
     private string _shop;
     private string _fallback;
@@ -67,6 +71,7 @@ public sealed class UpgradeGearSkill : Skill
         _bought = false;
         _visit = null;
         _walk = null;
+        _trip = null;
         _red = PkRules.IsRed(character.Kills);
         var offer = OfferFor(character);
 
@@ -76,6 +81,13 @@ public sealed class UpgradeGearSkill : Skill
         }
 
         _offer = offer.Value;
+
+        if (_offer.Kind is GearBuyKind.Crafted or GearBuyKind.Order or GearBuyKind.Pickup)
+        {
+            _trip = CraftedTrip.Start(character, _offer);
+            return _trip != null || CannotStart(NoCrafterWalkWhy);
+        }
+
         _shop = string.IsNullOrWhiteSpace(_offer.VendorDestination) ? DefaultDestination : _offer.VendorDestination;
         _fallback = _red ? null : _offer.FallbackDestination;
         return StartCrafterVisit() || StartShopWalk() || CannotStart(NoShopWhy());
@@ -86,6 +98,11 @@ public sealed class UpgradeGearSkill : Skill
         if (_character == null || _character.Deleted || !People.InWorld(_character))
         {
             return Fail(LeftWorldReason);
+        }
+
+        if (_trip != null)
+        {
+            return TickTrip();
         }
 
         if (_visit != null)
@@ -143,6 +160,8 @@ public sealed class UpgradeGearSkill : Skill
         _walk = null;
         _visit?.Abort();
         _visit = null;
+        _trip?.Abort();
+        _trip = null;
         _buying = false;
     }
 
@@ -150,6 +169,7 @@ public sealed class UpgradeGearSkill : Skill
     {
         _walk?.Resume(held);
         _visit?.Resume(held);
+        _trip?.Resume(held);
     }
 
     /// <summary>
@@ -169,7 +189,9 @@ public sealed class UpgradeGearSkill : Skill
 
         var gold = character.Backpack?.GetAmount(typeof(Gold)) ?? 0;
         var reserve = PackReserve(character);
-        return GearPlan.NextBuy(NeedsOf(character), gold, reserve) ?? SpareOfferFor(character, gold, reserve);
+        var needs = NeedsOf(character);
+        return CraftedGear.Pickup(character) ?? GearPlan.NextBuy(needs, gold, reserve) ?? SpareOfferFor(character, gold, reserve) ??
+               (needs.MayUpgrade ? CraftedGear.OfferFor(character) : null);
     }
 
     /// <summary>The gold reserve the pack keeps for this person (<see cref="GearPlan.PackReserve"/>).</summary>
@@ -280,6 +302,62 @@ public sealed class UpgradeGearSkill : Skill
             is { } pick
             ? DealVisit.Start(buyer, pick.Crafter, pick.Piece, pick.Asking)
             : null;
+    }
+
+    // The trip for GM gear: the bought piece or the picked-up work is put on; an order only logs.
+    private SkillStatus TickTrip()
+    {
+        var status = _trip.Tick(Core.Now);
+
+        if (status != SkillStatus.Done)
+        {
+            return status;
+        }
+
+        foreach (var piece in _trip.Bought)
+        {
+            LogCrafted(Wear(_offer, piece), piece);
+        }
+
+        if (_offer.Kind == GearBuyKind.Order)
+        {
+            _bought = true;
+            LogOrder();
+        }
+
+        return SkillStatus.Done;
+    }
+
+    private void LogCrafted(Item old, Item piece)
+    {
+        if (SosariaSettings.LogActivity)
+        {
+            logger.Information(
+                "{Name} bought {New} over {Old} from the {Trade} crafter {Crafter} at its station for {Gold} gold at {Location}",
+                _character.Name,
+                Appraisal.NounOf(piece),
+                old?.GetType().Name ?? NothingWorn,
+                CraftMarket.TradeOf(_trip.Crafter)?.Kind,
+                _trip.Crafter.Name,
+                _trip.Paid,
+                _character.Location
+            );
+        }
+    }
+
+    private void LogOrder()
+    {
+        if (SosariaSettings.LogActivity)
+        {
+            logger.Information(
+                "{Name} ordered a GM {Piece} from {Crafter} with {Gold} gold down at {Location}",
+                _character.Name,
+                Appraisal.SplitWords(_offer.ItemTypeName),
+                _trip.Crafter.Name,
+                _trip.Paid,
+                _character.Location
+            );
+        }
     }
 
     // The crafter's piece, or on the way to the shop when the haggle fell through.
@@ -446,7 +524,7 @@ public sealed class UpgradeGearSkill : Skill
             return null;
         }
 
-        var old = WornFor(offer);
+        var old = WornFor(offer, bought);
         GearEquip.EquipOrPack(_character, bought);
 
         if (offer.Upgrade)
@@ -505,13 +583,14 @@ public sealed class UpgradeGearSkill : Skill
         return null;
     }
 
-    /// <summary>The worn piece the offer replaces, or null when its place is empty.</summary>
-    private Item WornFor(GearOffer offer) =>
+    /// <summary>The worn piece the offer replaces, or null when its place is empty. A crafted piece replaces what is worn on its own layer.</summary>
+    private Item WornFor(GearOffer offer, Item bought) =>
         offer.Kind switch
         {
             GearBuyKind.Armor when offer.Slot is { } slot => _character.FindItemOnLayer(GearScore.LayerOf(slot)),
             GearBuyKind.Shield => _character.FindItemOnLayer(Layer.TwoHanded),
             GearBuyKind.Robe => _character.FindItemOnLayer(Layer.OuterTorso),
+            GearBuyKind.Crafted or GearBuyKind.Pickup => _character.FindItemOnLayer(bought.Layer),
             _ => null
         };
 

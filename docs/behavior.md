@@ -55,7 +55,7 @@ the same person:
 - a trade: worker, fighter, tamer, or thief, in the mix set in `PersonMaker`;
 - for about half the workers, a craft to live by (smith, tailor, carpenter,
   bowyer, alchemist, scribe, or tinker, in the mix set in `CraftCareerRules`).
-  The other workers gather;
+  About one maker in seven is a grandmaster. The other workers gather;
 - a base voice from the persona pool that fits that trade, then a composed
   persona unique to that copy (see [Personas](characters-config.md#personas));
 - experience: veteran or green;
@@ -173,16 +173,35 @@ that makes nothing in two batches is dropped for the session, and three empty
 batches in a row end the session. Anyone who works a station keeps the stock it
 burns: a cook does not sell the meat on its fire to the next cook.
 
-**Selling.** A crafter keeps its best two pieces, and stacks of its own make,
-out of the shop and out of the bank-floor toss. It hawks them at the bank,
-three minutes at a time. A hawker does not wait for a shopper: every 15 seconds
-a character on the bank floor that wants the goods and can pay answers. It
-walks over and haggles, and the deal closes in the engine's trade window. A
-"wtb" call draws a seller that carries the goods. A fighter on a gear trip buys
-a crafter's piece at a bank in reach when its purse there, bank balance
-included, meets the ask. If not, it goes to the NPC shop. A house owner puts
+**Selling.** A crafter's exceptional pieces are its shop stock. They never go
+to an NPC shop. It carries up to eight and banks the rest, and takes more out
+when its pack runs low. Between batches it keeps a shop at its station: it holds
+its best piece up, shouts a WTS every two to four minutes when somebody is in
+sight, lists its best four pieces when asked "what do you have", and quotes any
+piece by name. A "wtb" for a piece it stocks gets an answer. Each piece has one
+price from the market table: a GM plate chest asks 1,800 to 4,200 gold, a GM
+katana 700 to 2,000. Plain goods still sell to the NPC shop, and a crafter still
+hawks its best pieces at the bank. A hawker does not wait for a shopper: every
+15 seconds a character on the bank floor that wants the goods and can pay
+answers. It walks over and haggles, and the deal closes in the engine's trade
+window. A "wtb" call draws a seller that carries the goods. A fighter on a gear
+trip buys a crafter's piece at a bank in reach when its purse there, bank
+balance included, meets the ask, or walks to a crafter's station for a GM piece
+that betters what it wears. If not, it goes to the NPC shop. A house owner puts
 goods on its vendor at market prices and collects the takings. Browsers buy
 from player vendors in reach. A red plans no sale under the guards.
+
+**Orders.** "Can you make me a GM katana" or "I need a full plate suit" to a
+crafter at its station gets a quote: the market price plus a tenth, half paid
+up front, and the deposit stays with the crafter. "Yes" opens the trade window
+for the deposit. The crafter takes up to three orders, and only work its trade
+makes at even odds that can come out exceptional: a grandmaster smith makes an
+exceptional plate chest about one try in twenty, so it can take that order.
+It makes orders first and holds each exceptional piece for its buyer. When the
+buyer comes by or asks "is my order ready", it opens the window with the work
+for the rest of the coin; a suit comes in a bag. An order not picked up in
+three days goes to its shop stock. A crafter with orders open stays in town.
+Fighters order too, for the GM version of a plain piece they wear.
 
 **Supplies.** A character sells the supplies it has above its own restock
 target (reagents, bandages, arrows, bolts, and recall scrolls) to a character

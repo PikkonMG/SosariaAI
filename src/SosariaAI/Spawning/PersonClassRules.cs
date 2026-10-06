@@ -74,6 +74,11 @@ public static class PersonClassRules
             or PersonClass.Lumberjack or PersonClass.Fisherman or PersonClass.Alchemist or PersonClass.Scribe
             or PersonClass.Bowyer or PersonClass.Tinker;
 
+    /// <summary>A person whose trade makes goods at a station: the gatherers bring it stock.</summary>
+    public static bool IsMaker(PersonClass personClass) =>
+        personClass is PersonClass.Smith or PersonClass.Tailor or PersonClass.Carpenter or PersonClass.Alchemist
+            or PersonClass.Scribe or PersonClass.Bowyer or PersonClass.Tinker;
+
     public static string Title(PersonClass personClass) =>
         personClass switch
         {

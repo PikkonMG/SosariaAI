@@ -10,7 +10,7 @@ namespace SosariaAI.Economy;
 /// The one market table. A hawker's ask, a buyer's offer and a WTB shout all price goods here,
 /// so the number a character names in words is the number it holds to when the item is on
 /// the table. A plain weapon off a vendor shelf was near worthless at a 1999 bank; a smith's
-/// exceptional piece sold for hundreds; a vanquishing weapon or an invulnerability suit sold
+/// exceptional piece sold for thousands; a vanquishing weapon or an invulnerability suit sold
 /// for thousands. Reagents, bandages and ammunition went by the hundred. Our own numbers.
 /// </summary>
 public static class Appraisal
@@ -20,7 +20,58 @@ public static class Appraisal
     /// <summary>The middle of a band, for comparing goods and for a buyer who has not seen the item.</summary>
     public const int MidRoll = PercentScale / 2;
 
-    public const int ExceptionalMultiplier = 8;
+    /// <summary>A smith's exceptional piece sold for thousands at a 1999 bank, a shop piece for a few coins.</summary>
+    public const int ExceptionalMultiplier = 20;
+
+    /// <summary>A tailor's exceptional robe or cloak sold for a few times a shop one.</summary>
+    public const int ExceptionalClothingMultiplier = 4;
+
+    public const string ClothingKey = "clothing";
+
+    // The share of a row's band each piece of a suit is worth, in percent: the metal it takes.
+    public const int WholeWeightPercent = 100;
+    public const int ChestWeightPercent = 150;
+    public const int LegsWeightPercent = 120;
+    public const int ArmsWeightPercent = 100;
+    public const int HelmWeightPercent = 80;
+    public const int GorgetWeightPercent = 60;
+    public const int GlovesWeightPercent = 60;
+
+    /// <summary>A full set sells for this share of its pieces bought one by one.</summary>
+    public const int FullSetSharePercent = 80;
+
+    private const int SuitWeightPercent =
+        ChestWeightPercent + LegsWeightPercent + ArmsWeightPercent + HelmWeightPercent + GorgetWeightPercent + GlovesWeightPercent;
+
+    /// <summary>The pieces of one suit, chest first.</summary>
+    public static readonly IReadOnlyList<ArmorPiece> SuitPieces =
+        [ArmorPiece.Chest, ArmorPiece.Legs, ArmorPiece.Arms, ArmorPiece.Helm, ArmorPiece.Gorget, ArmorPiece.Gloves];
+
+    // Every typed name of a piece. The longest phrase wins, so "full plate" is a suit.
+    private static readonly (string Word, ArmorPiece Piece)[] PieceSpellings =
+    [
+        ("chest", ArmorPiece.Chest), ("tunic", ArmorPiece.Chest), ("breastplate", ArmorPiece.Chest),
+        ("chestpiece", ArmorPiece.Chest), ("legs", ArmorPiece.Legs), ("leggings", ArmorPiece.Legs),
+        ("legging", ArmorPiece.Legs), ("arms", ArmorPiece.Arms), ("sleeves", ArmorPiece.Arms),
+        ("helm", ArmorPiece.Helm), ("helmet", ArmorPiece.Helm), ("coif", ArmorPiece.Helm), ("cap", ArmorPiece.Helm),
+        ("bascinet", ArmorPiece.Helm), ("gorget", ArmorPiece.Gorget), ("gloves", ArmorPiece.Gloves),
+        ("gauntlets", ArmorPiece.Gloves), ("suit", ArmorPiece.FullSet), ("set", ArmorPiece.FullSet),
+        ("full plate", ArmorPiece.FullSet), ("full set", ArmorPiece.FullSet)
+    ];
+
+    private static readonly Dictionary<ArmorPiece, string> PieceNouns = new()
+    {
+        [ArmorPiece.Chest] = "chest", [ArmorPiece.Legs] = "legs", [ArmorPiece.Arms] = "arms",
+        [ArmorPiece.Helm] = "helm", [ArmorPiece.Gorget] = "gorget", [ArmorPiece.Gloves] = "gloves",
+        [ArmorPiece.FullSet] = "suit"
+    };
+
+    // What an armor row is called before a piece name: "plate chest", "ringmail legs".
+    private static readonly Dictionary<string, string> ArmorStems = new(StringComparer.Ordinal)
+    {
+        ["plate"] = "plate", ["chain"] = "chain", ["ring"] = "ringmail", ["studded"] = "studded",
+        ["leather"] = "leather", ["bone"] = "bone"
+    };
     public const int NoMagic = 0;
     public const int MaxMagicLevel = 5;
 
@@ -148,7 +199,7 @@ public static class Appraisal
         Stack("jewelry", "jewelry", 50, 180, 1, TradeAppetite.Everyone, 20,
             ["jewelry", "jewels", "bracelet", "necklace", "earrings", "gold ring", "silver ring", "gold bracelet"],
             i => i is BaseJewel),
-        Stack("clothing", "clothes", 8, 40, 1, TradeAppetite.Everyone, 15,
+        Stack(ClothingKey, "clothes", 8, 40, 1, TradeAppetite.Everyone, 15,
             ["robe", "robes", "cloak", "cloaks", "sash", "shirt", "pants", "boots", "thigh boots", "shoes",
              "sandals", "hat", "skirt", "kilt", "surcoat"], i => i is BaseClothing),
         Stack("food", "food", 3, 8, 10, TradeAppetite.Everyone, 20,
@@ -164,9 +215,10 @@ public static class Appraisal
 
     /// <summary>
     /// What <paramref name="amount"/> units are worth. The roll places the unit inside the band,
-    /// so two sellers ask a little differently for the same goods. Said as a round number.
+    /// so two sellers ask a little differently for the same goods. An armor piece weighs by its
+    /// metal (<see cref="PieceWeightPercent"/>). Said as a round number.
     /// </summary>
-    public static int Value(GoodsRow row, int amount, bool exceptional, int magicLevel, int roll)
+    public static int Value(GoodsRow row, int amount, bool exceptional, int magicLevel, int roll, ArmorPiece piece = ArmorPiece.Whole)
     {
         row ??= Other;
         var unit = row.UnitLow + (row.UnitHigh - row.UnitLow) * Math.Clamp(roll, 0, PercentScale - 1) / PercentScale;
@@ -174,7 +226,12 @@ public static class Appraisal
 
         if (row.IsGear)
         {
+            total = total * PieceWeightPercent(row.Kind, piece) / PercentScale;
             total *= MagicMultiplier(magicLevel) * (exceptional ? ExceptionalMultiplier : 1);
+        }
+        else if (exceptional && row.Key == ClothingKey)
+        {
+            total *= ExceptionalClothingMultiplier;
         }
 
         return GoldWords.RoundSpoken((int)Math.Min(int.MaxValue, total));
@@ -182,7 +239,41 @@ public static class Appraisal
 
     /// <summary>What a real item is worth, the whole stack.</summary>
     public static int Value(Item item, int roll) =>
-        Value(RowOf(item), item?.Amount ?? 1, IsExceptional(item), MagicLevelOf(item), roll);
+        Value(RowOf(item), item?.Amount ?? 1, IsExceptional(item), MagicLevelOf(item), roll, PieceOf(item));
+
+    /// <summary>The share of the row's band a piece is worth, in percent. Only armor weighs by piece.</summary>
+    public static int PieceWeightPercent(GoodsKind kind, ArmorPiece piece) =>
+        kind != GoodsKind.Armor
+            ? WholeWeightPercent
+            : piece switch
+            {
+                ArmorPiece.Chest => ChestWeightPercent,
+                ArmorPiece.Legs => LegsWeightPercent,
+                ArmorPiece.Arms => ArmsWeightPercent,
+                ArmorPiece.Helm => HelmWeightPercent,
+                ArmorPiece.Gorget => GorgetWeightPercent,
+                ArmorPiece.Gloves => GlovesWeightPercent,
+                ArmorPiece.FullSet => SuitWeightPercent * FullSetSharePercent / PercentScale,
+                _ => WholeWeightPercent
+            };
+
+    /// <summary>
+    /// The piece of a suit a real armor item is, read from the layer it is worn on. A shield, a
+    /// weapon, and armor with no wear layer are whole.
+    /// </summary>
+    public static ArmorPiece PieceOf(Item item) =>
+        item is BaseArmor and not BaseShield
+            ? item.Layer switch
+            {
+                Layer.InnerTorso or Layer.OuterTorso or Layer.Shirt => ArmorPiece.Chest,
+                Layer.InnerLegs or Layer.OuterLegs or Layer.Pants => ArmorPiece.Legs,
+                Layer.Arms => ArmorPiece.Arms,
+                Layer.Helm => ArmorPiece.Helm,
+                Layer.Gloves => ArmorPiece.Gloves,
+                Layer.Neck => ArmorPiece.Gorget,
+                _ => ArmorPiece.Whole
+            }
+            : ArmorPiece.Whole;
 
     public static GoodsRow RowOf(Item item)
     {
@@ -215,9 +306,9 @@ public static class Appraisal
         return null;
     }
 
-    /// <summary>What a real item is, as a claim: its row, count, mark and magic.</summary>
+    /// <summary>What a real item is, as a claim: its row, count, mark, magic and piece.</summary>
     public static GoodsClaim ClaimOf(Item item) =>
-        new(RowOf(item), item?.Amount ?? 1, IsExceptional(item), MagicLevelOf(item));
+        new(RowOf(item), item?.Amount ?? 1, IsExceptional(item), MagicLevelOf(item), PieceOf(item));
 
     public static bool IsExceptional(Item item) =>
         item is BaseWeapon { Quality: WeaponQuality.Exceptional } or BaseArmor { Quality: ArmorQuality.Exceptional }
@@ -275,17 +366,21 @@ public static class Appraisal
         claim = new GoodsClaim(
             best,
             best.IsGear ? 1 : CountBefore(words, nounAt),
-            best.IsGear && HasAny(padded, ExceptionalWords),
-            best.IsGear ? MagicHeard(padded, best.Kind) : NoMagic
+            (best.IsGear || best.Key == ClothingKey) && HasAny(padded, ExceptionalWords),
+            best.IsGear ? MagicHeard(padded, best.Kind) : NoMagic,
+            best.Kind == GoodsKind.Armor ? PieceHeard(padded) : ArmorPiece.Whole
         );
         return true;
     }
 
-    /// <summary>"GM halberd", "vanq halberd", "100 regs", "regs".</summary>
+    /// <summary>"GM halberd", "vanq halberd", "GM plate chest", "100 regs", "regs".</summary>
     public static string ClaimNoun(GoodsClaim claim)
     {
         var row = claim.Row ?? Other;
-        return Named(row.IsGear ? 0 : claim.Amount, claim.Exceptional, row.Kind, claim.MagicLevel, row.Noun);
+        var name = row.Kind == GoodsKind.Armor && claim.Piece != ArmorPiece.Whole && ArmorStems.TryGetValue(row.Key, out var stem)
+            ? $"{stem} {PieceNouns[claim.Piece]}"
+            : row.Noun;
+        return Named(row.IsGear ? 0 : claim.Amount, claim.Exceptional, row.Kind, claim.MagicLevel, name);
     }
 
     /// <summary>What a real item is called aloud: "GM halberd", "vanq katana", "20 iron ingots".</summary>
@@ -352,6 +447,28 @@ public static class Appraisal
         }
 
         return level;
+    }
+
+    /// <summary>The piece of a suit an item type's name says: "PlateGorget" is a gorget, "Katana" is whole.</summary>
+    public static ArmorPiece PieceNamed(string typeName) =>
+        string.IsNullOrEmpty(typeName) ? ArmorPiece.Whole : PieceHeard($"{Space}{SplitWords(typeName)}{Space}");
+
+    // The piece named in the words, the longest phrase first; whole when none is named.
+    private static ArmorPiece PieceHeard(string padded)
+    {
+        var piece = ArmorPiece.Whole;
+        var length = 0;
+
+        foreach (var (word, named) in PieceSpellings)
+        {
+            if (word.Length > length && padded.Contains($"{Space}{word}{Space}", StringComparison.Ordinal))
+            {
+                piece = named;
+                length = word.Length;
+            }
+        }
+
+        return piece;
     }
 
     private static bool HasAny(string padded, string[] phrases)

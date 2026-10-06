@@ -145,4 +145,36 @@ public class TradeParserTests
     [Fact]
     public void Words_DropsTheListenersNameAndPunctuation() =>
         Assert.Equal(["how", "much", "1,200"], TradeParser.Words("Ulric, how much? 1,200!", Seller));
+
+    [Theory]
+    [InlineData("wtb gm plate chest")]
+    [InlineData("buying gm katana 1k")]
+    [InlineData("looking for gm plate legs")]
+    public void Read_AWtbNamingGoodsIsAWant(string line)
+    {
+        var intent = TradeParser.Read(line, listenerName: null, engaged: false, standing: NoStanding);
+
+        Assert.Equal(TradeIntentKind.Want, intent.Kind);
+        Assert.NotNull(intent.Goods);
+    }
+
+    [Theory]
+    [InlineData("can you make me a gm katana")]
+    [InlineData("make me a plate chest")]
+    [InlineData("i need a full plate suit")]
+    [InlineData("do you take orders")]
+    [InlineData("u take orders?")]
+    public void Read_AskingForWorkIsAnOrder(string line) =>
+        Assert.Equal(TradeIntentKind.Order, TradeParser.Read(line, listenerName: null, engaged: false, standing: NoStanding).Kind);
+
+    [Theory]
+    [InlineData("is my order ready")]
+    [InlineData("ready yet?")]
+    [InlineData("here to pick up")]
+    public void Read_AskingAfterAnOrder(string line) =>
+        Assert.Equal(TradeIntentKind.OrderStatus, TradeParser.Read(line, listenerName: null, engaged: false, standing: NoStanding).Kind);
+
+    [Fact]
+    public void Read_InsideAHaggle_IWantToBuyStaysAYes() =>
+        Assert.Equal(TradeIntentKind.Accept, TradeParser.Read("i want to buy", listenerName: null, engaged: true, standing: Standing).Kind);
 }

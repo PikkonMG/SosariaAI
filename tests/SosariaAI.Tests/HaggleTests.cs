@@ -162,4 +162,15 @@ public class HaggleTests
 
         Assert.True(seller.Limit > buyer.Limit, "only sides whose ranges never overlap fail to meet");
     }
+
+    [Fact]
+    public void Fixed_IsAgreedFromTheStart()
+    {
+        const int deposit = 1650;
+        var haggle = Haggle.Fixed(deposit);
+
+        Assert.Equal(deposit, haggle.Agreed);
+        Assert.False(haggle.IsOpen);
+        Assert.Equal(HaggleSide.Sells, haggle.Side);
+    }
 }

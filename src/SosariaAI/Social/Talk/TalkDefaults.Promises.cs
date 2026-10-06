@@ -31,12 +31,14 @@ public static partial class TalkDefaults
     };
 
     /// <summary>
-    /// True when a row of <paramref name="category"/> may be said: not a retired default, and not a
-    /// promise in a promise-free category. An operator's file is never rewritten, so the talk
-    /// library asks this of every row it loads.
+    /// True when a row of <paramref name="category"/> may be said: not a retired default, not a
+    /// promise in a promise-free category, no repair offer, and not an order line outside the one
+    /// category the order desk backs (<see cref="TalkCategory.CraftTakingOrders"/>). An operator's
+    /// file is never rewritten, so the talk library asks this of every row it loads.
     /// </summary>
     public static bool Keeps(string category, string line) =>
-        !IsRetired(category, line) && !(PromiseFree.Contains(category) && PromiseLines.IsPromise(line));
+        !IsRetired(category, line) && !(PromiseFree.Contains(category) && PromiseLines.IsPromise(line)) &&
+        !OrderLines.ClaimsRepairs(line) && !(OrderLines.IsOrderTalk(line) && category != TalkCategory.CraftTakingOrders);
 
     private static bool IsRetired(string category, string line)
     {

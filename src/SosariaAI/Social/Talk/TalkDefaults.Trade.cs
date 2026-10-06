@@ -48,10 +48,19 @@ public static partial class TalkDefaults
             ]
         ),
         new(
+            TalkCategory.CraftTakingOrders,
+            "a crafter at its station that can take an order right now. {item} is the trade's goods.",
+            [
+                "taking orders, {item} and more", "gm {item} made to order, ask me", "orders open, tell me what u need",
+                "taking orders for {item}", "need {item}? i take orders", "orders open here, just ask", "taking orders, gm work only",
+                "tell me what u need, ill make it", "taking orders today, {item} mostly", "custom {item}, ask me"
+            ]
+        ),
+        new(
             TalkCategory.SmithTalk,
             "a smith at work.",
             [
-                "anyone need repairs?", "ingots r so expensive", "gm smith here, taking orders", "need iron ingots, anyone?",
+                "ingots r so expensive", "need iron ingots, anyone?",
                 "this forge is always crowded", "90 smith, almost there", "making kryss for skill, dont judge",
                 "anyone got colored ore?", "[eras: ml,modern] runic hammers anyone?", "selling plate at the bank later",
                 "halberds for skill, so boring", "someone buy these daggers pls"
@@ -62,7 +71,7 @@ public static partial class TalkDefaults
             "a tailor at work.",
             [
                 "need cloth, anyone?", "sewing for skill, zzz", "bolts of cloth r cheap at the weaver", "anyone want dyed robes?",
-                "gm tailor taking orders", "making caps for skill lol", "need hides for leather", "studded armor for sale later",
+                "making caps for skill lol", "need hides for leather", "studded armor for sale later",
                 "this is so slow", "who wants a fancy shirt", "[eras: ml,modern] need spined leather"
             ]
         ),
@@ -88,9 +97,9 @@ public static partial class TalkDefaults
             TalkCategory.CraftAsk,
             "a shopper asks a crafter who just finished a batch. {name} is the crafter, {item} its goods.",
             [
-                "{name} u selling any {item}?", "how much for {item}?", "u take orders {name}?", "got any {item} left?",
-                "{name} can u make me some {item}?", "whats {item} going for?", "nice work {name}, selling?", "need {item}, u got any?",
-                "{name} u gm yet?", "any exceptional {item}?"
+                "{name} u selling any {item}?", "how much for {item}?", "got any {item} left?",
+                "whats {item} going for?", "nice work {name}, selling?", "need {item}, u got any?",
+                "{name} u gm yet?", "any exceptional {item}?", "{name} got any gm {item}?", "is that {item} for sale {name}?"
             ]
         ),
         new(
