@@ -194,9 +194,9 @@ public sealed class UpgradeGearSkill : Skill
                (needs.MayUpgrade ? CraftedGear.OfferFor(character) : null);
     }
 
-    /// <summary>The gold reserve the pack keeps for this person (<see cref="GearPlan.PackReserve"/>).</summary>
+    /// <summary>The gold reserve the pack keeps for this person (<see cref="GearPlan.ReserveFor"/>).</summary>
     private static int PackReserve(SosariaCharacter character) =>
-        GearPlan.PackReserve(Banker.GetBalance(character), SosariaSettings.GearGoldReserve);
+        GearPlan.ReserveFor(SpareKit.Armed(character), Banker.GetBalance(character), SosariaSettings.GearGoldReserve);
 
     /// <summary>
     /// The first piece, in kit order, that the spare kit in the bank box and the pack both lack

@@ -73,6 +73,12 @@ public static class BankTellerRules
     /// <summary>A pack below this share of walking money has a reason to visit the banker.</summary>
     public const double LowPurseShare = 0.25;
 
+    /// <summary>The gold a pack keeps when it fills the rebuy fund: the low purse line.</summary>
+    public const int PocketMoney = (int)(WalkingMoney * LowPurseShare);
+
+    /// <summary>No rebuy fund kept in the box.</summary>
+    public const int NoFund = 0;
+
     /// <summary>A pack above this multiple of walking money has a reason to bank the surplus.</summary>
     public const int HeavyPurseMultiple = 3;
 
@@ -105,41 +111,55 @@ public static class BankTellerRules
     public static int WithdrawCeiling(bool mondainsLegacy) =>
         mondainsLegacy ? ModernWithdrawCeiling : ClassicWithdrawCeiling;
 
-    /// <summary>Gold above walking money that goes into the box, or 0 when too little to bother.</summary>
-    public static int DepositAmount(int packGold)
+    /// <summary>
+    /// The rebuy fund an armed person keeps in its box (<see cref="GearPlan.RebuyFund"/>); one
+    /// without its arms keeps none and draws it to dress.
+    /// </summary>
+    public static int FundKept(bool armed, int rebuyFund) => armed ? rebuyFund : NoFund;
+
+    /// <summary>
+    /// Gold that goes into the box, or 0 when too little to bother: the surplus above walking
+    /// money, and first what the rebuy <paramref name="fund"/> lacks, down to
+    /// <see cref="PocketMoney"/>. Only gold above walking money went in, so a person with less
+    /// carried it all, lost it with its body, and found its box empty.
+    /// </summary>
+    public static int DepositAmount(int packGold, int balance, int fund)
     {
-        var surplus = packGold - WalkingMoney;
-        return surplus >= MinTransaction ? surplus : 0;
+        var amount = Math.Max(packGold - WalkingMoney, FundTopUp(packGold, balance, fund));
+        return amount >= MinTransaction ? amount : 0;
     }
 
     /// <summary>
     /// The round amount to draw to refill walking money: never more than the account holds
-    /// or the banker allows at once, and 0 when the pack already carries enough.
+    /// above the rebuy <paramref name="fund"/> or the banker allows at once, and 0 when the
+    /// pack already carries enough.
     /// </summary>
-    public static int WithdrawAmount(int packGold, int balance, int ceiling)
+    public static int WithdrawAmount(int packGold, int balance, int ceiling, int fund)
     {
         var need = WalkingMoney - Math.Max(0, packGold);
+        var spare = balance - Math.Max(0, fund);
 
-        if (need < MinTransaction || balance < MinTransaction || ceiling < MinTransaction)
+        if (need < MinTransaction || spare < MinTransaction || ceiling < MinTransaction)
         {
             return 0;
         }
 
         var wanted = RoundUp(need);
-        var available = RoundDown(Math.Min(balance, ceiling));
+        var available = RoundDown(Math.Min(spare, ceiling));
         return Math.Min(wanted, available);
     }
 
     public static string WithdrawLine(int amount) => $"{WithdrawWord} {amount}";
 
     /// <summary>
-    /// A purse worth a trip to the banker: too heavy to carry while the box takes gold
-    /// (<paramref name="boxTakesGold"/>), or too light to shop. A box that refuses the gold is
-    /// no reason for a trip: the person keeps its gold in the pack.
+    /// A purse worth a trip to the banker: too heavy to carry, or able to fill the rebuy
+    /// <paramref name="fund"/>, while the box takes gold (<paramref name="boxTakesGold"/>); or
+    /// too light to shop over an account that holds more than the fund. A box that refuses the
+    /// gold is no reason for a trip: the person keeps its gold in the pack.
     /// </summary>
-    public static bool PurseNeedsBanker(int packGold, int balance, bool boxTakesGold) =>
-        packGold > WalkingMoney * HeavyPurseMultiple && boxTakesGold ||
-        packGold < WalkingMoney * LowPurseShare && balance >= MinTransaction;
+    public static bool PurseNeedsBanker(int packGold, int balance, bool boxTakesGold, int fund) =>
+        boxTakesGold && (packGold > WalkingMoney * HeavyPurseMultiple || FundTopUp(packGold, balance, fund) >= MinTransaction) ||
+        packGold < PocketMoney && balance - Math.Max(0, fund) >= MinTransaction;
 
     /// <summary>
     /// The next move at the bank. The box opens only where the banker hears, and never for a
@@ -167,6 +187,10 @@ public static class BankTellerRules
     }
 
     public static bool AsksBalance(int roll) => Math.Abs(roll % PercentScale) < BalanceAskPercent;
+
+    // What the fund lacks, as far as the pack holds it above its pocket money; negative when the pack is below that.
+    private static int FundTopUp(int packGold, int balance, int fund) =>
+        Math.Min(Math.Max(0, fund - Math.Max(0, balance)), packGold - PocketMoney);
 
     private static int RoundUp(int amount) => (amount + RoundTo - 1) / RoundTo * RoundTo;
 

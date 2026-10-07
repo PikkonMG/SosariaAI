@@ -1,5 +1,6 @@
 using Server;
 using Server.Items;
+using SosariaAI.Combat;
 using SosariaAI.Economy;
 using SosariaAI.Mobiles;
 using SosariaAI.Skills;
@@ -169,6 +170,28 @@ public class BankDepositBankableTests
 
         Assert.True(BankTeller.BoxTakesGold(box));
         Assert.False(BankTeller.BoxTakesGold(null));
+    }
+
+    /// <summary>
+    /// An armed fighter with gold above its pocket money and an empty box goes to fill its
+    /// rebuy fund; stripped of its tunic it keeps its gold for the rebuy and makes no trip.
+    /// </summary>
+    [RealMapFact]
+    public void HasErrand_AnArmedFighterFillsItsRebuyFund_AStrippedOneKeepsItsGold()
+    {
+        var owner = Carrier("Felucca:BankErrand#7");
+        owner.Build = BuildPresets.SwordsmanNovice();
+        TestArms.Arm(owner);
+        owner.AddToBackpack(new Gold(BankTellerRules.PocketMoney + BankTellerRules.MinTransaction));
+        _ = owner.BankBox;
+
+        Assert.True(SpareKit.Armed(owner));
+        Assert.True(BankDepositSkill.HasErrand(owner));
+
+        owner.FindItemOnLayer(Layer.InnerTorso).Delete();
+
+        Assert.False(SpareKit.Armed(owner));
+        Assert.False(BankDepositSkill.HasErrand(owner));
     }
 
     private const int HeavyPurse = BankTellerRules.WalkingMoney * BankTellerRules.HeavyPurseMultiple + 1;

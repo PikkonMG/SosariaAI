@@ -27,6 +27,36 @@ public class GearPlanTests
         Assert.False(GearPlan.Affordable(Reserve + GearPlan.WeaponBudget - 1, GearPlan.WeaponBudget, Reserve));
     }
 
+    [Theory]
+    [InlineData(true, 0, Reserve)]
+    [InlineData(true, Reserve, 0)]
+    [InlineData(false, 0, GearPlan.NoReserve)]
+    public void ReserveFor_APersonWithoutItsArmsSpendsTheReserveToDress(bool armed, int bankGold, int reserve) =>
+        Assert.Equal(reserve, GearPlan.ReserveFor(armed, bankGold, Reserve));
+
+    [Fact]
+    public void RebuyFund_TheCheapestSuitOfItsSlots_ItsWeaponAndShield()
+    {
+        const int femaleStuddedChest = 62;
+        const int studdedLegs = 67;
+        const int studdedGloves = 45;
+        const int woodenShield = 30;
+        const int maleStuddedChest = 75;
+        const int studdedArms = 57;
+        const int studdedGorget = 50;
+        const int leatherCap = 10;
+
+        Assert.Equal(
+            femaleStuddedChest + studdedLegs + studdedGloves + GearPlan.WeaponBudget,
+            GearPlan.RebuyFund(KitArmor.Light, female: true, carriesWeapon: true, carriesShield: false)
+        );
+        Assert.Equal(
+            maleStuddedChest + studdedLegs + studdedArms + studdedGloves + studdedGorget + leatherCap + GearPlan.WeaponBudget + woodenShield,
+            GearPlan.RebuyFund(KitArmor.Heavy, female: false, carriesWeapon: true, carriesShield: true)
+        );
+        Assert.Equal(0, GearPlan.RebuyFund(KitArmor.None, female: false, carriesWeapon: false, carriesShield: false));
+    }
+
     [Fact]
     public void PackReserve_BankGoldCoversTheReserveFirst()
     {

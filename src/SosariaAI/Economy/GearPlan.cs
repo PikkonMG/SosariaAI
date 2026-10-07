@@ -203,6 +203,47 @@ public static class GearPlan
     public static int PackReserve(int bankGold, int reserve) => Math.Max(0, reserve - Math.Max(0, bankGold));
 
     /// <summary>
+    /// The reserve a gear buy keeps: the pack's part of it (<see cref="PackReserve"/>) for an
+    /// armed person, none for one without its arms, which spends to its last coin to dress.
+    /// The bank's rebuy fund came back to the pack, and the reserve held it there unspent.
+    /// </summary>
+    public static int ReserveFor(bool armed, int bankGold, int reserve) => armed ? PackReserve(bankGold, reserve) : NoReserve;
+
+    /// <summary>
+    /// The gold an armed person keeps in its bank to dress again after a death: the cheapest
+    /// shelf piece of each slot its armor covers, its weapon and its shield. Live, 45 stripped
+    /// blues carried all their gold and lost it with the body; their boxes held nothing, and
+    /// they fought on naked.
+    /// </summary>
+    public static int RebuyFund(KitArmor weight, bool female, bool carriesWeapon, bool carriesShield)
+    {
+        var fund = (carriesWeapon ? WeaponBudget : 0) + (carriesShield ? CheapestShieldPrice() : 0);
+        var slots = GearLadder.Slots(weight);
+
+        for (var i = 0; i < slots.Count; i++)
+        {
+            fund += GearLadder.CheapestPrice(slots[i], female);
+        }
+
+        return fund;
+    }
+
+    private static int CheapestShieldPrice()
+    {
+        var cheapest = 0;
+
+        foreach (var price in ShieldPrices.Values)
+        {
+            if (cheapest == 0 || price < cheapest)
+            {
+                cheapest = price;
+            }
+        }
+
+        return cheapest;
+    }
+
+    /// <summary>
     /// Rank of a worn piece on the shop scale. A bare slot scores zero; gear the tables do
     /// not know counts as <see cref="UnlistedGearScore"/>.
     /// </summary>

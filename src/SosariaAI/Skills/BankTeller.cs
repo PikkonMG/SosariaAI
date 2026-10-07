@@ -3,6 +3,7 @@ using Server;
 using Server.Items;
 using Server.Logging;
 using Server.Mobiles;
+using SosariaAI.Combat;
 using SosariaAI.Configuration;
 using SosariaAI.Economy;
 using SosariaAI.Logging;
@@ -117,13 +118,14 @@ public static class BankTeller
     }
 
     /// <summary>
-    /// Drags pack gold above walking money into the opened box, as much as its piles and free
-    /// slots take; the rest stays in the pack. Returns the gold moved.
+    /// Drags pack gold above walking money, and first what the rebuy fund lacks, into the
+    /// opened box, as much as its piles and free slots take; the rest stays in the pack.
+    /// Returns the gold moved.
     /// </summary>
     public static int DepositSurplus(SosariaCharacter person)
     {
         var pack = person?.Backpack;
-        var amount = BankTellerRules.DepositAmount(pack?.GetAmount(typeof(Gold)) ?? 0);
+        var amount = BankTellerRules.DepositAmount(pack?.GetAmount(typeof(Gold)) ?? 0, Banker.GetBalance(person), FundOf(person));
 
         if (amount <= 0 || person.BankBox?.Opened != true || !pack.ConsumeTotal(typeof(Gold), amount))
         {
@@ -182,7 +184,8 @@ public static class BankTeller
         var amount = BankTellerRules.WithdrawAmount(
             before,
             Banker.GetBalance(person),
-            BankTellerRules.WithdrawCeiling(Core.ML)
+            BankTellerRules.WithdrawCeiling(Core.ML),
+            FundOf(person)
         );
 
         if (amount <= 0)
@@ -253,16 +256,33 @@ public static class BankTeller
     }
 
     /// <summary>
-    /// True when the purse is heavy enough to bank into a box that takes gold
-    /// (<see cref="BoxTakesGold"/>), or light enough to refill.
+    /// True when the purse is heavy enough to bank, or can fill the rebuy fund, into a box that
+    /// takes gold (<see cref="BoxTakesGold"/>), or light enough to refill.
     /// </summary>
     public static bool PurseNeedsBanker(SosariaCharacter person) =>
         person?.Backpack != null &&
         BankTellerRules.PurseNeedsBanker(
             person.Backpack.GetAmount(typeof(Gold)),
             Banker.GetBalance(person),
-            BoxTakesGold(person.BankBox)
+            BoxTakesGold(person.BankBox),
+            FundOf(person)
         );
+
+    /// <summary>The rebuy fund the person keeps in its box (<see cref="BankTellerRules.FundKept"/>).</summary>
+    private static int FundOf(SosariaCharacter person)
+    {
+        if (person == null)
+        {
+            return BankTellerRules.NoFund;
+        }
+
+        var template = ClassBuilds.TemplateOf(person);
+
+        return BankTellerRules.FundKept(
+            SpareKit.Armed(person),
+            GearPlan.RebuyFund(template.Armor, person.Female, template.Weapon != null, template.Shield)
+        );
+    }
 
     /// <summary>
     /// The gold coins in the pack and the bank box together: what <see cref="PayPackThenBank"/>

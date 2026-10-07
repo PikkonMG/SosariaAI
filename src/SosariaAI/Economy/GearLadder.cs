@@ -175,7 +175,7 @@ public static class GearLadder
         {
             var piece = Shelf[i];
 
-            if (piece.Slot == slot && piece.Material == material && (piece.Female == null || piece.Female == female))
+            if (piece.Slot == slot && piece.Material == material && Fits(piece, female))
             {
                 return piece;
             }
@@ -183,6 +183,26 @@ public static class GearLadder
 
         return null;
     }
+
+    /// <summary>The shelf price of the cheapest piece of any rung for the slot; 0 when no shelf stocks one.</summary>
+    public static int CheapestPrice(GearSlot slot, bool female)
+    {
+        var cheapest = 0;
+
+        for (var i = 0; i < Shelf.Length; i++)
+        {
+            var piece = Shelf[i];
+
+            if (piece.Slot == slot && Fits(piece, female) && (cheapest == 0 || piece.Price < cheapest))
+            {
+                cheapest = piece.Price;
+            }
+        }
+
+        return cheapest;
+    }
+
+    private static bool Fits(GearPiece piece, bool female) => piece.Female == null || piece.Female == female;
 
     /// <summary>
     /// The best shelf piece for the slot at or below <paramref name="material"/>: a chain
