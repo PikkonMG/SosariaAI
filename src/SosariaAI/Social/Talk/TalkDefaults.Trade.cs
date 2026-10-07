@@ -48,6 +48,15 @@ public static partial class TalkDefaults
             ]
         ),
         new(
+            TalkCategory.ItemIdentified,
+            "a merchant that just identified a customer's magic piece for its fee. {name} is the customer, {item} the piece as named.",
+            [
+                "{name} its a {item}", "thats a {item} {name}", "{item}, nice one {name}", "{name} u got a {item}",
+                "{item} {name}, not bad", "its a {item}", "{name}: {item}", "{item}, enjoy {name}",
+                "there u go {name}, {item}", "{item}, good find {name}"
+            ]
+        ),
+        new(
             TalkCategory.CraftTakingOrders,
             "a crafter at its station that can take an order right now. {item} is the trade's goods.",
             [

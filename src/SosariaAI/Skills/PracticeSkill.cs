@@ -1,4 +1,5 @@
 using Server;
+using SosariaAI.Configuration;
 using SosariaAI.Mobiles;
 
 namespace SosariaAI.Skills;
@@ -6,6 +7,7 @@ namespace SosariaAI.Skills;
 /// <summary>
 /// One try of a plain practice kind from <see cref="PracticeSkillTable"/>: CheckSkill in the
 /// kind's practice window where the person stands. A study kind fails with nobody else near.
+/// Item Identification tries a real unidentified piece first (<see cref="ItemIdWork.Rep"/>).
 /// </summary>
 public sealed class PracticeSkill : Skill
 {
@@ -34,7 +36,12 @@ public sealed class PracticeSkill : Skill
             return SkillStatus.Failed;
         }
 
-        _character.CheckSkill(_rule.Skill, _rule.PracticeMin, _rule.PracticeMax);
+        // Item Identification practice works on a real piece first: the person's own, or a customer's.
+        if (_rule.Kind != SkillKinds.ItemId || !ItemIdWork.Rep(_character))
+        {
+            _character.CheckSkill(_rule.Skill, _rule.PracticeMin, _rule.PracticeMax);
+        }
+
         return SkillStatus.Done;
     }
 

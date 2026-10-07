@@ -133,6 +133,9 @@ public static class TalkCategory
 
     /// <summary>A crafter at its station that can take an order now (<see cref="Skills.StationStall"/>).</summary>
     public const string CraftTakingOrders = "craft_orders";
+
+    /// <summary>A merchant that just named a customer's magic piece for the fee (<see cref="Skills.ItemIdWork"/>).</summary>
+    public const string ItemIdentified = "item_identified";
     public const string SmithTalk = "smith_talk";
     public const string TailorTalk = "tailor_talk";
     public const string CarpenterTalk = "carpenter_talk";
