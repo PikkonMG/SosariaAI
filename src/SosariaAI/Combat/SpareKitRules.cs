@@ -136,8 +136,16 @@ public static class SpareKitRules
     /// <summary>A combat piece the bag and the pack both lack: the spare kit's next buy.</summary>
     public static bool Lacks(bool combatPiece, bool inBag, bool inPack) => combatPiece && !inBag && !inPack;
 
-    /// <summary>True when the person's combat kit is gone, or its weapon when its build carries one.</summary>
-    public static bool LacksArms(bool kitMissing, bool carriesWeapon, bool armed) => kitMissing || carriesWeapon && !armed;
+    /// <summary>
+    /// True when the person's combat kit is gone, its weapon when its build carries one, or its
+    /// body armor when its build wears a chest piece (<paramref name="slots"/>, the
+    /// <see cref="GearLadder.Slots"/> of its armor). One kit piece is not the kit: live, a
+    /// stripped mage kept its spellbook and a stripped fighter bought back its sword, both read
+    /// as armed, and they drew on Chaos and answered dungeon calls naked; 143 rebuys of that run
+    /// wanted no piece they could pay for.
+    /// </summary>
+    public static bool LacksArms(bool kitMissing, bool carriesWeapon, bool armed, IReadOnlyList<GearSlot> slots, bool bodyArmored) =>
+        kitMissing || carriesWeapon && !armed || Covers(slots, GearSlot.Chest) && !bodyArmored;
 
     /// <summary>
     /// A red does not ride out while it lacks arms (<see cref="LacksArms"/>); it re-arms in the

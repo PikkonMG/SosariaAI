@@ -111,7 +111,8 @@ public class FightOddsTests : IDisposable
         var spot = FriendsSpot;
         var self = Fighter(Strong(spot));
         var foe = Weak(Beside(spot, Next));
-        var mates = new SosariaCharacter[FoeSideMates];
+        // In its tunic a master fighter stands alone to four weak foes; a fifth tips it.
+        var mates = new SosariaCharacter[FoeSideMates + SpareMates];
 
         for (var i = 0; i < mates.Length; i++)
         {

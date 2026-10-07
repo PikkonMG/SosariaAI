@@ -1209,10 +1209,14 @@ public static class LfgBoard
         return count;
     }
 
-    /// <summary>A weapon in hand, or Magery and a spellbook to fight with.</summary>
+    /// <summary>
+    /// Armed (<see cref="SpareKit.Armed"/>), with a weapon in hand or Magery and a spellbook to
+    /// fight with. A weapon or a book alone let a stripped mage answer an orc cave call naked.
+    /// </summary>
     private static bool ReadyToFight(SosariaCharacter character) =>
-        GearScore.HasWeapon(character) ||
-        SpellBook.IsCaster(character.Skills.Magery.Value) && Spellbook.FindRegular(character) != null;
+        SpareKit.Armed(character) &&
+        (GearScore.HasWeapon(character) ||
+         SpellBook.IsCaster(character.Skills.Magery.Value) && Spellbook.FindRegular(character) != null);
 
     /// <summary>A dungeon run or a hunt that has not reached its fight yet.</summary>
     private static bool OnFreshTrip(SosariaCharacter character) =>

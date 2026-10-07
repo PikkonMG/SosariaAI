@@ -61,7 +61,16 @@ public class SpareKitRulesTests
     [InlineData(false, true, true, false)]
     [InlineData(false, false, false, false)]
     public void LacksArms_NoKitOrNoWeaponForAWeaponBuild(bool kitMissing, bool carriesWeapon, bool armed, bool lacks) =>
-        Assert.Equal(lacks, SpareKitRules.LacksArms(kitMissing, carriesWeapon, armed));
+        Assert.Equal(lacks, SpareKitRules.LacksArms(kitMissing, carriesWeapon, armed, GearLadder.Slots(KitArmor.Light), bodyArmored: true));
+
+    [Theory]
+    [InlineData(KitArmor.Light, false, true)]
+    [InlineData(KitArmor.Heavy, false, true)]
+    [InlineData(KitArmor.Light, true, false)]
+    [InlineData(KitArmor.None, false, false)]
+    [InlineData(KitArmor.Work, false, false)]
+    public void LacksArms_AnArmorBuildWithNoChestPiece_EvenWithItsBookOrWeapon(KitArmor weight, bool bodyArmored, bool lacks) =>
+        Assert.Equal(lacks, SpareKitRules.LacksArms(kitMissing: false, carriesWeapon: true, armed: true, GearLadder.Slots(weight), bodyArmored));
 
     [Theory]
     [InlineData(true, true, true, true)]

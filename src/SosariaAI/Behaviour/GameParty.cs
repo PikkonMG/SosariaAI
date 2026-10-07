@@ -434,7 +434,7 @@ public static class GameParty
             huntGoal: character.LastScore?.Goal.Kind is GoalKind.Hunt or GoalKind.Dungeon,
             healthy: hits >= PartyInviteRules.MinHitsFraction,
             powerFits: InviteAskRules.MayInviteFighter(
-                GearScore.HasWeapon(character),
+                GearScore.HasWeapon(character) && SpareKit.Armed(character),
                 CharacterPower.For(character),
                 CharactersFile.GraveyardRequiredPower
             ) && PartyInviteRules.PowerFits(

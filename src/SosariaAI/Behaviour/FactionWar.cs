@@ -58,7 +58,7 @@ public static class FactionWar
     public static bool GroundAllows(Mobile self, Mobile foe) =>
         FactionRules.MayFightAt(EngineGuilds.Opposed(self, foe), HasRoomToFight(self), HasRoomToFight(foe));
 
-    /// <summary>A character with its combat kit and its weapon (<see cref="SpareKit.Armed"/>); a real player always counts as armed.</summary>
+    /// <summary>A character with its combat kit, its weapon and its body armor (<see cref="SpareKit.Armed"/>); a real player always counts as armed.</summary>
     public static bool Armed(Mobile mobile) => mobile is not SosariaCharacter character || SpareKit.Armed(character);
 
     /// <summary>A person who stood down at the line inside the grace: no new foe draws on it, and it draws on none.</summary>

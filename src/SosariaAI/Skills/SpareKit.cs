@@ -268,11 +268,7 @@ public static class SpareKit
             return false;
         }
 
-        var lacksArms = SpareKitRules.LacksArms(
-            character.IsCombatKitMissing(),
-            ClassBuilds.TemplateOf(character)?.Weapon != null,
-            GearEquip.CanArm(character)
-        );
+        var lacksArms = LacksArms(character);
 
         return SpareKitRules.MustReArm(
             red: true,
@@ -282,12 +278,25 @@ public static class SpareKit
     }
 
     /// <summary>
-    /// True when the person has its combat kit, and a weapon to hold when its build carries one:
-    /// armed, in a player's word (the other side of <see cref="MustReArm"/>).
+    /// True when the person has its combat kit, a weapon to hold when its build carries one, and
+    /// its body armor on when its build wears armor: armed, in a player's word (the other side of
+    /// <see cref="MustReArm"/>).
     /// </summary>
-    public static bool Armed(SosariaCharacter character) =>
-        character != null && !character.IsCombatKitMissing() &&
-        (ClassBuilds.TemplateOf(character)?.Weapon == null || GearEquip.CanArm(character));
+    public static bool Armed(SosariaCharacter character) => character != null && !LacksArms(character);
+
+    // The kit, the build's weapon and the build's chest piece (SpareKitRules.LacksArms).
+    private static bool LacksArms(SosariaCharacter character)
+    {
+        var template = ClassBuilds.TemplateOf(character);
+
+        return SpareKitRules.LacksArms(
+            character.IsCombatKitMissing(),
+            template?.Weapon != null,
+            GearEquip.CanArm(character),
+            template == null ? [] : GearLadder.Slots(template.Armor),
+            GearScore.SlotRank(character, GearSlot.Chest) > GearScore.UnarmedScore
+        );
+    }
 
     // Takes the pieces the person lacks out of the bag. Logged.
     private static void ReArm(SosariaCharacter character)

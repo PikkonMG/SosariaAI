@@ -1,6 +1,7 @@
 using Server;
 using Server.Items;
 using SosariaAI.Combat;
+using SosariaAI.Economy;
 using SosariaAI.Mobiles;
 using SosariaAI.Skills;
 
@@ -8,7 +9,7 @@ namespace SosariaAI.Tests;
 
 /// <summary>
 /// Arms a test person the way its first day does: the combat pieces of its build's kit in its
-/// pack, and a weapon in hand. Only an armed person draws, is drawn on, or stands to a person's
+/// pack, a weapon in hand and a tunic on. Only an armed person draws, is drawn on, or stands to a person's
 /// blow (<see cref="SpareKit.Armed"/>).
 /// </summary>
 internal static class TestArms
@@ -29,10 +30,15 @@ internal static class TestArms
             }
         }
 
-        // The tile data is not loaded in tests, so the dagger is told which hand it goes in.
+        // The tile data is not loaded in tests, so the dagger and the tunic are told where they go.
         if (!GearEquip.CanArm(character))
         {
             character.AddItem(new Dagger { Layer = Layer.OneHanded });
+        }
+
+        if (GearScore.SlotRank(character, GearSlot.Chest) == GearScore.UnarmedScore)
+        {
+            character.AddItem(new LeatherChest { Layer = Layer.InnerTorso });
         }
 
         return character;
