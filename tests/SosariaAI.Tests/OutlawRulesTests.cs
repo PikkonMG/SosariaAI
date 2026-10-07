@@ -21,28 +21,38 @@ public class OutlawRulesTests
     [Fact]
     public void MayAttack_NeedsOddsAndAPack()
     {
-        Assert.True(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, Pair, NoCrowd, false, Strong, Weak, 0.5));
-        Assert.False(OutlawRules.MayAttack(DispositionKind.Lawful, true, false, Pair, NoCrowd, false, Strong, Weak, 0.5));
-        Assert.False(OutlawRules.MayAttack(DispositionKind.Outlaw, false, false, Pair, NoCrowd, false, Strong, Weak, 0.5));
-        Assert.False(OutlawRules.MayAttack(DispositionKind.Outlaw, true, true, Pair, NoCrowd, false, Strong, Weak, 0.5));
-        Assert.False(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, Pair, NoCrowd, false, Weak, Strong, 0.5));
-        Assert.False(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, Pair, NoCrowd, false, Strong, Weak, 0.1));
+        Assert.True(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, Pair, NoCrowd, false, false, Strong, Weak, 0.5));
+        Assert.False(OutlawRules.MayAttack(DispositionKind.Lawful, true, false, Pair, NoCrowd, false, false, Strong, Weak, 0.5));
+        Assert.False(OutlawRules.MayAttack(DispositionKind.Outlaw, false, false, Pair, NoCrowd, false, false, Strong, Weak, 0.5));
+        Assert.False(OutlawRules.MayAttack(DispositionKind.Outlaw, true, true, Pair, NoCrowd, false, false, Strong, Weak, 0.5));
+        Assert.False(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, Pair, NoCrowd, false, false, Weak, Strong, 0.5));
+        Assert.False(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, Pair, NoCrowd, false, false, Strong, Weak, 0.1));
+    }
+
+    [Fact]
+    public void MayAttack_LoneRedTakesALoneMark()
+    {
+        Assert.True(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, Lone, NoCrowd, false, true, Strong, Weak, 0.5));
+        Assert.False(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, Lone, NoCrowd, false, true, Weak, Strong, 0.5));
+        Assert.False(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, Lone, OutlawRules.CrowdRetreat, false, true, Strong, Weak, 0.5));
+        Assert.True(OutlawRules.LoneMark(OutlawRules.NoOneNear));
+        Assert.False(OutlawRules.LoneMark(OutlawRules.NoOneNear + 1));
     }
 
     [Fact]
     public void MayAttack_LoneRedProwlsTheRoads_ButHoldsItsDungeonHall()
     {
-        Assert.False(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, Lone, NoCrowd, false, Strong, Weak, 0.5));
-        Assert.True(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, Lone, NoCrowd, true, Strong, Weak, 0.5));
+        Assert.False(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, Lone, NoCrowd, false, false, Strong, Weak, 0.5));
+        Assert.True(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, Lone, NoCrowd, true, false, Strong, Weak, 0.5));
     }
 
     [Fact]
     public void MayAttack_BidesBeforeAMob()
     {
-        Assert.False(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, Pair, OutlawRules.CrowdRetreat, false, Strong, Weak, 0.5));
-        Assert.True(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, Pair, OutlawRules.CrowdRetreat - 1, false, Strong, Weak, 0.5));
-        Assert.False(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, BigPack, BigPack + 1, false, Strong, Weak, 0.5));
-        Assert.True(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, BigPack, BigPack, false, Strong, Weak, 0.5));
+        Assert.False(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, Pair, OutlawRules.CrowdRetreat, false, false, Strong, Weak, 0.5));
+        Assert.True(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, Pair, OutlawRules.CrowdRetreat - 1, false, false, Strong, Weak, 0.5));
+        Assert.False(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, BigPack, BigPack + 1, false, false, Strong, Weak, 0.5));
+        Assert.True(OutlawRules.MayAttack(DispositionKind.Outlaw, true, false, BigPack, BigPack, false, false, Strong, Weak, 0.5));
     }
 
     [Fact]

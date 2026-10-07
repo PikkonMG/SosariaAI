@@ -453,12 +453,13 @@ public static class WorldPlay
     /// <summary>
     /// A red's rules, the 1999 way: run from a stronger side, a mob or a bad wound; bring the gang
     /// (and any other red near, half the time) in on a victim; leave any guarded place; loot the
-    /// bodies it made; and pick the next mark only with a pack at its back (a lone red on the
-    /// roads prowls, a dungeon red holds its hall alone) and no mob of blues about: near, hurt,
-    /// isolated and weaker. The gang's power counts, so a pair takes on what one would not. A mark
-    /// it would run from at once is passed over, and so is one <see cref="PassesOverMark"/> names. Leaving
-    /// the guards comes before every other rule, a fight with a real player included: the fight
-    /// held the red in town, and the walk out never started.
+    /// bodies it made; and pick the next mark with no mob of blues about: near, hurt, isolated
+    /// and weaker. A lone red on the roads takes only a mark with no one near it
+    /// (<see cref="OutlawRules.LoneMark"/>); a dungeon red holds its hall alone. The gang's power
+    /// counts, so a pair takes on what one would not. A mark it would run from at once is passed
+    /// over, and so is one <see cref="PassesOverMark"/> names. Leaving the guards comes before
+    /// every other rule, a fight with a real player included: the fight held the red in town,
+    /// and the walk out never started.
     /// </summary>
     public static void ConsiderOutlaw(SosariaCharacter character)
     {
@@ -510,8 +511,8 @@ public static class WorldPlay
             return;
         }
 
-        // Alone on the roads, or before a mob, a red prowls and starts nothing.
-        if (packSize < OutlawRules.MinPack && !inDungeon || OutlawRules.IsMob(blueCrowd, packSize))
+        // Before a mob a red prowls and starts nothing.
+        if (OutlawRules.IsMob(blueCrowd, packSize))
         {
             return;
         }
@@ -545,6 +546,8 @@ public static class WorldPlay
                 continue;
             }
 
+            var peopleNearMark = RedGang.PeopleNear(character, mobile.Location, OutlawRules.AloneRange, mobile);
+
             if (!OutlawRules.MayAttack(
                     character.Disposition,
                     felucca: true,
@@ -552,6 +555,7 @@ public static class WorldPlay
                     packSize,
                     blueCrowd,
                     inDungeon,
+                    OutlawRules.LoneMark(peopleNearMark),
                     selfPower: gangPower,
                     // The victim's side, as the run test reads it: a red that drew on a tamer
                     // or a party member alone ran from "a stronger side" the second after.
@@ -584,7 +588,7 @@ public static class WorldPlay
             var score = OutlawRules.VictimScore(
                 NavMetric.Chebyshev(character.Location, mobile.Location),
                 Vitals.HitsFraction(mobile),
-                RedGang.PeopleNear(character, mobile.Location, OutlawRules.AloneRange, mobile),
+                peopleNearMark,
                 mobile is SosariaCharacter victim ? character.PersonProfile.Tier - victim.PersonProfile.Tier : 0
             );
 

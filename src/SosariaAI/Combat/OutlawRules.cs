@@ -24,8 +24,11 @@ public static class OutlawRules
     /// <summary>Fellow reds this close make a pack; the red itself counts.</summary>
     public const int PackRange = 26;
 
-    /// <summary>Out on the roads a red starts nothing alone: it waits for a pack of this many.</summary>
+    /// <summary>Out on the roads a red alone starts only on a lone mark (<see cref="LoneMark"/>); a pack of this many starts on any.</summary>
     public const int MinPack = 2;
+
+    /// <summary>No one near a mark but the mark itself.</summary>
+    public const int NoOneNear = 0;
 
     /// <summary>Blues this close to a red make the crowd it backs off from.</summary>
     public const int CrowdRange = 12;
@@ -87,9 +90,16 @@ public static class OutlawRules
     public static bool IsMob(int blueCrowd, int packSize) => blueCrowd >= Math.Max(CrowdRetreat, packSize + 1);
 
     /// <summary>
-    /// A red starts on a victim out of the guards' reach on Felucca, never alone on the roads
-    /// (a dungeon red holding its hall is the ambush itself), never in front of a mob, and
-    /// only when the pack's power beats the victim's and its nerve holds.
+    /// A mark with no one near it: the miner or the lone traveler a 1999 mage PK took alone.
+    /// Live, every gang rode out one strong; a red alone started nothing, killed about once a
+    /// day, and earned nothing to re-arm with.
+    /// </summary>
+    public static bool LoneMark(int peopleNear) => peopleNear <= NoOneNear;
+
+    /// <summary>
+    /// A red starts on a victim out of the guards' reach on Felucca; alone on the roads only on
+    /// a <paramref name="loneMark"/> (a dungeon red holding its hall is the ambush itself), never
+    /// in front of a mob, and only when the pack's power beats the victim's and its nerve holds.
     /// </summary>
     public static bool MayAttack(
         DispositionKind disposition,
@@ -98,6 +108,7 @@ public static class OutlawRules
         int packSize,
         int blueCrowd,
         bool inDungeon,
+        bool loneMark,
         int selfPower,
         int targetPower,
         double courage
@@ -108,7 +119,7 @@ public static class OutlawRules
             return false;
         }
 
-        if (packSize < MinPack && !inDungeon || IsMob(blueCrowd, packSize))
+        if (packSize < MinPack && !inDungeon && !loneMark || IsMob(blueCrowd, packSize))
         {
             return false;
         }

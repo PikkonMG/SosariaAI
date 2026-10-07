@@ -488,6 +488,7 @@ public partial class SosariaCharacter : PlayerMobile
                     pack,
                     crowd,
                     inDungeon: Region?.IsPartOf<DungeonRegion>() == true,
+                    loneMark: pack < OutlawRules.MinPack && OutlawRules.LoneMark(RedGang.PeopleNear(this, m.Location, OutlawRules.AloneRange, m)),
                     selfPower: CharacterPower.For(this),
                     targetPower: CharacterPower.For(m),
                     courage: courage
