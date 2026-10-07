@@ -91,6 +91,22 @@ public class SupplyRulesTests
         Assert.Equal(tokens, SupplyRules.ShopTokens(kind));
 
     [Fact]
+    public void FightStoppers_NamesOnlyTheSuppliesThatStopTheFight()
+    {
+        const int none = 0;
+        const int target = 10;
+        SupplyNeed[] needs =
+        [
+            new(SupplyKind.Bandages, none, target),
+            new(SupplyKind.RecallScrolls, none, target),
+            new(SupplyKind.Reagents, none, target)
+        ];
+
+        Assert.Equal("Bandages, Reagents", SupplyRules.FightStoppers(needs));
+        Assert.Equal(string.Empty, SupplyRules.FightStoppers(null));
+    }
+
+    [Fact]
     public void RedRefillable_KeepsWhatTheBankLiftsOrADenShopSells()
     {
         var reagents = new SupplyNeed(SupplyKind.Reagents, 0, SupplyRules.ReagentTarget);

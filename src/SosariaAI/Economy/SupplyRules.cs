@@ -193,6 +193,28 @@ public static class SupplyRules
     public static bool StopsFighting(SupplyKind kind) =>
         kind is not (SupplyKind.RecallScrolls or SupplyKind.TravelReagents or SupplyKind.RecallRunes or SupplyKind.Lockpicks);
 
+    /// <summary>
+    /// The low supplies that stop the fight, named for the log ("Bandages, Reagents"); empty
+    /// for none. A red's run that would not start said only "the reagents or bandages ran
+    /// short", and no log showed which one held it in the Den.
+    /// </summary>
+    public static string FightStoppers(IReadOnlyList<SupplyNeed> needs)
+    {
+        var names = new List<string>();
+
+        for (var i = 0; i < (needs?.Count ?? 0); i++)
+        {
+            if (StopsFighting(needs[i].Kind))
+            {
+                names.Add(needs[i].Kind.ToString());
+            }
+        }
+
+        return string.Join(NameSeparator, names);
+    }
+
+    private const string NameSeparator = ", ";
+
     /// <summary>True when a low supply stops the fight: the next step is a shop, not the field.</summary>
     public static bool AnyStopsFighting(IReadOnlyList<SupplyNeed> needs)
     {

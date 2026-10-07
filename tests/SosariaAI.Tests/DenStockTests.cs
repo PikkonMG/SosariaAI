@@ -21,4 +21,13 @@ public class DenStockTests
     [Fact]
     public void SellsAll_NoWorldLoaded_IsNotSold() =>
         Assert.False(DenStock.SellsAll(SupplyKind.Bandages, [(typeof(Bandage), 1)]));
+
+    [Fact]
+    public void PaysAtTheDen_NoShelfIsNoRefillHoweverRich()
+    {
+        const int richPurse = 100000;
+
+        Assert.False(DenStock.PaysAtTheDen(SupplyKind.Bandages, [(typeof(Bandage), 1)], richPurse, richPurse));
+        Assert.False(DenStock.PaysAtTheDen(SupplyKind.Bandages, null, richPurse, richPurse));
+    }
 }

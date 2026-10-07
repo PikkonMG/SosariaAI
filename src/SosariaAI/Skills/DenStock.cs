@@ -21,7 +21,7 @@ public static class DenStock
     /// <summary>How long one look at a Den shelf answers for.</summary>
     public static readonly TimeSpan Freshness = TimeSpan.FromMinutes(1);
 
-    private static readonly Dictionary<(SupplyKind Kind, Type Type), (bool Sells, DateTime Until)> Looks = [];
+    private static readonly Dictionary<(SupplyKind Kind, Type Type), (bool Sells, int Price, DateTime Until)> Looks = [];
 
     /// <summary>True when a Den shop has every type on <paramref name="lines"/> of the supply on its shelf.</summary>
     public static bool SellsAll(SupplyKind kind, IReadOnlyList<(Type Type, int Amount)> lines)
@@ -35,7 +35,7 @@ public static class DenStock
 
         for (var i = 0; i < lines.Count; i++)
         {
-            if (!Sells(kind, lines[i].Type, tokens))
+            if (!Look(kind, lines[i].Type, tokens).Sells)
             {
                 return false;
             }
@@ -44,17 +44,48 @@ public static class DenStock
         return true;
     }
 
-    private static bool Sells(SupplyKind kind, Type type, IReadOnlyList<string> tokens)
+    /// <summary>
+    /// True when a Den shop has every type on <paramref name="lines"/> (<see cref="SellsAll"/>)
+    /// and the purse pays for one unit of the cheapest there (<see cref="VendorBuySkill.PaysForOne(int, int, int)"/>).
+    /// A broke red counted the healer's bandages as a refill it never bought: it could not ride
+    /// out, could not shop, and sat in the Den inn; 326 runs ended "the reagents or bandages ran
+    /// short" in six hours.
+    /// </summary>
+    public static bool PaysAtTheDen(SupplyKind kind, IReadOnlyList<(Type Type, int Amount)> lines, int packGold, int bankGold)
+    {
+        if (!SellsAll(kind, lines))
+        {
+            return false;
+        }
+
+        var tokens = SupplyRules.ShopTokens(kind);
+        var cheapest = 0;
+
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var price = Look(kind, lines[i].Type, tokens).Price;
+
+            if (price > 0 && (cheapest == 0 || price < cheapest))
+            {
+                cheapest = price;
+            }
+        }
+
+        return VendorBuySkill.PaysForOne(cheapest, packGold, bankGold);
+    }
+
+    private static (bool Sells, int Price) Look(SupplyKind kind, Type type, IReadOnlyList<string> tokens)
     {
         var now = Core.Now;
 
         if (Looks.TryGetValue((kind, type), out var look) && now < look.Until)
         {
-            return look.Sells;
+            return (look.Sells, look.Price);
         }
 
-        var sells = ShopFinder.NearestStocked(FacetNames.Felucca, Map.Felucca, PkRules.BucsDenHaven, red: true, tokens, [type]) != null;
-        Looks[(kind, type)] = (sells, now + Freshness);
-        return sells;
+        var shop = ShopFinder.NearestStocked(FacetNames.Felucca, Map.Felucca, PkRules.BucsDenHaven, red: true, tokens, [type]);
+        var price = shop is { } stocked ? VendorDeal.CheapestPrice([stocked.Vendor], [type]) : 0;
+        Looks[(kind, type)] = (shop != null, price, now + Freshness);
+        return (shop != null, price);
     }
 }

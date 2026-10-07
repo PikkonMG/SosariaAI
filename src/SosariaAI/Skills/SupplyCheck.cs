@@ -135,7 +135,7 @@ public static class SupplyCheck
     /// <summary>
     /// Supplies below their low mark, most urgent first. A person with none is stocked. A red
     /// counts only what it can refill: what its bank box holds, or what a Den shop has on its
-    /// shelf for every type it is short of (<see cref="SupplyRules.RedRefillable"/>).
+    /// shelf for every type it is short of and it can pay for (<see cref="SupplyRules.RedRefillable"/>).
     /// </summary>
     public static List<SupplyNeed> LowNeeds(SosariaCharacter character)
     {
@@ -145,7 +145,12 @@ public static class SupplyCheck
             ? SupplyRules.RedRefillable(
                 needs,
                 need => BankLifts(character, need),
-                need => DenStock.SellsAll(need.Kind, BuyLines(character.Backpack, need))
+                need => DenStock.PaysAtTheDen(
+                    need.Kind,
+                    BuyLines(character.Backpack, need),
+                    character.Backpack?.GetAmount(typeof(Gold)) ?? 0,
+                    Banker.GetBalance(character)
+                )
             )
             : needs;
     }

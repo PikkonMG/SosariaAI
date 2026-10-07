@@ -6,6 +6,7 @@ using SosariaAI.Behaviour;
 using SosariaAI.Combat;
 using SosariaAI.Common;
 using SosariaAI.Configuration;
+using SosariaAI.Economy;
 using SosariaAI.Logging;
 using SosariaAI.Mobiles;
 using SosariaAI.Navigation;
@@ -153,7 +154,11 @@ public sealed class ConflictSkill : Skill
 
             if (stay != HuntEndReason.None)
             {
-                return CannotStart(RedGangRunRules.Because(stay));
+                return CannotStart(
+                    stay == HuntEndReason.SuppliesLow
+                        ? $"{RedGangRunRules.Because(stay)} ({SupplyRules.FightStoppers(SupplyCheck.LowNeeds(character))})"
+                        : RedGangRunRules.Because(stay)
+                );
             }
 
             RedGang.JoinNearestGang(character);
