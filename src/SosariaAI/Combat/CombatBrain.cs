@@ -840,7 +840,7 @@ public static partial class CombatBrain
         var why = RetreatRules.ComesBackHealed(memory.RunStartHits, Vitals.HitsFraction(character)) &&
                   HoldsGround(character, memory, picture)
             ? HealedUp
-            : RetreatRules.CannotOutrun(Core.TickCount - memory.LastFleeAt)
+            : RetreatRules.CannotOutrun(Core.TickCount - memory.LastFleeAt, picture.Attackers)
                 ? CannotOutrun
                 : null;
 

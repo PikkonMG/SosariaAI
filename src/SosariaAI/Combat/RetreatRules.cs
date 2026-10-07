@@ -174,11 +174,21 @@ public static class RetreatRules
     public static bool ComesBackHealed(double hitsAtRunStart, double hitsNow) =>
         hitsAtRunStart < ComeBackFraction && hitsNow >= ComeBackFraction;
 
+    /// <summary>A lone person still on the runner this long after the run began cannot be outrun.</summary>
+    public const int LoneChaserMs = 10000;
+
+    /// <summary>The most attackers a chase counts as one person alone.</summary>
+    public const int LoneChaser = 1;
+
     /// <summary>
     /// A person still on the runner after <see cref="MaxPersonChaseMs"/> runs as fast as it:
     /// the runner turns and fights, where it ran on for <see cref="MaxChasedRunMs"/> at any hits.
+    /// A lone chaser is turned on after <see cref="LoneChaserMs"/>: live, 132 of 219 red runs
+    /// ended in death, half of them inside the 45 seconds, while 30 of 38 reds that turned
+    /// lived.
     /// </summary>
-    public static bool CannotOutrun(long runMs) => runMs >= MaxPersonChaseMs;
+    public static bool CannotOutrun(long runMs, int attackers) =>
+        runMs >= (attackers <= LoneChaser ? LoneChaserMs : MaxPersonChaseMs);
 
     /// <summary>
     /// Clear when the nearest of the pack and the thing the run started from are both at

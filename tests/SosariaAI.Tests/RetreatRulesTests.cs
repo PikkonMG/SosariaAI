@@ -314,9 +314,17 @@ public class RetreatRulesTests
     {
         const long JustStarted = 0;
 
-        Assert.False(RetreatRules.CannotOutrun(JustStarted));
-        Assert.False(RetreatRules.CannotOutrun(RetreatRules.MaxPersonChaseMs - 1));
-        Assert.True(RetreatRules.CannotOutrun(RetreatRules.MaxPersonChaseMs));
+        Assert.False(RetreatRules.CannotOutrun(JustStarted, OneAttacker + 1));
+        Assert.False(RetreatRules.CannotOutrun(RetreatRules.MaxPersonChaseMs - 1, OneAttacker + 1));
+        Assert.True(RetreatRules.CannotOutrun(RetreatRules.MaxPersonChaseMs, OneAttacker + 1));
         Assert.True(RetreatRules.MaxPersonChaseMs < RetreatRules.MaxChasedRunMs);
+    }
+
+    [Fact]
+    public void CannotOutrun_ALoneChaserSooner()
+    {
+        Assert.False(RetreatRules.CannotOutrun(RetreatRules.LoneChaserMs - 1, OneAttacker));
+        Assert.True(RetreatRules.CannotOutrun(RetreatRules.LoneChaserMs, OneAttacker));
+        Assert.True(RetreatRules.LoneChaserMs < RetreatRules.MaxPersonChaseMs);
     }
 }
