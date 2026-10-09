@@ -56,6 +56,9 @@ public static class SpeechFacts
 
         /// <summary>True when the speaker works at its station and can take an order now.</summary>
         public bool TakesOrders { get; init; }
+
+        /// <summary>True while the speaker is in a real deal (<see cref="Behaviour.TradeSessions.IsBusy"/>).</summary>
+        public bool InDeal { get; init; }
     }
 
     public static bool Contradicts(string say, Snapshot facts)
@@ -96,6 +99,11 @@ public static class SpeechFacts
         }
 
         if (OrderLines.ClaimsRepairs(say) || !facts.TakesOrders && OrderLines.OffersWork(say))
+        {
+            return true;
+        }
+
+        if (!facts.InDeal && DealLines.SettlesSale(say))
         {
             return true;
         }
@@ -143,12 +151,13 @@ public static class SpeechFacts
     /// <summary>
     /// True when a written persona line claims nothing the speaker cannot back — no trade
     /// shout, no away flag, no death talk, no invite, no trip, no group pace, no order offer or
-    /// request and no repair offer: a written line has no group, trip or order desk behind it.
-    /// Questions pass: a reply may ask them.
+    /// request, no repair offer and no price or sale: a written line has no group, trip, order
+    /// desk or deal behind it. Questions pass: a reply may ask them.
     /// </summary>
     public static bool ClaimsFree(string say) =>
         !string.IsNullOrWhiteSpace(say) && !ContainsAny(say, UnbackedClaims) &&
-        !PromiseLines.IsPromise(say) && !ClaimsLeading(say) && !OrderLines.IsOrderTalk(say) && !OrderLines.ClaimsRepairs(say);
+        !PromiseLines.IsPromise(say) && !ClaimsLeading(say) && !OrderLines.IsOrderTalk(say) && !OrderLines.ClaimsRepairs(say) &&
+        !DealLines.SettlesSale(say);
 
     /// <summary>
     /// True when a line can be said unprovoked — no question for a room that will not answer,

@@ -3398,7 +3398,8 @@ public partial class SosariaCharacter : PlayerMobile
             IsAlive = Alive,
             LeadsGroup = BacksInvite(),
             Travelling = OnTrip(),
-            TakesOrders = Routine?.CurrentSkill is CraftStationSkill && OrderDesk.MayTakeOrder(this)
+            TakesOrders = Routine?.CurrentSkill is CraftStationSkill && OrderDesk.MayTakeOrder(this),
+            InDeal = TradeSessions.IsBusy(this)
         };
     }
 

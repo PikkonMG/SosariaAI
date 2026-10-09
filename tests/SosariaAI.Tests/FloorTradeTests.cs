@@ -40,6 +40,7 @@ public class FloorTradeTests
     private const int HeldGold = 1000;
     private const int ArrowLoad = 200;
     private const int BandageSurplus = 30;
+    private const int PlayerBandages = 10;
     private const double HealingSkill = 50;
 
     private static readonly Point3D Bank = new(40, 40, 0);
@@ -282,6 +283,66 @@ public class FloorTradeTests
             // At its target the healer spares nothing more.
             Assert.Null(FloorDeal.AnswerSupply(fighter));
             Assert.Equal(0, SupplyMarket.SpareUnits(healer, typeof(Bandage)));
+        }
+        finally
+        {
+            Clean();
+        }
+    }
+
+    [Theory]
+    [InlineData("ill buy 10 bandages for 50 gold")]
+    [InlineData("wtb 10 bandages")]
+    [InlineData("how much for 10 bandages")]
+    public void APlayerAskingForASupply_OpensADealWithAPersonNearWhoSparesIt(string line)
+    {
+        // A healer offered bandages in chat, agreed to "10 for 50", and had no deal to sell them
+        // through: the gold the player dropped on it came straight back.
+        var healer = Character(PersonClass.Healer, Bank);
+        InPack(healer, Bandages(SupplyRules.BandageTarget + BandageSurplus));
+        healer.Skills.Healing.Base = HealingSkill;
+        var person = Person(Beside(NextTile));
+        InPack(person, Coins(Purse));
+        TradeSession session = null;
+
+        try
+        {
+            TradeTalk.Hear(person, line);
+            session = TradeSessions.FindFor(person);
+
+            Assert.NotNull(session);
+            Assert.Same(healer, session.Character);
+            Assert.Equal(HaggleSide.Sells, session.Side);
+            Assert.Equal(SupplyRules.BandageTarget + BandageSurplus, healer.Backpack.GetAmount(typeof(Bandage)));
+            Assert.Contains(healer.Backpack.Items, item => item is Bandage { Amount: PlayerBandages });
+        }
+        finally
+        {
+            if (session != null)
+            {
+                session.End(null);
+                TradeSessions.Close(session);
+            }
+
+            Clean();
+        }
+    }
+
+    [Fact]
+    public void APlayerAskingForASupply_GetsNoDealFromAPersonWithNoneToSpare()
+    {
+        var healer = Character(PersonClass.Healer, Bank);
+        InPack(healer, Bandages(SupplyRules.BandageTarget));
+        healer.Skills.Healing.Base = HealingSkill;
+        var person = Person(Beside(NextTile));
+        InPack(person, Coins(Purse));
+
+        try
+        {
+            TradeTalk.Hear(person, "wtb 10 bandages");
+
+            Assert.Null(TradeSessions.FindFor(person));
+            Assert.Equal(SupplyRules.BandageTarget, healer.Backpack.GetAmount(typeof(Bandage)));
         }
         finally
         {

@@ -13,7 +13,8 @@ namespace SosariaAI.Behaviour;
 /// haggle the person is already in; to the hawker a "how much" or "what u got" is aimed at; to
 /// the buyer who crosses the floor for a WTS shouted at a bank; to the character whose WTB an
 /// "i have one" answers; to the hawker whose goods an "ill take it" buys; a WTB to a crafter
-/// with the piece in stock; a request for work or a question after an order to the order desk
+/// with the piece in stock; a supply asked for to a person near who spares it
+/// (<see cref="SupplyMarket.SellerForPlayer"/>); a request for work or a question after an order to the order desk
 /// (<see cref="OrderDesk"/>). The cheap parser reads it; only an unsure line inside a live haggle goes
 /// to Jev. World thread only.
 /// </summary>
@@ -82,7 +83,7 @@ public static class TradeTalk
                 AnswerWant(speaker, intent);
                 break;
             case TradeIntentKind.Want:
-                OfferStock(speaker, intent);
+                OfferStock(speaker, text, intent);
                 break;
             case TradeIntentKind.Order:
                 OrderDesk.Ask(speaker, text, intent);
@@ -135,6 +136,7 @@ public static class TradeTalk
     {
         if (TradeMarket.SellerFor(speaker, text, intent.Goods) is not { } found)
         {
+            SellSupply(speaker, text, intent);
             return;
         }
 
@@ -155,15 +157,37 @@ public static class TradeTalk
         session.Hear(TradeParser.Read(text, found.Seller.Name, engaged: true, session.Standing));
     }
 
+    // "wtb 10 bandages", "10 bandages for 50": a person near who spares that supply cuts the count
+    // off its stack and haggles it in a real deal, the way it sells to another character.
+    private static void SellSupply(Mobile speaker, string text, TradeIntent intent)
+    {
+        if (intent.Goods is not { } wanted ||
+            SupplyMarket.SellerForPlayer(speaker, text, wanted, TradeRanges.TalkRange) is not { } offer ||
+            SupplyMarket.CutLot(offer) is not { } lot)
+        {
+            return;
+        }
+
+        var session = TradeSession.Selling(
+            offer.Seller,
+            speaker,
+            lot,
+            SupplyMarket.Asking(lot, lot.Amount, Utility.Random(int.MaxValue))
+        );
+        TradeSessions.Open(session);
+        session.Hear(TradeParser.Read(text, offer.Seller.Name, engaged: true, session.Standing));
+    }
+
     // "GM plate chest 3.5k, GM katana 1.2k".
     private static string WaresText(List<Item> wares) =>
         string.Join(WaresSeparator, wares.ConvertAll(piece => $"{Appraisal.NounOf(piece)} {GoldWords.Spoken(ShopStock.AskingOf(piece))}"));
 
     // "wtb gm plate chest": a crafter in walking range with one in stock answers with its price.
-    private static void OfferStock(Mobile speaker, TradeIntent intent)
+    private static void OfferStock(Mobile speaker, string text, TradeIntent intent)
     {
         if (intent.Goods is not { } wanted || TradeMarket.StockFor(speaker, wanted) is not { } found)
         {
+            SellSupply(speaker, text, intent);
             return;
         }
 

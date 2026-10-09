@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Server;
 using SosariaAI.Behaviour;
+using SosariaAI.Deliberation;
 using SosariaAI.Economy;
 using SosariaAI.Mobiles;
 
@@ -117,6 +118,48 @@ public static class SupplyMarket
     }
 
     /// <summary>
+    /// The person within <paramref name="reach"/> of a player who asked for a supply ("wtb 10
+    /// bandages", "10 bandages for 50") and spares it, cut to the count asked for; the one the
+    /// line names first, then the nearest. Null when nobody near spares it. Only hawkers and
+    /// crafters answered a player: a healer offered bandages in chat, took the player's
+    /// "10 for 50", and had no deal to sell them through.
+    /// </summary>
+    public static SupplyOffer? SellerForPlayer(Mobile buyer, string text, GoodsClaim wanted, int reach)
+    {
+        if (buyer == null || wanted.Row == null)
+        {
+            return null;
+        }
+
+        SupplyOffer? pick = null;
+        var bestScore = int.MinValue;
+
+        foreach (var mobile in buyer.GetMobilesInRange(reach))
+        {
+            if (mobile is not SosariaCharacter seller || !TradeMarket.MayShop(seller) || !buyer.CanSee(seller) ||
+                !People.Perceives(seller, buyer) || TradeMarket.Refused(seller, buyer) ||
+                SparedStack(seller, wanted) is not { } offer)
+            {
+                continue;
+            }
+
+            var score = TradeMarket.SellerScore(
+                AttentionGate.MentionsName(text, seller.Name),
+                sellsTheGoods: true,
+                (int)buyer.GetDistanceToSqrt(seller)
+            );
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                pick = offer;
+            }
+        }
+
+        return pick;
+    }
+
+    /// <summary>
     /// Cuts the offered units off the seller's stack into a stack of their own, the goods of the
     /// deal; the rest stays in the pack. Null when the stack left the pack.
     /// </summary>
@@ -152,6 +195,29 @@ public static class SupplyMarket
                 TradeMarket.MayMeet(buyer, new GoodsClaim(Appraisal.RowOf(stack), units, false, Appraisal.NoMagic), Asking(stack, units, roll), purse))
             {
                 return new SupplyOffer(seller, stack, units);
+            }
+        }
+
+        return null;
+    }
+
+    // The seller's supply stack of the wanted kind, cut to the count asked for and to what it spares.
+    private static SupplyOffer? SparedStack(SosariaCharacter seller, GoodsClaim wanted)
+    {
+        foreach (var item in seller.Backpack?.Items ?? [])
+        {
+            var type = item.GetType();
+
+            if (Appraisal.RowOf(item) != wanted.Row || KindsOf(type).Count == 0)
+            {
+                continue;
+            }
+
+            var units = Math.Min(Math.Min(wanted.Lot, item.Amount), SpareUnits(seller, type));
+
+            if (units > 0)
+            {
+                return new SupplyOffer(seller, item, units);
             }
         }
 
