@@ -127,4 +127,24 @@ public class MountRulesTests
         Assert.False(MountRules.RemountsFirst(mounted: false, ownMountInReach: true, inFight: true, retryDue: true));
         Assert.False(MountRules.RemountsFirst(mounted: false, ownMountInReach: true, inFight: false, retryDue: false));
     }
+
+    [Fact]
+    public void LooksInPassing_OnlyAliveSeenOnFootAndOutOfAFight()
+    {
+        Assert.True(MountRules.LooksInPassing(mounted: false, ghost: false, hidden: false, inFight: false));
+        Assert.False(MountRules.LooksInPassing(mounted: true, ghost: false, hidden: false, inFight: false));
+        Assert.False(MountRules.LooksInPassing(mounted: false, ghost: true, hidden: false, inFight: false));
+        Assert.False(MountRules.LooksInPassing(mounted: false, ghost: false, hidden: true, inFight: false));
+        Assert.False(MountRules.LooksInPassing(mounted: false, ghost: false, hidden: false, inFight: true));
+    }
+
+    [Fact]
+    public void PassingReach_CoversWhereAFollowingPetStops()
+    {
+        // The engine's follow order stops a pet one or two tiles from its owner.
+        const int followStopsAt = 2;
+
+        Assert.True(MountRules.PassingReachTiles >= followStopsAt);
+        Assert.True(MountRules.PassingReachTiles <= MountRules.SearchTiles);
+    }
 }

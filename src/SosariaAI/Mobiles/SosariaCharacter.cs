@@ -3178,14 +3178,46 @@ public partial class SosariaCharacter : PlayerMobile
         }
     }
 
+    /// <summary>True when a mount of its own stands in reach and the Mount job does not rest.</summary>
+    public bool MayRemount() => !Mounted && MayClimbOn(OwnedMounts.Nearest(this, MountRules.SearchTiles));
+
+    private DateTime _nextPassingLookAt;
+
+    /// <summary>
+    /// A person on foot whose own mount stands beside it gets on, whatever the job. The remount
+    /// was looked for only at the raise and between jobs: a horse left behind while its ghost
+    /// walked to a healer caught up later and trailed its owner on foot for the whole job.
+    /// </summary>
+    public bool RemountInPassing()
+    {
+        var now = Core.Now;
+
+        if (now < _nextPassingLookAt || !MountRules.LooksInPassing(Mounted, IsGhost, Hidden, Combatant != null))
+        {
+            return false;
+        }
+
+        _nextPassingLookAt = now + MountRules.PassingLook;
+        var mount = OwnedMounts.Nearest(this, MountRules.PassingReachTiles);
+
+        if (!MayClimbOn(mount) || !BaseMount.CheckMountAllowed(this) || !OwnedMounts.Climb(this, mount))
+        {
+            return false;
+        }
+
+        if (SosariaSettings.LogActivity)
+        {
+            logger.Information("{Name} got back on its {Mount} in passing at {Location}", Name, mount.Name, Location);
+        }
+
+        return true;
+    }
+
     /// <summary>
     /// An owned mount in reach that the person may walk to and climb on now: its mounting does
     /// not cool down, and it does not rest that mount after failing it the same way three
     /// times. Darian the Grim tried a mount he could not walk to 36 times, every minute or two.
     /// </summary>
-    /// <summary>True when a mount of its own stands in reach and the Mount job does not rest.</summary>
-    public bool MayRemount() => !Mounted && MayClimbOn(OwnedMounts.Nearest(this, MountRules.SearchTiles));
-
     private bool MayClimbOn(BaseMount mount) =>
         mount != null && !RestsSkill(SkillKinds.Mount) &&
         !JobTargetRest.Rests(this, SkillKinds.Mount, JobTargetRest.KeyOf(mount), Core.Now);

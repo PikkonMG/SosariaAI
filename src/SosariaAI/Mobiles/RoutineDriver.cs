@@ -295,6 +295,7 @@ public static class RoutineDriver
 
         // An overloaded body stands still between steps, whatever the job: the surplus goes first.
         CarryLoad.Shed(character);
+        character.RemountInPassing();
 
         var routine = character.Routine;
 

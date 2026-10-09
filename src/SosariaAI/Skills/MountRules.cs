@@ -23,12 +23,28 @@ public static class MountRules
     public static readonly TimeSpan RemountRetry = TimeSpan.FromMinutes(1);
 
     /// <summary>
+    /// How far a rider on foot reaches for its own mount in passing. A pet told to follow
+    /// stops one or two tiles from its owner, so a reach of one tile could miss it all day.
+    /// </summary>
+    public const int PassingReachTiles = 2;
+
+    /// <summary>How often a rider on foot looks beside it for its own mount, whatever the job.</summary>
+    public static readonly TimeSpan PassingLook = TimeSpan.FromSeconds(3);
+
+    /// <summary>
     /// A player on foot beside its own horse gets on before it does anything else: after a
     /// resurrection, after the corpse run, after any dismount. Not in a fight, and not again
     /// inside <see cref="RemountRetry"/> of a try that did not take.
     /// </summary>
     public static bool RemountsFirst(bool mounted, bool ownMountInReach, bool inFight, bool retryDue) =>
         !mounted && ownMountInReach && !inFight && retryDue;
+
+    /// <summary>
+    /// A person on foot gets on its own mount in passing: alive, not hidden (a mounted body
+    /// cannot stealth) and not in a fight, the same as <see cref="RemountsFirst"/>.
+    /// </summary>
+    public static bool LooksInPassing(bool mounted, bool ghost, bool hidden, bool inFight) =>
+        !mounted && !ghost && !hidden && !inFight;
 
     /// <summary>The rider must close the gap before it can climb on.</summary>
     public static bool NeedsWalk(int chebyshev) => chebyshev > ReachTiles;
