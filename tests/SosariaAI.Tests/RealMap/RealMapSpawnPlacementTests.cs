@@ -22,6 +22,18 @@ public class RealMapSpawnPlacementTests(ITestOutputHelper output)
 {
     private const int PlannedFleet = 1200;
 
+    /// <summary>The population of a fresh world, which sets how wide copies scatter.</summary>
+    private const int FreshWorld = 800;
+
+    private const int BritainCopies = 150;
+    private const string BritainCopyIdPrefix = "Felucca:britain-spread#";
+
+    /// <summary>Tiles round the bank tile that count as its plaza.</summary>
+    private const int BankPlazaTiles = 6;
+
+    /// <summary>At most one Britain copy in ten on the plaza; an even spread puts one in twenty there.</summary>
+    private const int PlazaShareLimit = 10;
+
     /// <summary>
     /// Copies tried per island site. Before the door proof 8 of Jhelom's and 17 of Skara's were
     /// refused; before the site anchor stepped off the bookcase, every one of Moonglow's.
@@ -143,6 +155,44 @@ public class RealMapSpawnPlacementTests(ITestOutputHelper output)
             Assert.True(PkRules.InBuccaneersDen(location.X, location.Y));
         });
 
+    [RealMapFact]
+    public void BritainCopies_SpreadOverTheTown_NotOntoTheBankPlaza() =>
+        RealMapWorld.WithLiveGraph(() =>
+        {
+            // A fresh 800-person world stood 33 Britain people within six tiles of the bank: a
+            // scatter into the river west of it, or behind a building with no straight walk to
+            // it, ended on the bank's own street. An even spread puts about one in twenty there.
+            var planned = SpawnSpread.PlannedCount;
+            SpawnSpread.PlannedCount = FreshWorld;
+            var onPlaza = 0;
+            var refused = new List<string>();
+
+            try
+            {
+                for (var i = 0; i < BritainCopies; i++)
+                {
+                    var id = BritainCopyIdPrefix + i;
+                    var (placed, rejects) = ResolveAt(id, WorkSites.BritainTown, out var location);
+
+                    if (!placed)
+                    {
+                        refused.Add($"{id}: {SpawnPlacementRules.Summary(rejects)}");
+                    }
+                    else if (NavMetric.Chebyshev(location, WorkSites.BritainTown) <= BankPlazaTiles)
+                    {
+                        onPlaza++;
+                    }
+                }
+            }
+            finally
+            {
+                SpawnSpread.PlannedCount = planned;
+            }
+
+            Assert.True(refused.Count == 0, string.Join(Environment.NewLine, refused));
+            Assert.True(onPlaza * PlazaShareLimit <= BritainCopies, $"{onPlaza} of {BritainCopies} on the Britain bank plaza");
+        });
+
     /// <summary>Runs with the Moonglow bank fixtures on the real map, and takes them away after.</summary>
     private static void WithMoonglowBankFixtures(Action test)
     {
@@ -198,25 +248,40 @@ public class RealMapSpawnPlacementTests(ITestOutputHelper output)
         return refused;
     }
 
-    // The spawner's two site tries: the scattered spot, then the site itself.
+    // The spawner's site tries for a 1200-person plan.
     private (bool Placed, Dictionary<SpawnReject, int> Rejects) Resolve(string uniqueId, Point3D site, out Point3D location)
     {
-        var map = RealMapWorld.Felucca;
         var planned = SpawnSpread.PlannedCount;
         SpawnSpread.PlannedCount = PlannedFleet;
 
         try
         {
-            var rejects = new Dictionary<SpawnReject, int>();
-            var configured = SpawnSpread.Offset(site, uniqueId);
-            var placed = CharacterSpawner.TryResolveSpawnLocation(map, configured, site, rejects, out location) ||
-                         CharacterSpawner.TryResolveSpawnLocation(map, site, site, rejects, out location);
-            output.WriteLine($"{uniqueId} at {site}: placed {placed}, {SpawnPlacementRules.Summary(rejects)}");
-            return (placed, rejects);
+            return ResolveAt(uniqueId, site, out location);
         }
         finally
         {
             SpawnSpread.PlannedCount = planned;
         }
+    }
+
+    // The spawner's site tries (SpawnSpread.Tries): the scattered spot, its mirror, the site itself.
+    private (bool Placed, Dictionary<SpawnReject, int> Rejects) ResolveAt(string uniqueId, Point3D site, out Point3D location)
+    {
+        var map = RealMapWorld.Felucca;
+        var rejects = new Dictionary<SpawnReject, int>();
+        location = site;
+        var placed = false;
+
+        foreach (var start in SpawnSpread.Tries(site, SpawnSpread.Offset(site, uniqueId)))
+        {
+            if (CharacterSpawner.TryResolveSpawnLocation(map, start, site, rejects, out location))
+            {
+                placed = true;
+                break;
+            }
+        }
+
+        output.WriteLine($"{uniqueId} at {site}: placed {placed} at {location}, {SpawnPlacementRules.Summary(rejects)}");
+        return (placed, rejects);
     }
 }

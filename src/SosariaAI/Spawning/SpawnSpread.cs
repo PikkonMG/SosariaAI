@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Server;
 
 namespace SosariaAI.Spawning;
@@ -36,6 +37,19 @@ public static class SpawnSpread
         Math.Clamp((int)Math.Ceiling(Math.Sqrt(Math.Max(1, crowd))) * RadiusStep, min, max);
 
     public static int RadiusFor(int crowd) => RadiusFor(crowd, DefaultRadius, MaxRadius);
+
+    /// <summary>
+    /// The spots a spawn tries in turn: its scattered spot, the same spot mirrored across the
+    /// site, then the site itself. A scatter into the river west of the Britain bank found no
+    /// land within reach and stood the person on the bank tile; the mirrored spot east of the
+    /// bank is a street. A fixture, never scattered, tries its site once.
+    /// </summary>
+    public static IReadOnlyList<Point3D> Tries(Point3D site, Point3D scattered) =>
+        scattered == site ? [site] : [scattered, Mirror(site, scattered), site];
+
+    /// <summary>The spot on the far side of the site, as far off as <paramref name="spot"/>.</summary>
+    public static Point3D Mirror(Point3D site, Point3D spot) =>
+        new(site.X * 2 - spot.X, site.Y * 2 - spot.Y, spot.Z);
 
     public static Point3D Offset(Point3D spawn, string uniqueId) =>
         Offset(spawn, uniqueId, RadiusFor(CrowdPerSite));

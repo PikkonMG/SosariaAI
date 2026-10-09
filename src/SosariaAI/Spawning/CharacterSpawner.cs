@@ -196,8 +196,9 @@ public static class CharacterSpawner
     }
 
     /// <summary>
-    /// Where a person logs in: its scattered spot, else its site, else a tile by the bank
-    /// nearest its site, as a player whose house spot was taken logs in at the bank. A spot
+    /// Where a person logs in: its scattered spot, the same spot mirrored across its site, else
+    /// its site, else a tile by the bank nearest its site, as a player whose house spot was
+    /// taken logs in at the bank. A spot
     /// inside a dungeon is never used (<see cref="SpawnPlacementRules.OutsideDungeons"/>). False
     /// only when even the bank has no free tile; <paramref name="rejects"/> then counts the
     /// tests that turned the tiles down.
@@ -214,14 +215,15 @@ public static class CharacterSpawner
     )
     {
         atBank = false;
+        location = home;
         var dungeonAt = DungeonGround.PlacesToLeave(map);
 
-        // A dock or shore site scattered wide lands a copy in the sea, and a 16-tile
-        // search round that spot finds only more sea. Fall back to the site itself.
-        if (TryResolveSpawnLocation(map, configured, home, rejects, out location) && OutsideDungeons(location, dungeonAt, rejects) ||
-            TryResolveSpawnLocation(map, home, home, rejects, out location) && OutsideDungeons(location, dungeonAt, rejects))
+        foreach (var start in SpawnSpread.Tries(home, configured))
         {
-            return true;
+            if (TryResolveSpawnLocation(map, start, home, rejects, out location) && OutsideDungeons(location, dungeonAt, rejects))
+            {
+                return true;
+            }
         }
 
         atBank = true;
@@ -838,11 +840,12 @@ public static class CharacterSpawner
 
         // The site's real ground, not its written height: Magincia's gate is written at
         // z 0 and stands on a plateau at z 20 and more. The anchor is proven routable
-        // once per site, so a standable tile only needs a straight walk to it — the
-        // walk is itself a way out, and a walled yard fails it.
+        // once per site, so a straight walk to it is a way out, and a walled yard fails it.
         var anchor = HomeSpotRules.SiteAnchor(map, site);
+        var proofs = 0;
 
-        if (HomeSpotRules.OpenNearby(map, configured, anchor, out location) is not { } first)
+        if (HomeSpotRules.OpenNearby(map, configured, anchor, out location) is not { } first ||
+            first == SpawnReject.NoWalkLine && ProvesRoute(map, location, rejects, ref proofs))
         {
             return true;
         }
@@ -887,36 +890,50 @@ public static class CharacterSpawner
             }
         }
 
-        if (HomeSpotRules.AnchorRoutable(map, anchor))
+        // Nearest first. A straight walk to the site, or else a route out for a bounded few:
+        // asking every tile for a straight walk to the Britain bank skipped the near ones
+        // behind a building and took the bank's own street, and 30 of 150 spawns stood on
+        // the bank plaza.
+        var straight = HomeSpotRules.AnchorRoutable(map, anchor);
+
+        for (var i = 0; i < standable.Count; i++)
         {
-            for (var i = 0; i < standable.Count; i++)
-            {
-                if (WalkLine.Reaches(walker, standable[i], anchor))
-                {
-                    location = standable[i];
-                    return true;
-                }
-
-                HomeSpotRules.Count(rejects, SpawnReject.NoWalkLine);
-            }
-        }
-
-        // A straight walk can fail from a legal tile that needs a corner turn. Give a
-        // bounded few the full route proof before giving the spawn up.
-        var proofs = Math.Min(FallbackProofs, standable.Count);
-
-        for (var i = 0; i < proofs; i++)
-        {
-            if (HomeSpotRules.Routable(map, standable[i]))
+            if (straight && WalkLine.Reaches(walker, standable[i], anchor) ||
+                ProvesRoute(map, standable[i], rejects, ref proofs))
             {
                 location = standable[i];
                 return true;
             }
 
-            HomeSpotRules.Count(rejects, SpawnReject.Sealed);
+            if (straight)
+            {
+                HomeSpotRules.Count(rejects, SpawnReject.NoWalkLine);
+            }
         }
 
         location = configured;
+        return false;
+    }
+
+    /// <summary>
+    /// The full route proof for a tile a straight walk did not prove: a legal tile can need a
+    /// corner turn. Only <see cref="FallbackProofs"/> run per resolve; a tile past them is no proof.
+    /// </summary>
+    private static bool ProvesRoute(Map map, Point3D tile, Dictionary<SpawnReject, int> rejects, ref int proofs)
+    {
+        if (proofs >= FallbackProofs)
+        {
+            return false;
+        }
+
+        proofs++;
+
+        if (HomeSpotRules.Routable(map, tile))
+        {
+            return true;
+        }
+
+        HomeSpotRules.Count(rejects, SpawnReject.Sealed);
         return false;
     }
 }
