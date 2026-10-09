@@ -3207,7 +3207,7 @@ public partial class SosariaCharacter : PlayerMobile
 
         if (SosariaSettings.LogActivity)
         {
-            logger.Information("{Name} got back on its {Mount} in passing at {Location}", Name, mount.Name, Location);
+            logger.Information("{Name} got back on {Mount} in passing at {Location}", Name, mount.Name, Location);
         }
 
         return true;
