@@ -39,8 +39,9 @@ public static class EngineGuilds
 
     /// <summary>
     /// Sets the plugin guild a person wears on this bind (see <see cref="GuildCatalog.Settle"/>):
-    /// Order and Chaos only for a fighter, and never Order for a murderer. A member of a
-    /// player's guild, or someone a player recruited, is never moved.
+    /// Order and Chaos only for a fighter, never Order for a murderer, and never the side a
+    /// fixture's home town does not hold. A member of a player's guild, or someone a player
+    /// recruited, is never moved.
     /// </summary>
     public static void Settle(SosariaCharacter character, bool thief, bool murderer)
     {
@@ -54,7 +55,8 @@ public static class EngineGuilds
             thief,
             character.Build?.IsFighter == true,
             character.GuildIndex,
-            murderer
+            murderer,
+            SideHomes.HomeSide(character.CharacterId, character.Definition?.Spawn ?? Point3D.Zero)
         );
     }
 

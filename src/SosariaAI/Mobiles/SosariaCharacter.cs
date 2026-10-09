@@ -653,8 +653,10 @@ public partial class SosariaCharacter : PlayerMobile
         Definition = definition;
         FacetContent = facet;
         CharacterId = uniqueId;
+        // A saved copy homed in the other side's town moves too, or a restart keeps both
+        // sides at one bank.
         if (!alreadyInWorld || HomeSpawn == Point3D.Zero ||
-            WorkSites.IsCopy(uniqueId) && WorkSites.NeedsNewCopyHome(HomeSpawn))
+            WorkSites.IsCopy(uniqueId) && (WorkSites.NeedsNewCopyHome(HomeSpawn) || !SideHomes.Allows(side, HomeSpawn)))
         {
             HomeSpawn = WorkSites.HomeFor(
                 definition.Spawn,

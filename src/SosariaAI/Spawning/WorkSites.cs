@@ -169,9 +169,10 @@ public static class WorkSites
         Town(MaginciaTown, "Magincia bank")
     ];
 
+    // Britain weighs as much as the other big towns. At four shares it held 147 of 800 people
+    // on a fresh world, twice any other town, and its bank was a wall of bodies.
     private static WorkSite[] TownPopulation { get; } =
     [
-        Town(BritainTown, "Britain bank"), Town(BritainTown, "Britain bank"),
         Town(BritainTown, "Britain bank"), Town(BritainTown, "Britain bank"),
         Town(MinocTown, "Minoc bank"), Town(MinocTown, "Minoc bank"),
         Town(TrinsicTown, "Trinsic bank"), Town(TrinsicTown, "Trinsic bank"),

@@ -574,13 +574,15 @@ public static class CharacterSpawner
 
     /// <summary>
     /// The Order or Chaos side a blue person wears from its first bind, so its home keeps
-    /// the sides apart (<see cref="SideHomes"/>). A red's home is the Den and does not ask.
+    /// the sides apart (<see cref="SideHomes"/>); a fixture's side follows its authored town.
+    /// A red's home is the Den and does not ask.
     /// </summary>
     private static GuildType SideAtSpawn(string uniqueId, CharacterDefinition definition, PersonProfile profile) =>
         GuildCatalog.SideAtSpawn(
             uniqueId,
             profile.Class == PersonClass.Thief,
-            BuildPresets.Resolve(definition.Build)?.IsFighter == true
+            BuildPresets.Resolve(definition.Build)?.IsFighter == true,
+            SideHomes.HomeSide(uniqueId, definition.Spawn)
         );
 
     private static void BindTownLife(SosariaCharacter character, int gang)

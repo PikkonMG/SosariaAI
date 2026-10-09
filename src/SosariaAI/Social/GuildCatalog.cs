@@ -95,6 +95,10 @@ public static class GuildCatalog
     private static readonly int[] NoOrderWeights =
         Array.ConvertAll(All, record => record.Alignment == GuildType.Order ? 0 : record.Weight);
 
+    /// <summary>The weights for a person whose home town is Order's: Chaos weighs nothing.</summary>
+    private static readonly int[] NoChaosWeights =
+        Array.ConvertAll(All, record => record.Alignment == GuildType.Chaos ? 0 : record.Weight);
+
     /// <summary>
     /// The weights of the first catalog, when two guilds in three were Order or Chaos. Kept
     /// only to know a membership that roll gave and nothing has changed since.
@@ -109,15 +113,25 @@ public static class GuildCatalog
     /// regular guild instead, rolled the same way, so it keeps its membership. Crafters in the
     /// sides ran from every draw and left the war to half its members. A murderer the roll put in
     /// Order rolls again without Order (<see cref="TakesMember"/>): Chaos has reds and blues,
-    /// Order only blues.
+    /// Order only blues. A person held to its home town's side (<see cref="SideHomes.HomeSide"/>)
+    /// the roll put on the other side rolls again without it.
     /// </summary>
-    public static int SeedFor(string characterId, bool thief, bool fighter, bool murderer = false)
+    public static int SeedFor(
+        string characterId,
+        bool thief,
+        bool fighter,
+        bool murderer = false,
+        GuildType homeSide = GuildType.Regular
+    )
     {
         var seed = Seed(characterId, thief, Weights);
+        var noOrder = murderer || homeSide == GuildType.Chaos;
+        var noChaos = homeSide == GuildType.Order;
+        var alignment = AlignmentOf(seed);
 
-        if (!TakesMember(AlignmentOf(seed), murderer))
+        if (noOrder && alignment == GuildType.Order || noChaos && alignment == GuildType.Chaos)
         {
-            seed = Seed(characterId, thief, NoOrderWeights);
+            seed = Seed(characterId, thief, WeightsWithout(noOrder, noChaos));
         }
 
         return fighter || AlignmentOf(seed) == GuildType.Regular ? seed : Seed(characterId, thief, RegularWeights);
@@ -131,8 +145,8 @@ public static class GuildCatalog
     /// Chaos follow the roll alone (<see cref="Settle"/>), so the home can keep the sides apart
     /// (<see cref="SideHomes"/>).
     /// </summary>
-    public static GuildType SideAtSpawn(string characterId, bool thief, bool fighter) =>
-        AlignmentOf(SeedFor(characterId, thief, fighter));
+    public static GuildType SideAtSpawn(string characterId, bool thief, bool fighter, GuildType homeSide) =>
+        AlignmentOf(SeedFor(characterId, thief, fighter, homeSide: homeSide));
 
     /// <summary>
     /// The guild a person wears after this boot's bind. The first catalog made two guilded
@@ -142,11 +156,18 @@ public static class GuildCatalog
     /// regular guild a person joined through a friend is kept. Every boot agrees, and a
     /// second pass changes nothing. A player's recruit is never passed here. A person who does
     /// not fight leaves Order and Chaos for its regular roll, and a murderer leaves Order
-    /// (<see cref="SeedFor"/>).
+    /// (<see cref="SeedFor"/>), and so does a person on the side its home town does not hold.
     /// </summary>
-    public static int Settle(string characterId, bool thief, bool fighter, int saved, bool murderer = false)
+    public static int Settle(
+        string characterId,
+        bool thief,
+        bool fighter,
+        int saved,
+        bool murderer = false,
+        GuildType homeSide = GuildType.Regular
+    )
     {
-        var seed = SeedFor(characterId, thief, fighter, murderer);
+        var seed = SeedFor(characterId, thief, fighter, murderer, homeSide);
 
         if (saved < 0 || saved >= All.Length || saved == Seed(characterId, thief, FirstMixWeights) ||
             AlignmentOf(seed) != GuildType.Regular)
@@ -177,6 +198,9 @@ public static class GuildCatalog
     /// <summary>Order against Chaos. Two regular guilds, or two of one side, are not opposed.</summary>
     public static bool Opposed(GuildType first, GuildType second) =>
         first != GuildType.Regular && second != GuildType.Regular && first != second;
+
+    private static int[] WeightsWithout(bool order, bool chaos) =>
+        order && chaos ? RegularWeights : order ? NoOrderWeights : NoChaosWeights;
 
     private static int Seed(string characterId, bool thief, int[] weights)
     {
