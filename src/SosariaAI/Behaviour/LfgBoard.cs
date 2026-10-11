@@ -277,6 +277,10 @@ public static class LfgBoard
         Log($"{leader.Name}'s party of {group.Joined.Count + 1} entered {now.Dungeon} level {now.Level}");
     }
 
+    /// <summary>Where the leader's running group goes, or null outside a run.</summary>
+    public static LfgTarget RunTargetOf(Mobile leader) =>
+        leader != null && Groups.TryGetValue(leader.Serial, out var group) && group.Running ? group.Target : null;
+
     /// <summary>True while this character leads a group on its run.</summary>
     public static bool LeadsRun(Mobile leader) =>
         leader != null && Groups.TryGetValue(leader.Serial, out var group) && group.Running;

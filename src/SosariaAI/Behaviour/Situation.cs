@@ -129,6 +129,9 @@ public sealed record Situation
     /// <summary>This person is in a real party whose leader it should walk with.</summary>
     public bool FollowsPartyLeader { get; init; }
 
+    /// <summary>A party order stands for this person (<see cref="PartyOrders.Current"/>): it comes before any job.</summary>
+    public bool HasPartyOrder { get; init; }
+
     /// <summary>
     /// The authored crew this person belongs to broke up after its trip, and its leader has not
     /// called it together again (see <see cref="Party.Disband"/>).

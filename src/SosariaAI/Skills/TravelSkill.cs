@@ -437,6 +437,12 @@ public sealed class TravelSkill : Skill
 
     private SkillStatus TickTrip()
     {
+        // A leader standing for a member that fell behind does not step on (PartyOrders).
+        if (PartyOrders.LeaderWaits(_character))
+        {
+            return SkillStatus.Running;
+        }
+
         if (_deferredPlan != null)
         {
             if (!PlanBudget.TryEnter())

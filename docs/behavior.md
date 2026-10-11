@@ -302,6 +302,52 @@ party member raises a fallen mate only within one walking leg (32 tiles).
 A crew member does not follow its crew after the crew breaks up. It waits until
 the leader gathers the crew again.
 
+### Party orders
+
+A party has one order layer. The leader gives orders, and the bot members act on
+them. The leader can be a bot or a player. Any player in the party can call for
+help. A word list reads a player's line, in party chat or out loud within
+earshot. No model is called. A bot's own party line is never read as an order,
+so bots cannot order each other by accident. Each member holds one order at a
+time, and a new order replaces the old one. Every order settles back to Follow.
+
+| Order | A player says | A member does |
+|---|---|---|
+| Follow | follow me, on me, come, with me, lets go | Walks behind the leader. This is the rest state in a party. |
+| Hold | wait here, hold, stay, stop, wait | Stands, faces the leader, and fights back if hit. Follows again after a new order or 5 minutes. |
+| Go to place | go to X, lets go to X, head to X, take me to X, lead the way to X | Walks to X by the roads, on foot. Pauses while the leader is more than 12 tiles behind. Holds at X until the leader gets there, then Follows. X is a place in the destination catalog: a town, a dungeon, a bank, a moongate. An unknown place gets "where is that?" and no order. |
+| Attack | attack, kill it, get it, attack NAME | Fights the leader's target; else the named creature in sight; else the nearest one. A blow that would be a crime is refused. Follows again when the foe dies. |
+| Back | fall back, back off, retreat | Stands down from its fight and keeps close to the leader for 30 seconds without taking the leader's foe, then Follows. |
+| Regroup | regroup, to me, gather | Drops what it does and walks to the leader at once, then Follows. |
+
+| Help call | A player says | Who acts |
+|---|---|---|
+| Heal me | heal me, need heal, healz | The nearest free member with bandages or Magery walks over and heals the caller, then takes its order up again. With nobody able, the nearest member says so. |
+| Wait for me | wait for me, wait up, hold on | A bot leader stops its trip until the caller is within 6 tiles, up to 2 minutes. After a wait that ran out, the leader does not wait for the same member again for 2 minutes. |
+| Stuck | stuck, im stuck, cant get there | A bot leader stops and walks back toward the caller, then goes on. |
+
+A bot leader gives the same orders from code, and says the line in party chat
+only as the order goes out, once per 20 seconds for the same matter:
+
+| Moment | Order | Line |
+|---|---|---|
+| The group's run begins | Go to place | "heading to {place}" |
+| The leader takes a foe | Attack, to the members whose blow is no crime | "get the {foe}" |
+| A member falls more than 12 tiles behind while the leader walks a trip, out of a fight | Hold to the others, Follow to the one behind, and the leader waits | "hold up, waiting for {name}" |
+| A member in a fight drops below 40% of its hits | Back, to that member | "{name} fall back" |
+| A member is hurt and a healer is free, out of bandage reach | A heal errand for the nearest healer | "heal {name}" |
+| The leader's fight ends with a member far off | Regroup | "regroup on me" |
+
+A bot follower standing still for 30 seconds more than 12 tiles from its bot
+leader says it is stuck; the leader walks back for it. An order from a leader
+that died, logged out or left the party settles to Follow, and so does an order
+on a member that must flee. A member outside a party has no order.
+
+`brain.json` sets how an order reaches the member (`partyOrders`): `"direct"`,
+the default, replaces the member's job at once; `"planner"` raises a plan
+trigger and the goal loop picks the order skill at the top score, where a flee
+or a fight may still win.
+
 ## Guilds, Order and Chaos
 
 Guilds are real engine guilds. A guild war is a real war: enemies show orange,

@@ -488,6 +488,15 @@ public static partial class CombatBrain
     /// </summary>
     public static void RunFrom(SosariaCharacter character, Mobile from) => RunFrom(character, MemoryOf(character), from, FleeSpan());
 
+    /// <summary>A member ordered back stands down from its fight: the foe is let go and the body walks again.</summary>
+    public static void StandDown(SosariaCharacter character)
+    {
+        if (character?.Deleted == false)
+        {
+            EndFight(character, MemoryOf(character));
+        }
+    }
+
     /// <summary>
     /// A run decided outside the fight's own read: a red leaving a stronger side or a mob by
     /// its outlaw rules. Like a flee Jev ordered, blows that barely hurt do not turn it round;

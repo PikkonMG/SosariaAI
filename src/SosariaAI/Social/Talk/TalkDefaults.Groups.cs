@@ -306,6 +306,110 @@ public static partial class TalkDefaults
                 "ok ok im out", "gg, u win this one", "enough, need heals", "next time", "bah, out of bandies", "fine, u got me",
                 "im done lol", "later, this isnt over", "cant win em all", "heal break, brb", "u got lucky", "ok truce"
             ]
+        ),
+        new(
+            TalkCategory.OrderAttack,
+            "a group leader tells the group to take its foe, in party chat. {foe} is the foe: a creature with its article, a person by name.",
+            [
+                "get {foe}", "on {foe}", "all on {foe}", "{foe}, kill it", "hit {foe}", "take {foe} down",
+                "{foe} first", "focus {foe}", "everyone on {foe}", "kill {foe}"
+            ]
+        ),
+        new(
+            TalkCategory.OrderHold,
+            "a group leader stops and waits for one member that fell behind, in party chat. {name} is that member.",
+            [
+                "hold up, waiting for {name}", "wait, {name} is behind", "hold here, {name} catching up", "stop a sec, {name}",
+                "waiting on {name}", "hold on, {name} is back there", "wait for {name}", "{name} keep up, we wait",
+                "hold up guys, {name}", "sec, {name} is behind"
+            ]
+        ),
+        new(
+            TalkCategory.OrderBack,
+            "a group leader sends a badly hurt member out of the fight, in party chat. {name} is that member.",
+            [
+                "{name} fall back", "{name} back off", "{name} get back", "{name} retreat", "{name} pull back", "{name} ur low, back",
+                "{name} back off now", "{name} get out of there", "fall back {name}", "{name} run back to me"
+            ]
+        ),
+        new(
+            TalkCategory.OrderHeal,
+            "a group leader sends a healer to a hurt member, in party chat. {name} is the hurt one.",
+            [
+                "heal {name}", "{name} needs a heal", "someone heal {name}", "{name} is low, heal", "heals on {name}", "bandage {name}",
+                "{name} low hp", "heal {name} pls", "get {name} up", "{name} needs heals"
+            ]
+        ),
+        new(
+            TalkCategory.OrderRegroup,
+            "a group leader calls the group back to it after a fight, in party chat.",
+            [
+                "regroup on me", "all back to me", "regroup", "on me", "everyone to me", "gather up", "form up on me",
+                "back to me guys", "regroup here", "stack on me"
+            ]
+        ),
+        new(
+            TalkCategory.OrderGoTo,
+            "a group leader sends the group to the place its run goes, in party chat. {place} is the place.",
+            [
+                "heading to {place}", "going to {place}, follow", "{place} next, lets go", "moving to {place}", "{place}, on me",
+                "off to {place}", "lets go {place}", "heading {place} now", "to {place}, stay close", "{place}, follow me"
+            ]
+        ),
+        new(
+            TalkCategory.OrderComingBack,
+            "a group leader walks back for a stuck member, in party chat. {name} is that member.",
+            [
+                "coming back for u {name}", "hang on {name}, coming", "{name} stay there, coming to u", "wait {name}, im coming back",
+                "coming {name}", "{name} dont move, on my way back", "turning back for {name}", "{name} hold still, coming",
+                "going back for {name}", "{name} where r u, coming"
+            ]
+        ),
+        new(
+            TalkCategory.OrderAck,
+            "a group member takes an order, in party chat.",
+            ["k", "ok", "on it", "got it", "kk", "aye", "sure", "ok ok", "yep", "k boss"]
+        ),
+        new(
+            TalkCategory.OrderStuck,
+            "a group member far behind its leader cannot get on, in party chat.",
+            [
+                "im stuck", "stuck here", "cant get through", "stuck, wait up", "im stuck back here", "cant reach u",
+                "stuck behind something", "wait im stuck", "cant find a way", "stuck lol"
+            ]
+        ),
+        new(
+            TalkCategory.OrderCantReach,
+            "a group member sent to a place finds no way there, in party chat. {place} is the place.",
+            [
+                "cant get to {place} from here", "no way to {place} for me", "cant reach {place}", "dont know the way to {place}",
+                "{place}? cant get there", "no road to {place}", "{place} is out of reach for me", "cant make it to {place}",
+                "lost, no path to {place}", "{place} is blocked for me"
+            ]
+        ),
+        new(
+            TalkCategory.OrderUnknownPlace,
+            "a group member does not know the place the leader named, in party chat.",
+            [
+                "where is that?", "dont know that place", "never heard of it", "where?", "which place?", "huh, where",
+                "where is that", "never been there", "wat place?", "no idea where that is"
+            ]
+        ),
+        new(
+            TalkCategory.OrderNoTarget,
+            "a group member told to attack sees nothing to attack, in party chat.",
+            [
+                "attack what?", "nothing here", "attack who?", "dont see it", "what target?", "nothing to hit", "see nothing",
+                "attack wat?", "theres nothing", "no target"
+            ]
+        ),
+        new(
+            TalkCategory.OrderNoHeal,
+            "a group member answers a call for a heal when nobody in the group can heal, in party chat.",
+            [
+                "out of bandages", "cant heal, no bandages", "no heals on me sorry", "no bandies", "got nothing to heal with",
+                "no heals here", "sry no bandages", "nobody can heal", "no healer here", "cant help, no bandies"
+            ]
         )
     ];
 }

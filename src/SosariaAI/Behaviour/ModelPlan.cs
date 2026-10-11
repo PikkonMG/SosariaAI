@@ -24,6 +24,9 @@ public enum PlanTrigger
     Invitation,
     WorldBlocked,
     PlayerRequest,
+
+    /// <summary>The party leader gave an order (<see cref="PartyOrders"/>) and the planner mode is on.</summary>
+    PartyOrder,
     Retry
 }
 

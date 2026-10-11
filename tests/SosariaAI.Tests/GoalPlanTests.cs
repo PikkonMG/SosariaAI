@@ -323,7 +323,10 @@ public class GoalPlanTests
         Assert.False(GoalPlanRules.MatchesCurrent(plan, SkillKinds.Tavern));
         Assert.True(GoalPlanRules.IsInterruptSkill(SkillKinds.Flee));
         Assert.True(GoalPlanRules.IsInterruptSkill(SkillKinds.Heal));
+        Assert.True(GoalPlanRules.IsInterruptSkill(SkillKinds.PartyOrder));
         Assert.False(GoalPlanRules.IsInterruptSkill(SkillKinds.Mine));
+        Assert.True(GoalPlanRules.IsInterrupt(new Situation { HasPartyOrder = true }));
+        Assert.False(GoalPlanRules.IsInterrupt(new Situation()));
     }
 
     [Fact]

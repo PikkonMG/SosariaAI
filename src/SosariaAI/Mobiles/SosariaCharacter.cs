@@ -2149,6 +2149,7 @@ public partial class SosariaCharacter : PlayerMobile
             HasTreasureMap = TreasureMaps.FirstOpen(pack) != null || TreasureMaps.UnlootedDig(this) != null,
             HasPkReport = Disposition == DispositionKind.Lawful && PkReportToAnswer() != null,
             FollowsPartyLeader = GameParty.LeaderToFollow(this) != null,
+            HasPartyOrder = PartyOrders.Current(this) != null,
             CrewDisbanded = Behaviour.Party.FindByMember(CharacterId) is { Disbanded: true },
             PlaceDanger = DangerMap.Shared.VisitFactor(HomeFacet, HuntHomeNow()?.Ground?.Arrival ?? HomeSpot, Core.Now),
             BankCrowdOpen = BankCrowd.Wants(this),

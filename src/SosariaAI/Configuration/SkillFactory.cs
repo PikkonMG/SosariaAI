@@ -73,6 +73,7 @@ public static class SkillFactory
                 FacetIds.Prefix(mapName, step.Party ?? step.LeaderId),
                 step.Range ?? SosariaCombat.FollowRangeMin
             ),
+            SkillKinds.PartyOrder => new PartyOrderSkill(),
             SkillKinds.Rest => new RestSkill(
                 step.Duration ?? TimeSpan.FromMinutes(step.Minutes ?? DefaultRestMinutes)
             ),

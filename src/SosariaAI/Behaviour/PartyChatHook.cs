@@ -69,7 +69,7 @@ public sealed class PartyChatHook : PartyCommands
                 continue;
             }
 
-            if (target != null && character != target)
+            if (target != null && character != target || PartyOrders.Hear(character, from, text))
             {
                 continue;
             }

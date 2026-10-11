@@ -36,7 +36,7 @@ public static class RoutineDriver
             return;
         }
 
-        if (GameParty.NoteSpokenAnswer(character, e.Mobile, e.Speech))
+        if (GameParty.NoteSpokenAnswer(character, e.Mobile, e.Speech) || PartyOrders.Hear(character, e.Mobile, e.Speech))
         {
             return;
         }

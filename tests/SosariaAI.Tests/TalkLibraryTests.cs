@@ -11,7 +11,7 @@ namespace SosariaAI.Tests;
 public class TalkLibraryTests
 {
     private const int MinCategories = 90;
-    private const int MaxCategories = 150;
+    private const int MaxCategories = 170;
     private const int MinLinesPerCategory = 10;
     private const string Category = "test_talk";
 

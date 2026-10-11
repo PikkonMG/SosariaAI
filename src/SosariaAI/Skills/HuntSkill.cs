@@ -266,7 +266,7 @@ public sealed class HuntSkill : Skill, IHuntingSkill
 
         CountKill();
 
-        if (Party.ShouldWaitForLag(_character))
+        if (Party.ShouldWaitForLag(_character) || PartyOrders.LeaderWaits(_character))
         {
             return SkillStatus.Running;
         }

@@ -64,6 +64,10 @@ public static partial class Brain
 
     public static int HearRange => _settings?.HearRange ?? BrainConfiguration.DefaultHearRange;
 
+    /// <summary>True when brain.json sends party orders through the goal loop instead of straight to the routine.</summary>
+    public static bool PartyOrdersViaPlanner =>
+        string.Equals(_settings?.PartyOrders, BrainConfiguration.PartyOrdersPlanner, StringComparison.Ordinal);
+
     public static int ReplyHearRange => ReplyRangeTiles(HearRange);
 
     public static int ReplyRangeTiles(int hearRange) => hearRange * HearRangeMultiplier;

@@ -58,6 +58,21 @@ public static class TalkCategory
     public const string DungeonEnter = "dungeon_enter";
     public const string DungeonLeave = "dungeon_leave";
 
+    // Party orders (PartyOrders).
+    public const string OrderAttack = "order_attack";
+    public const string OrderHold = "order_hold";
+    public const string OrderBack = "order_back";
+    public const string OrderHeal = "order_heal";
+    public const string OrderRegroup = "order_regroup";
+    public const string OrderGoTo = "order_goto";
+    public const string OrderComingBack = "order_coming_back";
+    public const string OrderAck = "order_ack";
+    public const string OrderStuck = "order_stuck";
+    public const string OrderCantReach = "order_cant_reach";
+    public const string OrderUnknownPlace = "order_unknown_place";
+    public const string OrderNoTarget = "order_no_target";
+    public const string OrderNoHeal = "order_no_heal";
+
     // Guilds.
     public const string GuildChatter = "guild_chatter";
     public const string GuildWelcome = "guild_welcome";

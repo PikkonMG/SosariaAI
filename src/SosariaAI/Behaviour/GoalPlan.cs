@@ -363,12 +363,12 @@ public static class GoalPlanRules
     };
 
     public static bool IsInterrupt(Situation situation) =>
-        situation is { MustFlee: true } or { IsGhost: true } ||
+        situation is { MustFlee: true } or { IsGhost: true } or { HasPartyOrder: true } ||
         (situation?.Needs?.HitsFraction ?? 1) < RecoveryRules.RecoverBelowHitsFraction;
 
     public static bool IsInterruptSkill(string skillKind) =>
         skillKind is SkillKinds.Flee or SkillKinds.Heal or SkillKinds.GoHome
-            or GhostSkill.SkillName or SkillKinds.Rest or SkillKinds.Meditate;
+            or GhostSkill.SkillName or SkillKinds.Rest or SkillKinds.Meditate or SkillKinds.PartyOrder;
 
     public static bool MatchesCurrent(GoalPlan plan, string skillKind) =>
         plan is { IsComplete: false } && StepAccepts(plan.CurrentSkill, skillKind);

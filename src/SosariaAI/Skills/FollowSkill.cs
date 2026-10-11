@@ -30,6 +30,7 @@ public sealed class FollowSkill : Skill
 
     private readonly string _partyId;
     private readonly int _range;
+    private readonly bool _holdsFire;
     private readonly CorpseLoot _loot = new();
     private Mobile _lastFoe;
     private Point3D _lastFoeAt;
@@ -44,10 +45,12 @@ public sealed class FollowSkill : Skill
     private DateTime _waitStarted;
     private DateTime _started;
 
-    public FollowSkill(string partyId, int range)
+    /// <summary>With <paramref name="holdsFire"/> the follower leaves the leader's foe alone: a member sent back from a fight.</summary>
+    public FollowSkill(string partyId, int range, bool holdsFire = false)
     {
         _partyId = partyId;
         _range = range;
+        _holdsFire = holdsFire;
     }
 
     public override string Name => SkillKinds.Follow;
@@ -207,7 +210,7 @@ public sealed class FollowSkill : Skill
         ClearWalk();
         _character.Motor.MoveTo(leader, _range);
 
-        if (leader.Combatant is { } target && TakesLeadersFoe(_character, target) &&
+        if (!_holdsFire && leader.Combatant is { } target && TakesLeadersFoe(_character, target) &&
             _character.GetDistanceToSqrt(target) <= _character.RangePerception)
         {
             _character.Combatant = target;

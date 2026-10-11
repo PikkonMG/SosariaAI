@@ -43,6 +43,7 @@ public class BrainFileTests
         Assert.Equal(0.5, file.DecisionMinConfidence);
         Assert.Equal(20, file.JevDecideCooldownSeconds);
         Assert.Equal(BrainConfiguration.JevScopeCombatAndBig, file.JevScope);
+        Assert.Equal(BrainConfiguration.PartyOrdersDirect, file.PartyOrders);
         Assert.Equal(32, file.JevMaxConcurrentRequests);
         Assert.Equal(BrainProviders.SystemOneApi, file.Providers[BrainProviders.VonName].Api);
         Assert.Equal(BrainProviders.DefaultVonBaseUrl, file.Providers[BrainProviders.VonName].BaseUrl);
@@ -89,6 +90,7 @@ public class BrainFileTests
             DecisionMinConfidence = 1.5,
             JevDecideCooldownSeconds = -1,
             JevScope = "everything",
+            PartyOrders = "magic",
             JevMaxConcurrentRequests = 0,
             ChatHelpMaxSeconds = -1
         };
@@ -96,6 +98,7 @@ public class BrainFileTests
         config.Normalize();
 
         Assert.Equal(BrainConfiguration.DefaultChatHelpMaxSeconds, config.ChatHelpMaxSeconds);
+        Assert.Equal(BrainConfiguration.PartyOrdersDirect, config.PartyOrders);
 
         Assert.Equal(BrainConfiguration.JevScopeCombatAndBig, config.JevScope);
         Assert.Equal(BrainConfiguration.DefaultJevMaxConcurrentRequests, config.JevMaxConcurrentRequests);
@@ -103,6 +106,21 @@ public class BrainFileTests
         Assert.Equal(BrainConfiguration.DefaultJevInputTokensPerHour, config.JevInputTokensPerHour);
         Assert.Equal(BrainConfiguration.DefaultDecisionMinConfidence, config.DecisionMinConfidence);
         Assert.Equal(BrainConfiguration.DefaultJevDecideCooldownSeconds, config.JevDecideCooldownSeconds);
+    }
+
+    [Theory]
+    [InlineData("planner", BrainConfiguration.PartyOrdersPlanner)]
+    [InlineData(" Planner ", BrainConfiguration.PartyOrdersPlanner)]
+    [InlineData("direct", BrainConfiguration.PartyOrdersDirect)]
+    [InlineData(null, BrainConfiguration.PartyOrdersDirect)]
+    [InlineData("", BrainConfiguration.PartyOrdersDirect)]
+    public void Normalize_ReadsThePartyOrdersMode(string value, string expected)
+    {
+        var config = new BrainConfiguration { PartyOrders = value };
+
+        config.Normalize();
+
+        Assert.Equal(expected, config.PartyOrders);
     }
 
     [Fact]

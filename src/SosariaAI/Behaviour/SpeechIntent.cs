@@ -32,7 +32,7 @@ public enum SpeechIntentKind
 /// </summary>
 public static class SpeechIntent
 {
-    private const string WordGap = " ";
+    public const string WordGap = " ";
 
     /// <summary>A join answer is a word or three; a longer line is a sentence about something else.</summary>
     public const int JoinMaxWords = 3;
@@ -160,7 +160,7 @@ public static class SpeechIntent
             return false;
         }
 
-        var spoken = WordGap + string.Join(WordGap, Words(text)).ToLowerInvariant() + WordGap;
+        var spoken = Spoken(text);
 
         for (var i = 0; i < phrases.Length; i++)
         {
@@ -172,6 +172,10 @@ public static class SpeechIntent
 
         return false;
     }
+
+    /// <summary>The line as spoken words, lower case, one gap between them and one at each end.</summary>
+    public static string Spoken(string text) =>
+        string.IsNullOrWhiteSpace(text) ? WordGap : WordGap + string.Join(WordGap, Words(text)).ToLowerInvariant() + WordGap;
 
     private static int WordCount(string text) => string.IsNullOrWhiteSpace(text) ? 0 : Words(text).Length;
 

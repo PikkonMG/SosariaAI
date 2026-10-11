@@ -45,6 +45,7 @@ public static class WorldPlay
 
         GameParty.ConsiderPlayerInvite(character);
         GameParty.NoticePlayerLeave(character);
+        PartyOrders.Consider(character);
         TryHealParty(character);
         ConsiderGuardLine(character);
         FactionWar.ConsiderDisengage(character);

@@ -154,7 +154,7 @@ public static class PlanControl
 
     public static bool ScorerMayReplace(ModelPlan plan, DateTime now, Situation situation)
     {
-        if (situation is { MustFlee: true } or { IsGhost: true } or { InCombat: true })
+        if (situation is { MustFlee: true } or { IsGhost: true } or { InCombat: true } or { HasPartyOrder: true })
         {
             return true;
         }

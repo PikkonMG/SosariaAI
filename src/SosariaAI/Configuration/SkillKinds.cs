@@ -15,6 +15,8 @@ public static class SkillKinds
     public const string Hunt = "Hunt";
     public const string Dungeon = "Dungeon";
     public const string Follow = "Follow";
+    public const string PartyOrder = "PartyOrder";
+    public const string HealMate = "HealMate";
     public const string Rest = "Rest";
     public const string Decide = "Decide";
     public const string UpgradeGear = "UpgradeGear";

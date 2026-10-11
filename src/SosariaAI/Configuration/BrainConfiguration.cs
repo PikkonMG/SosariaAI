@@ -59,6 +59,14 @@ public sealed class BrainConfiguration
 
     public const string DefaultJevScope = JevScopeCombatAndBig;
 
+    /// <summary>A party order replaces the member's job at once (<see cref="Behaviour.PartyOrders"/>).</summary>
+    public const string PartyOrdersDirect = "direct";
+
+    /// <summary>A party order raises a plan trigger and the goal loop picks the order skill at the top score.</summary>
+    public const string PartyOrdersPlanner = "planner";
+
+    public const string DefaultPartyOrders = PartyOrdersDirect;
+
     /// <summary>
     /// Jev calls out at once, apart from the chat providers' limit: a Jev answer takes about a
     /// tenth of a second, so a short queue behind this many beats falling back to the scorer.
@@ -180,6 +188,10 @@ public sealed class BrainConfiguration
     [JsonPropertyName("jevScope")]
     public string JevScope { get; set; } = DefaultJevScope;
 
+    /// <summary>"direct" (the default): a party order takes the member's routine at once. "planner": the goal loop picks it.</summary>
+    [JsonPropertyName("partyOrders")]
+    public string PartyOrders { get; set; } = DefaultPartyOrders;
+
     /// <summary>Jev calls out at once, counted apart from maxConcurrentRequests.</summary>
     [JsonPropertyName("jevMaxConcurrentRequests")]
     public int JevMaxConcurrentRequests { get; set; } = DefaultJevMaxConcurrentRequests;
@@ -228,6 +240,10 @@ public sealed class BrainConfiguration
         JevScope = string.Equals(JevScope?.Trim(), JevScopeAll, StringComparison.OrdinalIgnoreCase)
             ? JevScopeAll
             : JevScopeCombatAndBig;
+
+        PartyOrders = string.Equals(PartyOrders?.Trim(), PartyOrdersPlanner, StringComparison.OrdinalIgnoreCase)
+            ? PartyOrdersPlanner
+            : PartyOrdersDirect;
 
         if (JevMaxConcurrentRequests <= 0)
         {

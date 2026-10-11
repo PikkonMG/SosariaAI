@@ -43,6 +43,9 @@ public static class ActionScorer
     /// <summary>Above a plan step, so a party member leaves its errand to walk with the group.</summary>
     public const double PartyFollowScore = GoalPlanRules.PlanBoost * 2;
 
+    /// <summary>A standing party order outranks the follow: the leader said what to do.</summary>
+    public const double PartyOrderScore = PartyFollowScore + GoalPlanRules.PlanBoost;
+
     /// <summary>The reason an authored crew's follow step waits while that crew is broken up.</summary>
     public const string CrewDisbandedWhy = "the crew has broken up";
     public const int RecentSkillLimit = 2;
@@ -344,6 +347,13 @@ public static class ActionScorer
             why = "follow the party leader";
         }
 
+        // The leader gave an order: the member does that before anything else it might choose.
+        if (situation?.HasPartyOrder == true && ActionCatalog.IsPartyOrder(candidate))
+        {
+            score = Math.Max(score, PartyOrderScore);
+            why = "obey the party order";
+        }
+
         score += NeedsBrain.Jitter(seed, candidate.Id.Value);
         return new ScoredAction(candidate.Id, candidate.SkillKind, candidate.RoutineId, score, why);
     }
@@ -399,6 +409,11 @@ public static class ActionScorer
         if (ActionCatalog.IsPartyFollow(candidate) && situation?.FollowsPartyLeader != true)
         {
             return "no party leader to follow";
+        }
+
+        if (ActionCatalog.IsPartyOrder(candidate) && situation?.HasPartyOrder != true)
+        {
+            return "no party order stands";
         }
 
         // A crew that broke up has no trip to follow: the step ends Done the moment it starts.
@@ -875,6 +890,12 @@ public static class ActionScorer
             return true;
         }
 
+        // An order from the leader fits whatever the member was about to do.
+        if (skillKind == SkillKinds.PartyOrder)
+        {
+            return true;
+        }
+
         return family == GoalRules.FamilyOf(goal);
     }
 
@@ -889,7 +910,7 @@ public static class ActionScorer
         {
             SkillKinds.Hunt => RoutineFamily.Hunt,
             SkillKinds.Dungeon => RoutineFamily.Dungeon,
-            SkillKinds.Follow => RoutineFamily.Party,
+            SkillKinds.Follow or SkillKinds.PartyOrder => RoutineFamily.Party,
             SkillKinds.Flee => RoutineFamily.Other,
             SkillKinds.GoHome => RoutineFamily.Rest,
             SkillKinds.VendorSell or SkillKinds.VendorBuy or SkillKinds.BankDeposit or SkillKinds.BankShop

@@ -121,6 +121,7 @@ public static class ActionCatalog
         AddReactive(found, expansion, SkillKinds.Arrive, "arrive:Arrive:0", "arrive");
         AddReactive(found, expansion, SkillKinds.Browse, "browse:Browse:0", "browse");
         AddReactive(found, expansion, SkillKinds.Follow, PartyFollowId, "party");
+        AddReactive(found, expansion, SkillKinds.PartyOrder, PartyOrderId, "party");
         return found;
     }
 
@@ -150,6 +151,9 @@ public static class ActionCatalog
 
     /// <summary>The follow step any member of a real party takes behind its leader.</summary>
     public const string PartyFollowId = "party:Follow:0";
+
+    /// <summary>The step a member of a real party runs while a party order stands for it (<see cref="PartyOrders"/>).</summary>
+    public const string PartyOrderId = "order:PartyOrder:0";
 
     /// <summary>The delve to the catalog hall for a person whose routines name no dungeon.</summary>
     public const string CatalogDelveId = "delve:Dungeon:0";
@@ -201,6 +205,9 @@ public static class ActionCatalog
 
     public static bool IsPartyFollow(ActionCandidate candidate) =>
         candidate?.Id.Value == PartyFollowId;
+
+    public static bool IsPartyOrder(ActionCandidate candidate) =>
+        candidate?.Id.Value == PartyOrderId;
 
     private static void AddReactive(
         List<ActionCandidate> found,

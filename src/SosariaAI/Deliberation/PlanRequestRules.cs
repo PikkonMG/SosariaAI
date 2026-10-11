@@ -55,7 +55,7 @@ public static class PlanRequestRules
         }
 
         if (talkingToPlayer && trigger is not PlanTrigger.Died and not PlanTrigger.Invitation
-            and not PlanTrigger.PlayerRequest)
+            and not PlanTrigger.PlayerRequest and not PlanTrigger.PartyOrder)
         {
             return false;
         }
@@ -66,7 +66,7 @@ public static class PlanRequestRules
         }
 
         if (backoffUntil != default && now < backoffUntil &&
-            trigger is not PlanTrigger.Died and not PlanTrigger.Invitation)
+            trigger is not PlanTrigger.Died and not PlanTrigger.Invitation and not PlanTrigger.PartyOrder)
         {
             return false;
         }
@@ -174,7 +174,7 @@ public static class PlanRequestRules
         }
 
         if (talkingToPlayer && trigger is not PlanTrigger.Died and not PlanTrigger.Invitation
-            and not PlanTrigger.PlayerRequest)
+            and not PlanTrigger.PlayerRequest and not PlanTrigger.PartyOrder)
         {
             return "talking";
         }
@@ -185,7 +185,7 @@ public static class PlanRequestRules
         }
 
         if (backoffUntil != default && now < backoffUntil &&
-            trigger is not PlanTrigger.Died and not PlanTrigger.Invitation)
+            trigger is not PlanTrigger.Died and not PlanTrigger.Invitation and not PlanTrigger.PartyOrder)
         {
             return "backoff";
         }
@@ -214,6 +214,7 @@ public static class PlanRequestRules
             PlanTrigger.Died => 80,
             PlanTrigger.Invitation => 70,
             PlanTrigger.PlayerRequest => 70,
+            PlanTrigger.PartyOrder => 70,
             PlanTrigger.StepFailed => 60,
             PlanTrigger.GoalComplete => 50,
             PlanTrigger.WorldBlocked => 40,

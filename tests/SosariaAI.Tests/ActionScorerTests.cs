@@ -1489,6 +1489,37 @@ public class ActionScorerTests
     }
 
     [Fact]
+    public void Rank_PartyOrder_WinsOnlyWhileAnOrderStands()
+    {
+        var order = new ActionCandidate
+        {
+            Id = new ActionId(ActionCatalog.PartyOrderId),
+            SkillKind = SkillKinds.PartyOrder,
+            RoutineId = "party",
+            Step = new SkillStepDefinition { Skill = SkillKinds.PartyOrder }
+        };
+        var follow = new ActionCandidate
+        {
+            Id = new ActionId(ActionCatalog.PartyFollowId),
+            SkillKind = SkillKinds.Follow,
+            RoutineId = "party",
+            Step = new SkillStepDefinition { Skill = SkillKinds.Follow }
+        };
+        var candidates = new List<ActionCandidate> { order, follow, Candidate(SkillKinds.Tavern) };
+        var following = new Situation { Needs = new NeedsSnapshot { HitsFraction = 1 }, InTownRegion = true, FollowsPartyLeader = true };
+        var ordered = following with { HasPartyOrder = true };
+        var goal = JobRules.GoalFor(JobKind.Tavern);
+
+        var followingResult = ActionScorer.Rank(candidates, following, goal, seed: 1);
+        var orderedResult = ActionScorer.Rank(candidates, ordered, goal, seed: 1);
+
+        Assert.False(ActionScorer.IsEligible(followingResult.Ranked.First(a => a.Id.Value == ActionCatalog.PartyOrderId)));
+        Assert.Equal(ActionCatalog.PartyFollowId, followingResult.Winner.Id.Value);
+        Assert.Equal(ActionCatalog.PartyOrderId, orderedResult.Winner.Id.Value);
+        Assert.True(orderedResult.Winner.Score > ActionScorer.PartyFollowScore);
+    }
+
+    [Fact]
     public void Rank_CrewFollow_WaitsWhileTheCrewIsBrokenUp()
     {
         var crewFollow = Candidate(SkillKinds.Follow);

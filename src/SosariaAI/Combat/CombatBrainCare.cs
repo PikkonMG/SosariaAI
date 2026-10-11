@@ -69,26 +69,32 @@ public static partial class CombatBrain
     /// it stands, in a fight or out of one. False when no spell fits, the pet is out of the
     /// spell's reach or sight, or the last care spell is too recent.
     /// </summary>
-    public static bool CastOnPet(SosariaCharacter tamer, BaseCreature pet)
+    public static bool CastOnPet(SosariaCharacter tamer, BaseCreature pet) => CastHealOn(tamer, pet);
+
+    /// <summary>
+    /// A heal or cure spell on another body, a pet or a party mate, by the pet rules: from where
+    /// the caster stands, within the spell's reach and sight, not too soon after the last one.
+    /// </summary>
+    public static bool CastHealOn(SosariaCharacter caster, Mobile patient)
     {
-        if (tamer?.Deleted != false || pet?.Deleted != false || !pet.Alive || tamer.Spell != null ||
-            !tamer.InRange(pet, PetRules.SpellReachTiles) || !tamer.InLOS(pet))
+        if (caster?.Deleted != false || patient?.Deleted != false || !patient.Alive || caster.Spell != null ||
+            !caster.InRange(patient, PetRules.SpellReachTiles) || !caster.InLOS(patient))
         {
             return false;
         }
 
-        var memory = MemoryOf(tamer);
+        var memory = MemoryOf(caster);
         var now = Core.TickCount;
-        var wounded = pet.HitsMax > 0 && pet.Hits < pet.HitsMax * PetRules.VetBelowFraction;
+        var wounded = patient.HitsMax > 0 && patient.Hits < patient.HitsMax * PetRules.VetBelowFraction;
 
         if (now - memory.NextSpellCareAt < 0 ||
-            PetRules.PetSpell(pet.Poisoned, wounded, tamer.Skills.Magery.Value, tamer.Mana) is not { } kind)
+            PetRules.PetSpell(patient.Poisoned, wounded, caster.Skills.Magery.Value, caster.Mana) is not { } kind)
         {
             return false;
         }
 
         memory.NextSpellCareAt = now + SpellCareGapMs;
-        return BeginCast(tamer, memory, kind, pet);
+        return BeginCast(caster, memory, kind, patient);
     }
 
     /// <summary>

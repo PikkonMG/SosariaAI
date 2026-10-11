@@ -37,7 +37,12 @@ public class GroupTalkPromiseTests
         TalkCategory.OrderTaunt,
         TalkCategory.ChaosTaunt,
         TalkCategory.ScuffleWatch,
-        TalkCategory.ScuffleYield
+        TalkCategory.ScuffleYield,
+        TalkCategory.OrderAck,
+        TalkCategory.OrderStuck,
+        TalkCategory.OrderUnknownPlace,
+        TalkCategory.OrderNoTarget,
+        TalkCategory.OrderNoHeal
     ];
 
     [Fact]
