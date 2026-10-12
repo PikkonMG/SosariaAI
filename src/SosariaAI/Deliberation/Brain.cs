@@ -2004,7 +2004,7 @@ public static partial class Brain
             Goods = world.Goods,
             Tools = world.Tools,
             ArmorEquipped = world.ArmorEquipped,
-            InDanger = character.MustRunFrom(HuntSkill.SightThreat(character)),
+            InDanger = character.MustRunFromSight(),
             IsGhost = character.IsGhost,
             InCombat = character.Combatant != null,
             Place = character.LocationDescription,

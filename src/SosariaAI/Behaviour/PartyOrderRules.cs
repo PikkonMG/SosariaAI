@@ -221,6 +221,13 @@ public static class PartyOrderRules
     /// <summary>A member in a fight and badly hurt is sent back.</summary>
     public static bool NeedsBack(bool inFight, double hitsFraction) => inFight && hitsFraction < BackBelowHitsFraction;
 
+    /// <summary>
+    /// A member leaves for a heal errand only when it can heal, is out of a fight, and has no
+    /// threat in sight it must run from: a hurt healer sent to a mate fled home at once, and the
+    /// next scan sent it back, every two seconds for minutes.
+    /// </summary>
+    public static bool FreeToHeal(bool canHeal, bool inFight, bool mustRun) => canHeal && !inFight && !mustRun;
+
     /// <summary>A leader gives up waiting for one member after the limit.</summary>
     public static bool HelpWaitOver(DateTime since, DateTime now) => TimeRules.Passed(since, now, HelpWaitLimit);
 

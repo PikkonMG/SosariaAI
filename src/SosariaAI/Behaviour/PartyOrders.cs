@@ -632,8 +632,8 @@ public static class PartyOrders
         for (var i = 0; i < party.Members.Count; i++)
         {
             if (party.Members[i].Mobile is not SosariaCharacter bot || bot == patient || bot == party.Leader || bot.Deleted || !bot.Alive ||
-                bot.Map != patient.Map || bot.Combatant != null || !HuntSkill.HasHealing(bot) ||
-                bot.Routine is { NeedsNext: false, CurrentSkill: HealMateSkill })
+                bot.Map != patient.Map || bot.Routine is { NeedsNext: false, CurrentSkill: HealMateSkill } ||
+                !PartyOrderRules.FreeToHeal(HuntSkill.HasHealing(bot), bot.Combatant != null, bot.MustRunFromSight()))
             {
                 continue;
             }

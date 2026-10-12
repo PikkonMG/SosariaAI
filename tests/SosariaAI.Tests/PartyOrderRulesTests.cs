@@ -113,6 +113,15 @@ public class PartyOrderRulesTests
     }
 
     [Fact]
+    public void FreeToHeal_OnlyAHealerOutOfDanger()
+    {
+        Assert.True(PartyOrderRules.FreeToHeal(canHeal: true, inFight: false, mustRun: false));
+        Assert.False(PartyOrderRules.FreeToHeal(canHeal: false, inFight: false, mustRun: false));
+        Assert.False(PartyOrderRules.FreeToHeal(canHeal: true, inFight: true, mustRun: false));
+        Assert.False(PartyOrderRules.FreeToHeal(canHeal: true, inFight: false, mustRun: true));
+    }
+
+    [Fact]
     public void WaitEnds_WhenTheCallerIsCloseGoneOrTooLate()
     {
         var fresh = Now - TimeSpan.FromSeconds(5);

@@ -93,7 +93,7 @@ public sealed class IdleWanderSkill : Skill
             _started = Core.Now;
         }
 
-        if (_character.MustRunFrom(HuntSkill.SightThreat(_character)) && _character.MayStillFlee())
+        if (_character.MustRunFromSight() && _character.MayStillFlee())
         {
             return Fail("a threat is in sight");
         }

@@ -1931,7 +1931,7 @@ public partial class SosariaCharacter : PlayerMobile
         }
 
         // A wander whose walks to its spot keep failing strolls where it stands until its rest runs out.
-        Skill fallback = IdleFallbackRules.FleesInstead(MustRunFrom(HuntSkill.SightThreat(this)), MayStillFlee())
+        Skill fallback = IdleFallbackRules.FleesInstead(MustRunFromSight(), MayStillFlee())
             ? new FleeSkill()
             : new IdleWanderSkill(
                 Location,
@@ -1998,6 +1998,9 @@ public partial class SosariaCharacter : PlayerMobile
         );
         return FleeRules.MustRun(UnderGuards(this), Build?.Role ?? CharacterRole.Worker, threat, intolerable);
     }
+
+    /// <summary>True when the threat in sight now is one this character must run from.</summary>
+    public bool MustRunFromSight() => MustRunFrom(HuntSkill.SightThreat(this));
 
     /// <summary>
     /// False once the character ran often enough, or its flee failed often enough, that the
@@ -3274,7 +3277,7 @@ public partial class SosariaCharacter : PlayerMobile
         }
 
         var after = CaptureFacts();
-        var interrupted = status != SkillStatus.Done && (FoughtThisStep && MustRunFrom(HuntSkill.SightThreat(this)) || !Alive);
+        var interrupted = status != SkillStatus.Done && (FoughtThisStep && MustRunFromSight() || !Alive);
         var unavailable = status == SkillStatus.Failed && Routine?.CurrentSkill == null;
         var observation = StepProof.Observe(
             skillName,
