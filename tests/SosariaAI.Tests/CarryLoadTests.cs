@@ -7,9 +7,10 @@ using Xunit;
 namespace SosariaAI.Tests;
 
 /// <summary>
-/// A buy stops at the body's carry limit, and an overloaded crafter sheds its craft stock.
-/// A tailor bought 47 hides of 5 stones each, stood at 317 of 253 stones, and could not walk
-/// for four hours: only harvest was shed, and the hides were not harvest.
+/// A buy stops at the body's carry limit, and an overloaded person sheds its craft stock,
+/// then its spare gear. A tailor bought 47 hides of 5 stones each, stood at 317 of 253
+/// stones, and could not walk for four hours: only harvest was shed, and the hides were not
+/// harvest. A red with kindling, mauls and looted clothes had no haul to shed at all.
 /// </summary>
 public class CarryLoadTests
 {
@@ -45,6 +46,28 @@ public class CarryLoadTests
         Assert.False(CarryLoad.IsHaul(new BlackPearl((Serial)0x7D4A)));
         Assert.False(CarryLoad.IsHaul(new SewingKit((Serial)0x7D4B)));
         Assert.False(CarryLoad.IsHaul(new LeatherCap((Serial)0x7D4C)));
+    }
+
+    [Fact]
+    public void IsSpareGear_LooseGearGoes_SuppliesToolsAndHaulStay()
+    {
+        var person = Person((Serial)0x7D50);
+
+        Assert.True(CarryLoad.IsSpareGear(person, new Kindling((Serial)0x7D51)));
+        Assert.True(CarryLoad.IsSpareGear(person, new Maul((Serial)0x7D52)));
+        Assert.True(CarryLoad.IsSpareGear(person, new Bascinet((Serial)0x7D53)));
+        Assert.True(CarryLoad.IsSpareGear(person, new Shirt((Serial)0x7D54)));
+        Assert.False(CarryLoad.IsSpareGear(person, new Gold((Serial)0x7D55)));
+        Assert.False(CarryLoad.IsSpareGear(person, new Bandage((Serial)0x7D56)));
+        Assert.False(CarryLoad.IsSpareGear(person, new BlackPearl((Serial)0x7D57)));
+        Assert.False(CarryLoad.IsSpareGear(person, new Spellbook((Serial)0x7D58)));
+        Assert.False(CarryLoad.IsSpareGear(person, new Runebook((Serial)0x7D59)));
+        Assert.False(CarryLoad.IsSpareGear(person, new RecallRune((Serial)0x7D5A)));
+        Assert.False(CarryLoad.IsSpareGear(person, new Skillet((Serial)0x7D5B)));
+        Assert.False(CarryLoad.IsSpareGear(person, new Pickaxe((Serial)0x7D5C)));
+        Assert.False(CarryLoad.IsSpareGear(person, new Hatchet((Serial)0x7D5D)));
+        Assert.False(CarryLoad.IsSpareGear(person, new Hides((Serial)0x7D5E)));
+        Assert.False(CarryLoad.IsSpareGear(person, new Backpack((Serial)0x7D5F)));
     }
 
     private static SosariaCharacter Person(Serial serial)
