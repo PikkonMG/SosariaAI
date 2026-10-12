@@ -194,7 +194,11 @@ public static class CraftMarket
         var buyerPack = buyer.Backpack;
         var shelf = VendorDeal.CheapestPrice(VendorDeal.VendorsNear(buyer, VendorDeal.CounterRange), [type]);
         var unit = CraftMarketRules.UnitPrice(shelf);
-        var units = CraftMarketRules.UnitsToBuy(SpareUnits(seller, stock), buyerPack.GetAmount(type), buyerPack.GetAmount(typeof(Gold)), unit);
+        var units = CarryLoad.UnitsItCarries(
+            buyer,
+            stock,
+            CraftMarketRules.UnitsToBuy(SpareUnits(seller, stock), buyerPack.GetAmount(type), buyerPack.GetAmount(typeof(Gold)), unit)
+        );
 
         if (units <= 0)
         {

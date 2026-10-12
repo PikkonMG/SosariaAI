@@ -20,6 +20,8 @@ public class CarryRulesTests
     private const double OreWeight = 12.0;
     private const double IngotWeight = 0.1;
     private const int LogStack = 170;
+    private const double HideWeight = 5.0;
+    private const int HidesBought = 47;
 
     [Fact]
     public void StopsWork_AtTheFillLineOfTheBodyLimit()
@@ -77,6 +79,17 @@ public class CarryRulesTests
     [InlineData(10, LogWeight, 0)]
     public void UnitsToShed_NothingWithoutSurplusWeightOrPieces(int surplus, double unitWeight, int amount) =>
         Assert.Equal(0, CarryRules.UnitsToShed(surplus, unitWeight, amount));
+
+    [Theory]
+    [InlineData(20, HideWeight, HidesBought, 4)]
+    [InlineData(0, HideWeight, HidesBought, 0)]
+    [InlineData(-30, HideWeight, HidesBought, 0)]
+    [InlineData(1, IngotWeight, HidesBought, 10)]
+    [InlineData(500, HideWeight, HidesBought, HidesBought)]
+    [InlineData(0, 0.0, HidesBought, HidesBought)]
+    [InlineData(500, HideWeight, 0, 0)]
+    public void UnitsInRoom_TakeOnlyWhatFitsUnderTheLimit(int room, double unitWeight, int units, int expected) =>
+        Assert.Equal(expected, CarryRules.UnitsInRoom(room, unitWeight, units));
 
     [Fact]
     public void HeaviestFirst_PutsOreBeforeLogsBeforeIngots()

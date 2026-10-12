@@ -7,8 +7,9 @@ namespace SosariaAI.Skills;
 /// and past its MaxWeight plus a small allowance every step costs stamina, and a step with no
 /// stamina left is blocked. Woodcutters cut to the backpack's own 400-stone cap, far past a
 /// body's 200 or so: conan stood in the Britain south wood with 170 logs for two hours and
-/// stalled every two minutes. Work stops before the next swing would pass the limit, and a
-/// person already past it sheds the surplus, heaviest pieces first, down to the limit. Pure.
+/// stalled every two minutes. Work stops before the next swing would pass the limit, a buy
+/// takes no more than fits under it, and a person already past it sheds the surplus,
+/// heaviest pieces first, down to the limit. Pure.
 /// </summary>
 public static class CarryRules
 {
@@ -26,6 +27,21 @@ public static class CarryRules
     /// <summary>Stones that still fit under the fill line of the limit.</summary>
     public static int RoomStones(int carried, int maxWeight, double fillFraction) =>
         Math.Max(0, (int)(maxWeight * fillFraction) - carried);
+
+    /// <summary>
+    /// Whole pieces of <paramref name="unitWeight"/> that fit in <paramref name="roomStones"/>,
+    /// never more than <paramref name="units"/>. A tailor bought 47 hides of 5 stones each,
+    /// stood at 317 of 253 stones and could not walk for four hours.
+    /// </summary>
+    public static int UnitsInRoom(int roomStones, double unitWeight, int units)
+    {
+        if (units <= 0)
+        {
+            return 0;
+        }
+
+        return unitWeight <= 0 ? units : Math.Min(units, (int)(Math.Max(0, roomStones) / unitWeight));
+    }
 
     /// <summary>Whole pieces of a stack that shed at least <paramref name="surplusStones"/>, never more than the stack.</summary>
     public static int UnitsToShed(int surplusStones, double unitWeight, int amount)

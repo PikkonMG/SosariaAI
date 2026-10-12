@@ -11,14 +11,16 @@ namespace SosariaAI.Skills;
 
 /// <summary>
 /// What a person carries against the engine's own carry limit (<see cref="StaminaSystem"/>),
-/// and the way a player lightens an overloaded pack so it can walk again: the haul onto its
-/// pack beast when the beast stands by, into the bank box at the counter, else the surplus on
-/// the ground at its feet. World thread only.
+/// how much more of a piece it takes and still walks, and the way a player lightens an
+/// overloaded pack so it can walk again: the haul onto its pack beast when the beast stands
+/// by, into the bank box at the counter, else the surplus on the ground at its feet. World
+/// thread only.
 /// </summary>
 public static class CarryLoad
 {
     private const string IntoBankWay = "into the bank";
     private const string OnGroundWay = "on the ground";
+    private const double WholeLimit = 1.0;
 
     private static readonly ILogger logger = SosariaLog.For(typeof(CarryLoad));
 
@@ -35,6 +37,20 @@ public static class CarryLoad
     /// <summary>Stones that still fit under <paramref name="fillFraction"/> of the body's limit.</summary>
     public static int RoomStones(Mobile person, double fillFraction) =>
         CarryRules.RoomStones(Carried(person), Limit(person), fillFraction);
+
+    /// <summary>The weight one more <paramref name="sample"/> adds: a pile adds its own weight, each other piece its whole self.</summary>
+    public static double UnitWeight(Item sample) => sample.Stackable ? sample.Weight : sample.PileWeight + sample.TotalWeight;
+
+    /// <summary>Units of <paramref name="sample"/> the body still carries under its limit, never more than <paramref name="units"/>.</summary>
+    public static int UnitsItCarries(Mobile person, Item sample, int units) =>
+        CarryRules.UnitsInRoom(RoomStones(person, WholeLimit), UnitWeight(sample), units);
+
+    /// <summary>
+    /// What a person may shed: its harvest, and the craft stock a crafter bought (hides, leather,
+    /// boards, ingots). Gear, tools, reagents and bandages stay.
+    /// </summary>
+    public static bool IsHaul(Item item) =>
+        HarvestPack.IsHarvest(item) || CraftResources.GetFromType(item.GetType()) != CraftResource.None;
 
     /// <summary>
     /// Lightens an overloaded person down to its limit. The whole haul goes onto a pack beast
@@ -116,7 +132,7 @@ public static class CarryLoad
 
         foreach (var item in pack.Items)
         {
-            if (item is { Deleted: false, Movable: true } && HarvestPack.IsHarvest(item))
+            if (item is { Deleted: false, Movable: true } && IsHaul(item))
             {
                 haul.Add(item);
             }

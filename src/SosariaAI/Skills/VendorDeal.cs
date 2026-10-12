@@ -123,8 +123,9 @@ public static class VendorDeal
 
     /// <summary>
     /// Buys up to <paramref name="amount"/> units of <paramref name="types"/> from the first
-    /// vendors that stock them, spending at most <paramref name="maxGold"/>. Returns the units
-    /// that reached the buyer's pack.
+    /// vendors that stock them, spending at most <paramref name="maxGold"/> and taking no more
+    /// than the buyer carries and still walks (<see cref="CarryLoad.UnitsItCarries"/>). Returns
+    /// the units that reached the buyer's pack.
     /// </summary>
     public static int Buy(Mobile buyer, IReadOnlyList<BaseVendor> vendors, IReadOnlyList<Type> types, int amount, int maxGold) =>
         Buy(buyer, vendors, types, amount, maxGold, out _);
@@ -336,7 +337,11 @@ public static class VendorDeal
         }
 
         var unit = Math.Max(1, line.Price);
-        var units = UnitsThatFit(buyer, pack, sample, Math.Min(Math.Min(amount, line.Amount), maxGold / unit));
+        var units = CarryLoad.UnitsItCarries(
+            buyer,
+            sample,
+            UnitsThatFit(buyer, pack, sample, Math.Min(Math.Min(amount, line.Amount), maxGold / unit))
+        );
 
         if (units <= 0 || !PackFunds.FundPack(buyer, unit * units))
         {
