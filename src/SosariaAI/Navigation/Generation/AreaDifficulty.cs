@@ -212,6 +212,7 @@ public static class ResourceKind
 {
     public const string Lumber = "Lumber";
     public const string Mine = "Mine";
+    public const string Fish = "Fish";
 
     private const string ForestToken = "forest";
     private const string WoodToken = "wood";

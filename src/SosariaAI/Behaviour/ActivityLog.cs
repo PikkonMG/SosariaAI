@@ -84,28 +84,15 @@ public static class ActivityLog
             );
         }
 
-        if (skill is LumberjackSkill lumberjack)
+        if (skill is HarvestSkill harvest)
         {
             logger.Information(
-                "{Name} backpack holds {Count} logs after Lumberjack",
+                "{Name} gathered {Gained} {Haul} on {Skill}; the backpack holds {Count}",
                 character.Name,
-                lumberjack.ResourceCount
-            );
-        }
-        else if (skill is MineSkill mine)
-        {
-            logger.Information(
-                "{Name} backpack holds {Count} ore after Mine",
-                character.Name,
-                mine.ResourceCount
-            );
-        }
-        else if (skill is FishSkill fish)
-        {
-            logger.Information(
-                "{Name} backpack holds {Count} fish after Fish",
-                character.Name,
-                fish.ResourceCount
+                harvest.Gained,
+                harvest.HaulNoun,
+                skill.Name,
+                harvest.ResourceCount
             );
         }
         else if (skill is BankDepositSkill bank)

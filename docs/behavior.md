@@ -239,7 +239,10 @@ bandages, potions, scrolls, food, tools, and pieces held for a buyer.
 A harvest works eight minutes from its arrival at the patch, not from the start
 of the walk. A whole trip, walk and work, ends after 20 minutes. A copy whose
 own site has no patch with work tries the other sites of its harvest within its
-leash, nearest first. When every site is bare, it does no harvest until the
+leash, nearest first. Those sites include the six nearest woods, rock faces and
+shores the nav build found on the map itself, so a shard's own map says where
+the work is. A shore comes into the nav files at the next nav build
+(`[SosariaRebuildNav`). When every site is bare, it does no harvest until the
 engine's banks refill.
 
 ## Tamers

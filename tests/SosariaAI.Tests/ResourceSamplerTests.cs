@@ -8,25 +8,35 @@ public class ResourceSamplerTests
     private const int Centre = 100;
 
     [Fact]
-    public void Classify_EnoughTrees_IsLumber()
+    public void Roles_EnoughTrees_IsLumber()
     {
-        var role = ResourceSampler.Classify(Centre, Centre, 0, TreeAtCentre);
-        Assert.Equal(ResourceKind.Lumber, role);
+        Assert.Equal([ResourceKind.Lumber], ResourceSampler.Roles(Centre, Centre, 0, TreeAtCentre));
     }
 
     [Fact]
-    public void Classify_EnoughOre_IsMine()
+    public void Roles_EnoughOre_IsMine()
     {
-        var role = ResourceSampler.Classify(Centre, Centre, 0, OreAtCentre);
-        Assert.Equal(ResourceKind.Mine, role);
+        Assert.Equal([ResourceKind.Mine], ResourceSampler.Roles(Centre, Centre, 0, OreAtCentre));
     }
 
     [Fact]
-    public void Classify_SparseOrNull_IsNull()
+    public void Roles_SparseOrNull_IsEmpty()
     {
-        Assert.Null(ResourceSampler.Classify(Centre, Centre, 0, None));
-        Assert.Null(ResourceSampler.Classify(Centre, Centre, 0, null));
-        Assert.Null(ResourceSampler.Classify(Centre, Centre, 0, OneTree));
+        Assert.Empty(ResourceSampler.Roles(Centre, Centre, 0, None));
+        Assert.Empty(ResourceSampler.Roles(Centre, Centre, 0, null));
+        Assert.Empty(ResourceSampler.Roles(Centre, Centre, 0, OneTree));
+    }
+
+    [Fact]
+    public void Roles_WaterNearby_IsAShore()
+    {
+        Assert.Equal([ResourceKind.Fish], ResourceSampler.Roles(Centre, Centre, 0, WaterWest));
+    }
+
+    [Fact]
+    public void Roles_AWoodByTheWater_IsBoth()
+    {
+        Assert.Equal([ResourceKind.Lumber, ResourceKind.Fish], ResourceSampler.Roles(Centre, Centre, 0, TreesEastWaterWest));
     }
 
     private static ResourceHit TreeAtCentre(int x, int y, int _) =>
@@ -34,6 +44,12 @@ public class ResourceSamplerTests
 
     private static ResourceHit OreAtCentre(int x, int y, int _) =>
         InSample(x, y) ? ResourceHit.Ore : ResourceHit.None;
+
+    private static ResourceHit WaterWest(int x, int y, int _) =>
+        InSample(x, y) && x < Centre ? ResourceHit.Water : ResourceHit.None;
+
+    private static ResourceHit TreesEastWaterWest(int x, int y, int _) =>
+        !InSample(x, y) ? ResourceHit.None : x < Centre ? ResourceHit.Water : x > Centre ? ResourceHit.Tree : ResourceHit.None;
 
     private static ResourceHit None(int x, int y, int z)
     {

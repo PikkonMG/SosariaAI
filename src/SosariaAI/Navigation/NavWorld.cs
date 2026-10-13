@@ -359,6 +359,11 @@ public static class NavWorld
                 return ResourceHit.Ore;
             }
 
+            if (IsWater(land.ID, isLand: true))
+            {
+                return ResourceHit.Water;
+            }
+
             foreach (var tile in map.Tiles.GetStaticTiles(x, y))
             {
                 if (!NavMetric.SameFloor(tile.Z, z))
@@ -375,6 +380,11 @@ public static class NavWorld
                 {
                     return ResourceHit.Ore;
                 }
+
+                if (IsWater(tile.ID, isLand: false))
+                {
+                    return ResourceHit.Water;
+                }
             }
         }
         catch
@@ -388,6 +398,8 @@ public static class NavWorld
     private static bool IsTree(int tileId) => MatchesHarvest(Lumberjacking.System, tileId, isLand: false);
 
     private static bool IsOre(int tileId, bool isLand) => MatchesHarvest(Mining.System, tileId, isLand);
+
+    private static bool IsWater(int tileId, bool isLand) => MatchesHarvest(Fishing.System, tileId, isLand);
 
     private static bool MatchesHarvest(HarvestSystem system, int tileId, bool isLand)
     {

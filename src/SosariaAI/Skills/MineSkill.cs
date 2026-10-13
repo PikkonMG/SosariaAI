@@ -4,6 +4,7 @@ using Server.Engines.Harvest;
 using Server.Items;
 using SosariaAI.Configuration;
 using SosariaAI.Mobiles;
+using SosariaAI.Navigation.Generation;
 
 namespace SosariaAI.Skills;
 
@@ -17,7 +18,9 @@ public sealed class MineSkill : HarvestSkill
 
     public override string Name => SkillKinds.Mine;
 
-    protected override string HaulNoun => OreNoun;
+    public override string HaulNoun => OreNoun;
+
+    protected override string ResourceRole => ResourceKind.Mine;
 
     protected override int AreaWidenings => HarvestArea.MineWidenings;
 

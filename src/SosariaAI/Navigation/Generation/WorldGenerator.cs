@@ -491,26 +491,31 @@ public static class WorldGenerator
 
         foreach (var node in graph.Nodes)
         {
-            var role = ResourceSampler.Classify(node.X, node.Y, node.Z, resourceProbe);
+            var roles = ResourceSampler.Roles(node.X, node.Y, node.Z, resourceProbe);
 
-            if (string.IsNullOrWhiteSpace(role) || HasNearbyResource(drafts, node, role))
+            for (var i = 0; i < roles.Count; i++)
             {
-                continue;
-            }
+                var role = roles[i];
 
-            AddDraft(
-                drafts,
-                names,
-                $"{role} {node.X}-{node.Y}",
-                DestinationKind.Resource,
-                role,
-                node.X,
-                node.Y,
-                node.Z,
-                [],
-                null,
-                null
-            );
+                if (HasNearbyResource(drafts, node, role))
+                {
+                    continue;
+                }
+
+                AddDraft(
+                    drafts,
+                    names,
+                    $"{role} {node.X}-{node.Y}",
+                    DestinationKind.Resource,
+                    role,
+                    node.X,
+                    node.Y,
+                    node.Z,
+                    [],
+                    null,
+                    null
+                );
+            }
         }
     }
 

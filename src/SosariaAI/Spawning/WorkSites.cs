@@ -4,6 +4,7 @@ using Server;
 using Server.Guilds;
 using SosariaAI.Configuration;
 using SosariaAI.Navigation;
+using SosariaAI.Navigation.Generation;
 using SosariaAI.Skills;
 
 namespace SosariaAI.Spawning;
@@ -20,6 +21,9 @@ public static class WorkSites
     public const int PatchSize = 24;
     public const int BankScatterRadius = 4;
     public const int TownScatterRadius = 8;
+
+    /// <summary>The world places of one harvest a copy may try past its own site.</summary>
+    public const int MaxWorldSites = 6;
 
     private const string AuthoredSiteName = "authored";
 
@@ -494,10 +498,13 @@ public static class WorkSites
     /// <summary>
     /// The sites a harvest may work, in the order it tries them: its own site
     /// (<see cref="HarvestSite"/>) first, then, for a copy that does not gather its own stock,
-    /// every other site of the harvest whose work box lies within <paramref name="leash"/> of
-    /// <paramref name="home"/>, nearest first. Woodcutters of a cut-bare Britain wood failed
-    /// "no patch of the site has anything to work" 251 times while the Yew and south road woods
-    /// stood full.
+    /// every other site of the harvest within <paramref name="leash"/> of <paramref name="home"/>,
+    /// nearest first. The others are the drawn sites and the nearest <see cref="MaxWorldSites"/>
+    /// of <paramref name="worldPlaces"/>, the map's own woods, rock and shores
+    /// (<see cref="WorldSite"/>). Woodcutters of a cut-bare Britain wood failed "no patch of the
+    /// site has anything to work" 251 times while the Yew and south road woods stood full; in a
+    /// six-hour run 800 people with ten drawn sites failed 155 of 174 mining trips and 57 of 81
+    /// fishing trips, while the map held 1,464 mine places no one worked.
     /// </summary>
     public static List<WorkSite> HarvestSites(
         string skillKind,
@@ -505,7 +512,8 @@ public static class WorkSites
         Rectangle2D authored,
         bool ownStock,
         Point3D home,
-        int leash
+        int leash,
+        IReadOnlyList<Point3D> worldPlaces
     )
     {
         var own = HarvestSite(skillKind, uniqueId, authored, ownStock);
@@ -517,19 +525,8 @@ public static class WorkSites
         }
 
         var others = new List<(WorkSite Site, int Distance)>();
-        var kindSites = SitesOf(skillKind);
-
-        for (var i = 0; i < kindSites.Count; i++)
-        {
-            var site = kindSites[i];
-            var distance = NavMetric.Chebyshev(home, CenterOf(site.Harvest, home.Z));
-
-            if (site.Harvest != own.Harvest && distance <= leash)
-            {
-                others.Add((site, distance));
-            }
-        }
-
+        AddInLeash(others, SitesOf(skillKind), own, home, leash);
+        AddInLeash(others, NearestWorldSites(skillKind, worldPlaces, home), own, home, leash);
         others.Sort(static (left, right) => left.Distance.CompareTo(right.Distance));
 
         for (var i = 0; i < others.Count; i++)
@@ -538,6 +535,57 @@ public static class WorkSites
         }
 
         return sites;
+    }
+
+    /// <summary>
+    /// A harvest site around a world place: the box the nav build sampled to call the place a
+    /// wood, a mine or a shore (<see cref="ResourceSampler.SampleRadius"/> each way), so the work
+    /// patches cover the very tiles that earned the place its role.
+    /// </summary>
+    public static WorkSite WorldSite(string skillKind, Point3D place)
+    {
+        var radius = ResourceSampler.SampleRadius;
+        var span = radius * 2;
+        return new WorkSite(
+            $"{skillKind} {place.X}-{place.Y}",
+            place,
+            new Rectangle2D(place.X - radius, place.Y - radius, span, span)
+        );
+    }
+
+    private static List<WorkSite> NearestWorldSites(string skillKind, IReadOnlyList<Point3D> worldPlaces, Point3D home)
+    {
+        var places = new List<Point3D>(worldPlaces ?? []);
+        places.Sort((left, right) => NavMetric.Chebyshev(home, left).CompareTo(NavMetric.Chebyshev(home, right)));
+
+        var sites = new List<WorkSite>(Math.Min(places.Count, MaxWorldSites));
+
+        for (var i = 0; i < places.Count && sites.Count < MaxWorldSites; i++)
+        {
+            sites.Add(WorldSite(skillKind, places[i]));
+        }
+
+        return sites;
+    }
+
+    private static void AddInLeash(
+        List<(WorkSite Site, int Distance)> others,
+        IReadOnlyList<WorkSite> candidates,
+        WorkSite own,
+        Point3D home,
+        int leash
+    )
+    {
+        for (var i = 0; i < candidates.Count; i++)
+        {
+            var site = candidates[i];
+            var distance = NavMetric.Chebyshev(home, CenterOf(site.Harvest, home.Z));
+
+            if (site.Harvest != own.Harvest && distance <= leash)
+            {
+                others.Add((site, distance));
+            }
+        }
     }
 
     /// <summary>

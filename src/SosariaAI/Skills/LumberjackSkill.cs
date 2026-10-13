@@ -4,6 +4,7 @@ using Server.Engines.Harvest;
 using Server.Items;
 using SosariaAI.Configuration;
 using SosariaAI.Mobiles;
+using SosariaAI.Navigation.Generation;
 
 namespace SosariaAI.Skills;
 
@@ -17,7 +18,9 @@ public sealed class LumberjackSkill : HarvestSkill
 
     public override string Name => SkillKinds.Lumberjack;
 
-    protected override string HaulNoun => LogsNoun;
+    public override string HaulNoun => LogsNoun;
+
+    protected override string ResourceRole => ResourceKind.Lumber;
 
     protected override HarvestSystem System => Lumberjacking.System;
 

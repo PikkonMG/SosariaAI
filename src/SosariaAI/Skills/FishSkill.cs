@@ -6,6 +6,7 @@ using Server.Items;
 using SosariaAI.Behaviour;
 using SosariaAI.Configuration;
 using SosariaAI.Mobiles;
+using SosariaAI.Navigation.Generation;
 using SosariaAI.Social;
 
 namespace SosariaAI.Skills;
@@ -39,7 +40,9 @@ public sealed class FishSkill : HarvestSkill
 
     public override string Name => SkillKinds.Fish;
 
-    protected override string HaulNoun => FishNoun;
+    public override string HaulNoun => FishNoun;
+
+    protected override string ResourceRole => ResourceKind.Fish;
 
     protected override HarvestSystem System => Fishing.System;
 

@@ -10,6 +10,7 @@ using SosariaAI.Configuration;
 using SosariaAI.Economy;
 using SosariaAI.Mobiles;
 using SosariaAI.Navigation;
+using SosariaAI.Navigation.Generation;
 using SosariaAI.Social;
 using SosariaAI.Spawning;
 using SosariaAI.Logging;
@@ -87,7 +88,13 @@ public abstract class HarvestSkill : Skill
     protected abstract int CountResource(Container pack);
 
     /// <summary>What the haul is called aloud: "ore", "logs", "fish".</summary>
-    protected abstract string HaulNoun { get; }
+    public abstract string HaulNoun { get; }
+
+    /// <summary>The role the nav build gives the world places of this harvest (<see cref="ResourceKind"/>).</summary>
+    protected abstract string ResourceRole { get; }
+
+    /// <summary>What this trip added: the pack's count past its start, and what went onto a pack beast.</summary>
+    public int Gained => ResourceCount + _loadedOnBeast - _countAtStart;
 
     /// <summary>
     /// The resource worked from <paramref name="tile"/> when it has stock left in the engine's
@@ -242,7 +249,15 @@ public abstract class HarvestSkill : Skill
         var id = _character.CharacterId;
         var now = Core.Now;
         var goals = _character.Memory.Unreachable.Active(now);
-        var sites = WorkSites.HarvestSites(Name, id, _routineArea, _ownStock, _character.HomeSpot, HomeLeash.ConfiguredRadius());
+        var sites = WorkSites.HarvestSites(
+            Name,
+            id,
+            _routineArea,
+            _ownStock,
+            _character.HomeSpot,
+            HomeLeash.ConfiguredRadius(),
+            WorldPlaces()
+        );
 
         for (var siteIndex = 0; siteIndex < sites.Count; siteIndex++)
         {
@@ -270,6 +285,26 @@ public abstract class HarvestSkill : Skill
 
         HarvestPatches.NoteDry(_character.Serial.Value, Name, now + Definition.MinRespawn);
         return false;
+    }
+
+    /// <summary>The arrivals of the places the nav build found for this harvest on the home facet.</summary>
+    private List<Point3D> WorldPlaces()
+    {
+        var places = new List<Point3D>();
+        var catalog = NavWorld.DestinationsFor(_character.HomeFacet);
+
+        for (var i = 0; catalog != null && i < catalog.All.Count; i++)
+        {
+            var place = catalog.All[i];
+
+            if (place.ParsedKind == DestinationKind.Resource &&
+                string.Equals(place.Role, ResourceRole, StringComparison.OrdinalIgnoreCase))
+            {
+                places.Add(place.Arrival);
+            }
+        }
+
+        return places;
     }
 
     /// <summary>True when some tile of the patch holds a resource with stock left and a place to stand.</summary>
