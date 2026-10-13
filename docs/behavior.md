@@ -228,9 +228,13 @@ and blocks the step when stamina runs out. A lumberjack, miner, or fisher stops
 at its fill share of that limit, or when one more swing would pass it. A
 gatherer that already carries a full load does not start a harvest: it sells
 or banks first. A pack beast's load comes back into the pack only up to nine
-tenths of the limit. A person who is overloaded anyway puts the haul on its
-pack beast, then into the bank box at a banker, and drops the rest on the
-ground, heaviest pieces first, until it can walk.
+tenths of the limit. A shop buy or a deal with a gatherer takes no more than
+the body carries under its limit. A person who is overloaded anyway puts the
+haul (harvest and craft stock such as hides, leather and boards) on its pack
+beast, then into the bank box at a banker, and drops the rest on the ground,
+heaviest pieces first, until it can walk. When the haul is not enough, its
+spare gear goes the same way. It keeps gold, bags, books, runes, reagents,
+bandages, potions, scrolls, food, tools, and pieces held for a buyer.
 
 A harvest works eight minutes from its arrival at the patch, not from the start
 of the walk. A whole trip, walk and work, ends after 20 minutes. A copy whose
