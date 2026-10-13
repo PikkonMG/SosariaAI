@@ -73,7 +73,7 @@ delete config as a normal upgrade step.
 | `nav/` | Nav graphs and destination catalogs. |
 | `memory.db` | Long-term memory (SQLite): the people met, bonds, shared adventures, places seen, and shard news. Real players are included. The plugin never deletes it. Its `-wal` and `-shm` files sit beside it while the server runs. |
 | `memory/` | The old day book files. No longer used; left on disk for the operator to remove. |
-| `activity.log`, `activity.prev.log` | Per-character activity, this boot and the last. Written when `logActivity` is `true`. |
+| `activity.log`, `activity-runs/` | Per-character activity of this boot. At each boot the last run's file moves to `activity-runs/`, named for the time it ended; the newest 10 are kept. Written when `logActivity` is `true`. |
 | `status.html` | The status page. |
 | `sosaria-list.txt` | The last `[Sosaria` list. |
 | `live-proof-*.tsv` | Population check results. |
