@@ -76,4 +76,24 @@ public class WorldSetupRulesTests
             Assert.Contains(steps, step => step.Command == WorldSetupRules.GenChamps);
         }
     }
+
+    [Fact]
+    public void Steps_OnlyACustomMap_PlaceNoBritanniaItems()
+    {
+        // Decorations, doors, signs, teleporters, moongates and champion spawns come from
+        // Britannia's data files: on a map of the shard's own they would cover its land.
+        var land = TestMap.EnsureLand().Name;
+        var steps = WorldSetupRules.Steps(EraBand.Modern, [land], _ => true);
+
+        Assert.All(steps, step => Assert.Equal(WorldSetupRules.ImportSpawners, step.Command));
+        Assert.Contains(new SetupStep(WorldSetupRules.ImportSpawners, $"Data/Spawns/shared/{land.ToLowerInvariant()}/*.json"), steps);
+    }
+
+    [Fact]
+    public void Steps_AStockMapBesideACustomOne_StillBuildsBritannia()
+    {
+        var steps = WorldSetupRules.Steps(EraBand.T2A, [TestMap.EnsureLand().Name, "Felucca"], _ => true);
+
+        Assert.Equal(WorldSetupRules.Decorate, steps[0].Command);
+    }
 }

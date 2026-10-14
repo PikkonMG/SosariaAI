@@ -127,8 +127,7 @@ public static class NavStore
     private static string DestinationsFileName(string facet) =>
         $"{DestinationsPrefix}{NormalizeFacet(facet)}{ConfigFile.FileExtension}";
 
-    private static string NormalizeFacet(string facet) =>
-        string.IsNullOrWhiteSpace(facet) ? FacetNames.Felucca.ToLowerInvariant() : facet.Trim().ToLowerInvariant();
+    private static string NormalizeFacet(string facet) => FacetMaps.OrDefault(facet).Trim().ToLowerInvariant();
 }
 
 public sealed class DestinationFile

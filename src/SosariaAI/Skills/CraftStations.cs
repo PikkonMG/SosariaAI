@@ -9,6 +9,7 @@ using SosariaAI.Behaviour;
 using SosariaAI.Configuration;
 using SosariaAI.Economy;
 using SosariaAI.Mobiles;
+using SosariaAI.Spawning;
 using SosariaAI.Navigation;
 
 namespace SosariaAI.Skills;
@@ -433,7 +434,9 @@ public static class CraftStations
             }
         }
 
-        if (trade.FallbackShop != Point3D.Zero && !HomeLeash.BeyondLeash(trade.FallbackShop, from, reach))
+        // The fallback shop is a Britannia spot: on any other map it is open ground.
+        if (trade.FallbackShop != Point3D.Zero && WorldAnchors.For(map.Name).IsStock &&
+            !HomeLeash.BeyondLeash(trade.FallbackShop, from, reach))
         {
             AddPlace(shops, map, trade.FallbackShop, trade.Station);
         }

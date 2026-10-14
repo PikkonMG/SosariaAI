@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Server;
 using SosariaAI.Behaviour;
 using SosariaAI.Configuration;
@@ -100,5 +101,17 @@ public class HouseRulesTests
 
         Assert.True(sawPlot);
         Assert.False(sawBank);
+    }
+
+    [Fact]
+    public void CandidateSpots_APlotOfTheOperatorsOwn_IsSearchedRoundAsItIs()
+    {
+        // A plot west of Britain's x 1740, as on a map of the shard's own, found no spot at all.
+        var plot = new Point3D(HouseRules.BritainTownMaxX - HouseRules.PlaceSearchRadius * 2, HouseRules.DefaultPlotY, HouseRules.DefaultPlotZ);
+        var spots = new List<Point3D>(HouseRules.CandidateSpots(plot, plot));
+
+        Assert.Contains(plot, spots);
+        Assert.Contains(new Point3D(plot.X - HouseRules.PlaceSearchStep, plot.Y, plot.Z), spots);
+        Assert.DoesNotContain(spots, spot => HouseRules.OutsideTown(spot.X));
     }
 }

@@ -328,6 +328,18 @@ public class HuntGroundTests
     }
 
     [Fact]
+    public void ForHome_OnAMapOfTheShardsOwn_EveryAuthoredHuntGoesToTheOwnGround()
+    {
+        // The authored graveyard is a Britannia spot: on another map it lies in any field.
+        var ground = Place(Troll, AlsoNearHome, TrollWoodsDifficulty);
+        var hunt = new HuntHome(Home, Leash, ground, Power: FighterPower, Tier: SkillTier.Novice, AuthoredFits: false);
+        var authored = new SkillStepDefinition { Skill = SkillKinds.Hunt, Target = NearHome, Minutes = CharactersFile.GraveyardHuntMinutes };
+
+        Assert.Equal(NearHome, HuntGround.ForHome(authored, hunt with { AuthoredFits = true }).Target);
+        Assert.Equal(AlsoNearHome, HuntGround.ForHome(authored, hunt).Target);
+    }
+
+    [Fact]
     public void StateOf_GuardsOrADryRunClose_PreyMakesItLive()
     {
         const int SomePrey = 3;

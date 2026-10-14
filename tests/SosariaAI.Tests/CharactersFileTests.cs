@@ -53,7 +53,7 @@ public class CharactersFileTests
         Assert.Equal(400, file.Nav.GateCost);
         Assert.True(file.Maps[FacetNames.Felucca].Enabled);
         Assert.Equal(CharactersFile.DefaultFeluccaCount, file.Maps[FacetNames.Felucca].Count);
-        Assert.Equal(CharactersFile.DefaultFeluccaPkEnabled, file.Maps[FacetNames.Felucca].PkEnabled);
+        Assert.Equal(CharactersFile.DefaultOpenPvpPkEnabled, file.Maps[FacetNames.Felucca].PkEnabled);
         Assert.Equal(DefaultFeluccaReds, file.Maps[FacetNames.Felucca].PkCount);
         Assert.True(file.Maps[FacetNames.Felucca].PkEnabled);
         Assert.Equal(CharactersFile.DefaultPkEnabled, file.Maps[FacetNames.Trammel].PkEnabled);
@@ -637,4 +637,82 @@ public class CharactersFileTests
             }
         }
     }
+
+    [Fact]
+    public void CreateDefault_OneCustomMap_TurnsItOnWithTheBritainRoster()
+    {
+        // A one-map shard whose map is not named Felucca spawned nobody: the file named six
+        // stock maps the server did not have.
+        var file = CharactersFile.CreateDefault(EraBand.T2A, [new MapShape(CustomMap, CustomSide, CustomSide, OpenPvp: true)]);
+        var toggle = Assert.Single(file.Maps).Value;
+
+        Assert.True(file.Maps.ContainsKey(CustomMap));
+        Assert.True(toggle.Enabled);
+        Assert.Equal(CharactersFile.DefaultCustomMapCount, toggle.Count);
+        Assert.Equal(CharactersFile.DefaultOpenPvpPkEnabled, toggle.PkEnabled);
+        Assert.Equal(DefaultFeluccaReds, toggle.PkCount);
+        Assert.Equal(DefaultRosterSize, file.Facets[CustomMap].Roster.Count);
+        Assert.Empty(file.HousePlots);
+    }
+
+    [Fact]
+    public void CreateDefault_ACustomMapWithTrammelsRules_HasNoReds()
+    {
+        var file = CharactersFile.CreateDefault(EraBand.ML, [new MapShape(CustomMap, CustomSide, CustomSide, OpenPvp: false)]);
+
+        Assert.True(file.Maps[CustomMap].Enabled);
+        Assert.Equal(CharactersFile.DefaultPkEnabled, file.Maps[CustomMap].PkEnabled);
+        Assert.Equal(CharactersFile.DefaultPkCount, file.Maps[CustomMap].PkCount);
+    }
+
+    [Fact]
+    public void CreateDefault_StockMapsAndACustomOne_KeepTheStockFile_AndLeaveTheCustomOneOff()
+    {
+        var stock = CharactersFile.CreateDefault(EraBand.ML, []);
+        var mixed = CharactersFile.CreateDefault(EraBand.ML, [.. StockShapes(), new MapShape(CustomMap, CustomSide, CustomSide, OpenPvp: true)]);
+
+        Assert.Equal(FacetNames.All, new List<string>(stock.Maps.Keys));
+        Assert.Equal(new List<string>(FacetNames.All) { CustomMap }, new List<string>(mixed.Maps.Keys));
+        Assert.Equal(stock.HousePlots.Count, mixed.HousePlots.Count);
+        Assert.False(mixed.Maps[CustomMap].Enabled);
+        Assert.Equal(CharactersFile.DefaultCustomMapCount, mixed.Maps[CustomMap].Count);
+
+        foreach (var facet in FacetNames.All)
+        {
+            Assert.Equal(stock.Maps[facet].Enabled, mixed.Maps[facet].Enabled);
+            Assert.Equal(stock.Maps[facet].Count, mixed.Maps[facet].Count);
+            Assert.Equal(stock.Maps[facet].PkCount, mixed.Maps[facet].PkCount);
+        }
+    }
+
+    [Fact]
+    public void CreateDefault_AFeluccaOfAnotherSize_IsACustomMap()
+    {
+        var file = CharactersFile.CreateDefault(EraBand.T2A, [new MapShape(FacetNames.Felucca, CustomSide, CustomSide, OpenPvp: true)]);
+
+        Assert.True(file.Maps[FacetNames.Felucca].Enabled);
+        Assert.Equal(CharactersFile.DefaultCustomMapCount, file.Maps[FacetNames.Felucca].Count);
+        Assert.Equal(DefaultRosterSize, file.Facets[FacetNames.Felucca].Roster.Count);
+        Assert.Empty(file.HousePlots);
+    }
+
+    [Fact]
+    public void DefaultFacetOn_IsForTheStockNamesOnly()
+    {
+        Assert.False(CharactersFile.DefaultFacetOn(CustomMap, EraBand.Modern));
+        Assert.True(CharactersFile.DefaultFacetOn("felucca", EraBand.T2A));
+    }
+
+    private const string CustomMap = "Sosaria";
+    private const int CustomSide = 4096;
+
+    private static List<MapShape> StockShapes() =>
+    [
+        new(FacetNames.Felucca, FacetMaps.BritanniaWidth, FacetMaps.BritanniaHeight, OpenPvp: true),
+        new(FacetNames.Trammel, FacetMaps.BritanniaWidth, FacetMaps.BritanniaHeight, OpenPvp: false),
+        new(FacetNames.Ilshenar, FacetMaps.IlshenarWidth, FacetMaps.IlshenarHeight, OpenPvp: false),
+        new(FacetNames.Malas, FacetMaps.MalasWidth, FacetMaps.MalasHeight, OpenPvp: false),
+        new(FacetNames.Tokuno, FacetMaps.TokunoSide, FacetMaps.TokunoSide, OpenPvp: false),
+        new(FacetNames.TerMur, FacetMaps.TerMurWidth, FacetMaps.TerMurHeight, OpenPvp: false)
+    ];
 }

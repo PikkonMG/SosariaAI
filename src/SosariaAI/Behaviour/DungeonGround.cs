@@ -184,7 +184,7 @@ public static class DungeonGround
     /// </summary>
     public static IReadOnlySet<string> UsualFor(SosariaCharacter character)
     {
-        var map = Map.Parse(character.HomeFacet);
+        var map = FacetMaps.Resolve(character.HomeFacet);
         var halls = FittingHalls(
             NavWorld.DestinationsFor(character.HomeFacet),
             FightingPower(character),
@@ -270,7 +270,7 @@ public static class DungeonGround
         }
 
         var facet = character.HomeFacet;
-        var map = Map.Parse(facet);
+        var map = FacetMaps.Resolve(facet);
         var hall = Pick(
             NavWorld.DestinationsFor(facet),
             ReachFor(character, onFoot),
@@ -298,7 +298,7 @@ public static class DungeonGround
         }
 
         var facet = character.HomeFacet;
-        var map = Map.Parse(facet);
+        var map = FacetMaps.Resolve(facet);
         var home = character.HomeSpot;
         var magic = !onFoot && RuneKit.TravelsByMagic(character.Skills.Magery.Value, RuneKit.RecallStock(character));
         // A murderer keeps off the guards: a door under them is no door for it, and its walk

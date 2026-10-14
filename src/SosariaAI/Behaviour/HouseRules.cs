@@ -8,8 +8,10 @@ namespace SosariaAI.Behaviour;
 
 /// <summary>
 /// When a character may buy the allowed small house, and when it goes back to look in on
-/// it. Free. No model. Britain town ends at x 1740. The plot sits east of that so housing
-/// can pass.
+/// it. Free. No model. Britain town ends at x 1740. The default plot sits east of that so
+/// housing can pass, and the search round it stays east of it. A plot characters.json names
+/// elsewhere, as on a map of the shard's own, is searched round as it is: the engine's own
+/// housing rules turn down a spot in a town.
 /// </summary>
 public static class HouseRules
 {
@@ -66,12 +68,14 @@ public static class HouseRules
 
     public static IEnumerable<Point3D> CandidateSpots(Point3D here, Point3D plot)
     {
-        if (OutsideTown(here.X))
+        var eastOfBritain = plot == DefaultPlot();
+
+        if (!eastOfBritain || OutsideTown(here.X))
         {
             yield return here;
         }
 
-        if (OutsideTown(plot.X) && here != plot)
+        if ((!eastOfBritain || OutsideTown(plot.X)) && here != plot)
         {
             yield return plot;
         }
@@ -87,7 +91,7 @@ public static class HouseRules
 
                 var spot = new Point3D(plot.X + dx, plot.Y + dy, plot.Z);
 
-                if (!OutsideTown(spot.X))
+                if (eastOfBritain && !OutsideTown(spot.X))
                 {
                     continue;
                 }

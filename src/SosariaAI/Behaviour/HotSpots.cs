@@ -4,11 +4,13 @@ using Server;
 using Server.Items;
 using Server.Logging;
 using Server.Mobiles;
+using Server.Regions;
 using SosariaAI.Combat;
 using SosariaAI.Configuration;
 using SosariaAI.Logging;
 using SosariaAI.Mobiles;
 using SosariaAI.Navigation;
+using SosariaAI.Navigation.Generation;
 using SosariaAI.Social;
 
 namespace SosariaAI.Behaviour;
@@ -240,11 +242,11 @@ public static class HotSpots
     /// <summary>
     /// The public moongates of this map whose pads stand out of the guards' reach: the gates a
     /// red steps through (<see cref="SosariaAI.Skills.GateTravel.MayTakeMoongate(bool, bool, bool, bool)"/>).
-    /// None off Felucca, where a red takes no moongate.
+    /// None on a map without open PvP, where a red takes no moongate.
     /// </summary>
     public static IReadOnlyList<Point3D> OpenGates(Map map)
     {
-        if (map != Map.Felucca)
+        if (!WorldPlay.OpenPvp(map))
         {
             return [];
         }
@@ -256,11 +258,11 @@ public static class HotSpots
 
         var gates = new List<Point3D>();
 
-        foreach (var entry in PMList.Felucca.Entries)
+        foreach (var gate in MoongateSeeds.GatesFor(map.Name))
         {
-            if (!GuardCall.IsGuardedPlace(entry.Location, map))
+            if (!GuardCall.IsGuardedPlace(gate.Location, map))
             {
-                gates.Add(entry.Location);
+                gates.Add(gate.Location);
             }
         }
 
@@ -276,10 +278,11 @@ public static class HotSpots
     {
         var spots = new List<HotSpot>();
         var walker = Standable.Walker(map);
+        var stockMap = FacetMaps.IsStock(map.Name, map.Width, map.Height);
+        AddGates(spots, map, walker);
 
-        if (map == Map.Felucca)
+        if (FacetMaps.Same(PkRules.Haven.Facet, map.Name) && PkRules.BucsDenHaven != Point3D.Zero)
         {
-            AddGates(spots, map, walker);
             Add(spots, map, walker, HotSpotKind.Den, PkRules.BucsDenHaven);
         }
 
@@ -287,8 +290,8 @@ public static class HotSpots
         {
             var destination = catalog.All[i];
 
-            if (PkGangRules.IsDungeonMouth(destination.Kind, destination.Name, destination.X) &&
-                HotSpotRules.IsBusyDungeon(destination.Role))
+            if (PkGangRules.IsDungeonMouth(destination.Kind, destination.Name, OnSurface(map, destination.Arrival)) &&
+                HotSpotRules.DoorIsHotSpot(destination.Role, stockMap))
             {
                 Add(spots, map, walker, HotSpotKind.DungeonDoor, destination.Arrival);
             }
@@ -301,24 +304,27 @@ public static class HotSpots
         return spots;
     }
 
-    // Each public moongate of the facet with open ground round it, the Den's own left out.
+    // Each public moongate of the facet with open ground round it, the haven's own left out.
     private static void AddGates(List<HotSpot> spots, Map map, TileWalker walker)
     {
-        foreach (var entry in PMList.Felucca.Entries)
+        foreach (var gate in MoongateSeeds.GatesFor(map.Name))
         {
-            var camps = Camps(map, walker, entry.Location, HotSpotRules.GateCampTiles, includeCenter: false);
+            var camps = Camps(map, walker, gate.Location, HotSpotRules.GateCampTiles, includeCenter: false);
 
             if (HotSpotRules.GateIsHotSpot(
-                    PkRules.InBuccaneersDen(entry.Location.X, entry.Location.Y),
-                    GuardCall.IsGuardedPlace(entry.Location, map),
+                    PkRules.InBuccaneersDen(gate.Location.X, gate.Location.Y),
+                    GuardCall.IsGuardedPlace(gate.Location, map),
                     camps.Count
                 ))
             {
-                var yewGate = entry.Number == HotSpotRules.YewGateNumber;
-                spots.Add(Spot(map, HotSpotKind.Moongate, entry.Location, camps, yewGate));
+                var yewGate = gate.Number == HotSpotRules.YewGateNumber;
+                spots.Add(Spot(map, HotSpotKind.Moongate, gate.Location, camps, yewGate));
             }
         }
     }
+
+    // A dungeon entrance on the surface: the engine's regions put it in no dungeon.
+    private static bool OnSurface(Map map, Point3D at) => Region.Find(at, map)?.IsPartOf<DungeonRegion>() != true;
 
     private static void Add(List<HotSpot> spots, Map map, TileWalker walker, HotSpotKind kind, Point3D center)
     {

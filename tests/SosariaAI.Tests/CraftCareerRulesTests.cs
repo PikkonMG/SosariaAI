@@ -144,7 +144,7 @@ public class CraftCareerRulesTests
     [Fact]
     public void CraftRoutine_WorksSellsRestocksAndBanks()
     {
-        var steps = CraftCareerRules.CraftRoutine(SkillKinds.Tailor, WorkSites.BritainTown).Select(step => step.Skill).ToList();
+        var steps = CraftCareerRules.CraftRoutine(SkillKinds.Tailor, WorkSites.BritainTown, WorldAnchors.Stock).Select(step => step.Skill).ToList();
 
         Assert.Equal(
             [SkillKinds.Tailor, SkillKinds.VendorSell, SkillKinds.VendorBuy, SkillKinds.BankDeposit, SkillKinds.BankShop, SkillKinds.Decide],
@@ -155,7 +155,7 @@ public class CraftCareerRulesTests
     [Fact]
     public void CraftRoutine_ASmithMinesItsOwnOre_AndWalksItToTown()
     {
-        var routine = CraftCareerRules.CraftRoutine(SkillKinds.Smith, WorkSites.MinocTown);
+        var routine = CraftCareerRules.CraftRoutine(SkillKinds.Smith, WorkSites.MinocTown, WorldAnchors.Stock);
         var mine = routine.Single(step => step.Skill == SkillKinds.Mine);
 
         Assert.Equal(
@@ -174,7 +174,7 @@ public class CraftCareerRulesTests
     [InlineData(SkillKinds.Fletch)]
     public void CraftRoutine_AWoodworkerCutsItsOwnLogs(string trade)
     {
-        var routine = CraftCareerRules.CraftRoutine(trade, WorkSites.YewTown);
+        var routine = CraftCareerRules.CraftRoutine(trade, WorkSites.YewTown, WorldAnchors.Stock);
 
         Assert.Equal(WorkSites.YewWood.Harvest, routine.Single(step => step.Skill == SkillKinds.Lumberjack).Area.ToRectangle());
         Assert.DoesNotContain(routine, step => step.Skill == SkillKinds.Mine);
@@ -193,7 +193,7 @@ public class CraftCareerRulesTests
             var mine = smith.Routines[CraftCareerRules.CraftRoutineId].Single(step => step.Skill == SkillKinds.Mine);
 
             Assert.Contains(CraftCareerRules.HomesFor(SkillKinds.Smith), site => site.Home == home);
-            Assert.Equal(WorkSites.NearestSite(SkillKinds.Mine, home).Harvest, mine.Area.ToRectangle());
+            Assert.Equal(WorkSites.NearestSite(WorldAnchors.Stock, SkillKinds.Mine, home).GetValueOrDefault().Harvest, mine.Area.ToRectangle());
             Assert.Equal(SkillKinds.Smith, CraftCareerRules.CareerOf(smith));
             Assert.Equal(PersonClass.Smith, PersonProfileRules.Roll(id, smith, Server.Expansion.T2A).Class);
         }

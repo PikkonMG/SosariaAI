@@ -44,7 +44,7 @@ public sealed class IdleWanderSkill : Skill
     {
         _character = character;
         var leash = HomeLeash.ConfiguredRadius();
-        var idle = HomeLeash.IdleCenter(_center, character.HomeCorner, leash, WorkSites.IsCopy(character.CharacterId));
+        var idle = HomeLeash.IdleCenter(_center, character.HomeCorner, leash, WorkSites.HomedByTable(character.CharacterId));
         var center = _aroundHere ? character.Location : HomeLeash.StandCenter(character.Location, idle, leash);
 
         if (!_stay.Begin(character, center, _radius, WanderChanceToNotMove))

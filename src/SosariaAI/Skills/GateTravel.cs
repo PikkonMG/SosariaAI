@@ -234,15 +234,15 @@ public static class GateTravel
     }
 
     /// <summary>
-    /// A murderer, alive or a ghost, takes a public moongate on Felucca when neither its pad
-    /// nor the pad it lands on stands in a guarded region: the guards there kill a red on
-    /// sight, so the engine's own regions decide, pad by pad. Off Felucca it never does. A red
-    /// ghost is held to it too, as its roads are (<see cref="PathSearchBars.For"/>): a red
-    /// ghost that lands on a guarded pad is raised there and dies to the guards. The Den has
-    /// its own healer on foot, and the unguarded pads bring a red ghost from afar.
+    /// A murderer, alive or a ghost, takes a public moongate within a map with open PvP when
+    /// neither its pad nor the pad it lands on stands in a guarded region: the guards there kill
+    /// a red on sight, so the engine's own regions decide, pad by pad. Off such a map it never
+    /// does. A red ghost is held to it too, as its roads are (<see cref="PathSearchBars.For"/>):
+    /// a red ghost that lands on a guarded pad is raised there and dies to the guards. The Den
+    /// has its own healer on foot, and the unguarded pads bring a red ghost from afar.
     /// </summary>
-    public static bool MayTakeMoongate(bool murderer, bool felucca, bool originGuarded, bool destinationGuarded) =>
-        !murderer || felucca && !originGuarded && !destinationGuarded;
+    public static bool MayTakeMoongate(bool murderer, bool openPvp, bool originGuarded, bool destinationGuarded) =>
+        !murderer || openPvp && !originGuarded && !destinationGuarded;
 
     /// <summary>This person may take a public moongate from <paramref name="origin"/> to <paramref name="destination"/>.</summary>
     public static bool MayTakeMoongate(SosariaCharacter character, Point3D origin, Point3D destination, Map destinationMap)
@@ -252,7 +252,7 @@ public static class GateTravel
         // Only a murderer's hop asks the regions.
         return MayTakeMoongate(
             murderer,
-            character.Map == Map.Felucca && destinationMap == Map.Felucca,
+            character.Map == destinationMap && FacetMaps.OpenPvp(destinationMap),
             murderer && GuardCall.IsGuardedPlace(origin, character.Map),
             murderer && GuardCall.IsGuardedPlace(destination, destinationMap)
         );

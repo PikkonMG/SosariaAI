@@ -18,6 +18,7 @@ public sealed class CharactersConfiguration
     /// The Felucca public moongates that keep their guards, by town. The era had guards at
     /// Britain, Moonglow, and Jhelom and none at the rest, so reds travel by the others. An
     /// empty list takes every guard off the pads; list all eight towns to keep every pad guarded.
+    /// Only a stock Felucca is changed (<see cref="Behaviour.MoongateGuards"/>).
     /// </summary>
     [JsonPropertyName("feluccaGuardedMoongates")]
     public List<string> FeluccaGuardedMoongates { get; set; } = [.. Behaviour.MoongateGuards.DefaultGuardedGates];

@@ -4,7 +4,9 @@ using Server;
 using Server.Items;
 using Server.Logging;
 using Server.Regions;
+using SosariaAI.Configuration;
 using SosariaAI.Logging;
+using SosariaAI.Navigation.Generation;
 
 namespace SosariaAI.Behaviour;
 
@@ -15,12 +17,14 @@ namespace SosariaAI.Behaviour;
 /// At boot the plugin turns that region's guards off, then lays a guarded area over each pad
 /// named in characters.json feluccaGuardedMoongates. Every guard check (paths, gate travel,
 /// recall landings, hot spots) then reads each pad as the era had it. Town guards are not
-/// touched.
+/// touched. Only a stock Felucca (<see cref="FacetMaps.IsStock(string)"/>) is changed: another
+/// map's moongate region is the shard's own, and the pads are read through
+/// <see cref="MoongateSeeds.GatesFor"/>, which never throws on a shard without Trammel.
 /// </summary>
 public static class MoongateGuards
 {
     public const string MoongateRegionName = "Moongates";
-    public const string FeluccaName = "Felucca";
+    public const string FeluccaName = FacetNames.Felucca;
 
     /// <summary>Above the shared moongate region, so a named pad's own area wins the region lookup.</summary>
     public const int GuardedPadPriority = 51;
@@ -43,9 +47,10 @@ public static class MoongateGuards
 
     private static readonly ILogger console = SosariaLog.Console(typeof(MoongateGuards));
 
-    /// <summary>True when this region is the Felucca moongate region whose shared guards come off at boot.</summary>
+    /// <summary>True when this region is the stock Felucca moongate region whose shared guards come off at boot.</summary>
     public static bool IsSharedGateRegion(string mapName, string regionName) =>
         string.Equals(mapName, FeluccaName, StringComparison.OrdinalIgnoreCase) &&
+        FacetMaps.IsStock(mapName) &&
         string.Equals(regionName, MoongateRegionName, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>True when the named town's gate keeps its guards.</summary>
@@ -91,11 +96,11 @@ public static class MoongateGuards
 
         var kept = new List<string>();
 
-        foreach (var entry in PMList.Felucca.Entries)
+        foreach (var gate in MoongateSeeds.GatesFor(shared.Map.Name))
         {
-            var town = TownOf(entry.Number);
+            var town = TownOf(gate.Number);
 
-            if (!KeepsGuards(town, guardedGates) || PadArea(shared, entry.Location) is not { } area)
+            if (!KeepsGuards(town, guardedGates) || PadArea(shared, gate.Location) is not { } area)
             {
                 continue;
             }

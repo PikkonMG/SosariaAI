@@ -74,6 +74,15 @@ public class HotSpotRulesTests
         Assert.Equal(busy, HotSpotRules.IsBusyDungeon(dungeon));
 
     [Fact]
+    public void DoorIsHotSpot_TheBusyFourOnBritannia_EveryDoorOnAMapOfTheShardsOwn()
+    {
+        Assert.True(HotSpotRules.DoorIsHotSpot("Despise", stockMap: true));
+        Assert.False(HotSpotRules.DoorIsHotSpot("Hythloth", stockMap: true));
+        Assert.True(HotSpotRules.DoorIsHotSpot("Hythloth", stockMap: false));
+        Assert.True(HotSpotRules.DoorIsHotSpot("Old Caves", stockMap: false));
+    }
+
+    [Fact]
     public void IsHotGraveyard_TheBritainCemetery()
     {
         Assert.True(HotSpotRules.IsHotGraveyard("Britain Cemetery"));

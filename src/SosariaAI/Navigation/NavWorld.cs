@@ -7,9 +7,11 @@ using Server.Engines.Harvest;
 using Server.Logging;
 using SosariaAI.Admin;
 using SosariaAI.Behaviour;
+using SosariaAI.Combat;
 using SosariaAI.Configuration;
 using SosariaAI.Navigation.Generation;
 using SosariaAI.Logging;
+using SosariaAI.Spawning;
 
 namespace SosariaAI.Navigation;
 
@@ -74,6 +76,7 @@ public static class NavWorld
         _configured = true;
         Graphs.Clear();
         Catalogs.Clear();
+        MoongateSeeds.ForgetGates();
         var characters = SosariaSettings.Characters;
         var rebuild = NavBootRules.Rebuilds(forceRebuild, characters.Nav is { RebuildOnBoot: true }, worldWaits);
         var dataRoot = ResolveDataRoot();
@@ -93,25 +96,42 @@ public static class NavWorld
             ConfigureFacet(pair.Key, rebuild, worldWaits, dataRoot);
         }
 
-        WarmRedBars();
+        SettleReds(characters);
     }
 
     /// <summary>
-    /// Reads the guarded roads reds keep off on the graph just loaded (<see cref="PathSearchBars.WarmFelucca"/>),
-    /// at boot and after every check or rebuild: a new graph starts cold, and the first red plan
-    /// on it paid the read on the world thread.
+    /// Picks the reds' haven from the catalogs just loaded (<see cref="WorldAnchors.HavenFor"/>),
+    /// then reads the guarded roads reds keep off on each graph of a map with open PvP
+    /// (<see cref="PathSearchBars.WarmGuards"/>), at boot and after every check or rebuild: a new
+    /// graph starts cold, and the first red plan on it paid the read on the world thread.
     /// </summary>
-    private static void WarmRedBars()
+    private static void SettleReds(CharactersConfiguration characters)
     {
-        var (nodes, legs) = PathSearchBars.WarmFelucca();
-        logger.Information("Felucca roads: {Nodes} nodes and {Legs} legs lie under the guards; reds keep off them", nodes, legs);
+        PkRules.UseHaven(WorldAnchors.HavenFor(characters));
+
+        foreach (var pair in characters.Maps)
+        {
+            if (pair.Value is not { Enabled: true } || !FacetMaps.OpenPvp(pair.Key) || !Graphs.ContainsKey(pair.Key))
+            {
+                continue;
+            }
+
+            var (nodes, legs) = PathSearchBars.WarmGuards(pair.Key);
+            logger.Information(
+                "{Facet} roads: {Nodes} nodes and {Legs} legs lie under the guards; reds keep off them",
+                pair.Key,
+                nodes,
+                legs
+            );
+        }
     }
 
     /// <summary>
-    /// The graph of this facet, or null when it has none. A blank facet means Felucca.
-    /// Another facet's graph is never a substitute: its coordinates are on another map.
+    /// The graph of this facet, or null when it has none. A blank facet is the shard's default
+    /// facet (<see cref="FacetMaps.Default"/>). Another facet's graph is never a substitute: its
+    /// coordinates are on another map.
     /// </summary>
-    public static NavGraph GraphFor(string facet) => Graphs.GetValueOrDefault(FacetOrDefault(facet));
+    public static NavGraph GraphFor(string facet) => Graphs.GetValueOrDefault(FacetMaps.OrDefault(facet));
 
     /// <summary>
     /// Marks the nodes under a roof. Cheap: one tile test per node and no ground walk.
@@ -130,10 +150,7 @@ public static class NavWorld
     }
 
     public static DestinationCatalog DestinationsFor(string facet) =>
-        Catalogs.GetValueOrDefault(FacetOrDefault(facet));
-
-    private static string FacetOrDefault(string facet) =>
-        string.IsNullOrWhiteSpace(facet) ? FacetNames.Felucca : facet;
+        Catalogs.GetValueOrDefault(FacetMaps.OrDefault(facet));
 
     /// <param name="worldWaits">
     /// The world waits for First Time Setup: a saved graph loads as it is, since the checks
@@ -151,7 +168,7 @@ public static class NavWorld
         DestinationCatalog catalog = null;
         var loaded = false;
 
-        if (!Map.TryParse(facet, null, out var map) || map == null)
+        if (!FacetMaps.TryFind(facet, out var map))
         {
             logger.Warning("Nav {Facet}: {Reason}", facet, NoMapReason);
             return;

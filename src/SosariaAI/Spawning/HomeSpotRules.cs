@@ -108,11 +108,12 @@ public static class HomeSpotRules
         places is { Count: > 0 } ? places[WorkSites.StableRoll(uniqueId, attempt) % places.Count] : Point3D.Zero;
 
     /// <summary>
-    /// The spot a copy treats as its own doorstep: a seeded tile a few steps from one of
-    /// its town's shops, inns or docks, on that place's floor and never on the bank plaza.
-    /// Every copy once anchored to the bank tile; a scatter round the bank that needed a
-    /// straight walk back to the bank failed for 192 of 200 Britain copies, so the whole
-    /// town idled inside the bank. Errands to the bank still use the real home spot.
+    /// The spot a copy, or anyone the tables home (<see cref="WorkSites.HomedByTable"/>), treats
+    /// as its own doorstep: a seeded tile a few steps from one of its town's shops, inns or
+    /// docks, on that place's floor and never on the bank plaza. Every copy once anchored to the
+    /// bank tile; a scatter round the bank that needed a straight walk back to the bank failed
+    /// for 192 of 200 Britain copies, so the whole town idled inside the bank. Errands to the
+    /// bank still use the real home spot.
     /// </summary>
     public static Point3D CornerFor(Point3D homeSpot, string uniqueId, Map map, IReadOnlyList<Point3D> townPlaces)
     {
@@ -121,7 +122,7 @@ public static class HomeSpotRules
             return homeSpot;
         }
 
-        if (!WorkSites.IsCopy(uniqueId))
+        if (!WorkSites.HomedByTable(uniqueId))
         {
             return OpenSpot(map, homeSpot);
         }
@@ -190,12 +191,13 @@ public static class HomeSpotRules
     }
 
     /// <summary>
-    /// Where a person logs in and comes back after death: a copy at its own corner of town,
-    /// a fixture or a red at its spawn. Every copy once logged in on its town's bank tile;
-    /// 126 people stood on the Britain banker's tile a minute after boot.
+    /// Where a person logs in and comes back after death: a copy, or anyone the tables home
+    /// (<see cref="WorkSites.HomedByTable"/>), at its own corner of town; a stock map's fixture or
+    /// a red at its spawn. Every copy once logged in on its town's bank tile; 126 people stood on
+    /// the Britain banker's tile a minute after boot.
     /// </summary>
-    public static Point3D LoginSpot(bool isCopy, bool isRed, Point3D homeCorner, Point3D homeSpawn) =>
-        isCopy && !isRed && homeCorner != Point3D.Zero ? homeCorner : homeSpawn;
+    public static Point3D LoginSpot(bool homedByTable, bool isRed, Point3D homeCorner, Point3D homeSpawn) =>
+        homedByTable && !isRed && homeCorner != Point3D.Zero ? homeCorner : homeSpawn;
 
     /// <summary>A corner is neither on the bank plaza nor inside a harvest box, where a walk turns into a work trip.</summary>
     public static bool IsFreeCorner(Point3D corner, Point3D bank) =>

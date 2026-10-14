@@ -43,7 +43,7 @@ public sealed class LoiterSkill : Skill
     public override bool Begin(SosariaCharacter character)
     {
         var leash = HomeLeash.ConfiguredRadius();
-        var idle = HomeLeash.IdleCenter(_center, character.HomeCorner, leash, WorkSites.IsCopy(character.CharacterId));
+        var idle = HomeLeash.IdleCenter(_center, character.HomeCorner, leash, WorkSites.HomedByTable(character.CharacterId));
         var center = HomeLeash.StandCenter(character.Location, idle, leash);
 
         if (!_stay.Begin(character, center, _radius, StayChance))

@@ -352,15 +352,15 @@ public sealed class GoHomeSkill : Skill
         StartWalk(HomeGate(_character));
 
     /// <summary>
-    /// The nearest public moongate the character may walk onto: a red's never a guarded pad.
-    /// From the Britain graveyard a red's last way home was the guarded Britain gate, and the
-    /// walk refused itself.
+    /// The nearest public moongate of the home facet the character may walk onto: a red's never
+    /// a guarded pad. From the Britain graveyard a red's last way home was the guarded Britain
+    /// gate, and the walk refused itself. Zero on a map with no public moongate.
     /// </summary>
     private static Point3D HomeGate(SosariaCharacter character) =>
-        WorkSites.NearestGate(character.Location, gate => TravelSkill.MayWalkInto(character, gate));
+        WorkSites.NearestGate(character.HomeFacet, character.Location, gate => TravelSkill.MayWalkInto(character, gate));
 
     private static bool AtHomeGate(SosariaCharacter character) =>
-        WorkSites.AtNearestGate(character.Location, gate => TravelSkill.MayWalkInto(character, gate));
+        WorkSites.AtNearestGate(character.HomeFacet, character.Location, gate => TravelSkill.MayWalkInto(character, gate));
 
     private bool StartWalk(Point3D dest)
     {

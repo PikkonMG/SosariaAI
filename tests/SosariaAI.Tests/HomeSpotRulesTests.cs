@@ -91,10 +91,10 @@ public class HomeSpotRulesTests
     [Fact]
     public void LoginSpot_CopyLogsInAtItsCornerNotOnTheBankTile()
     {
-        Assert.Equal(Butcher, HomeSpotRules.LoginSpot(isCopy: true, isRed: false, Butcher, BritainBank));
-        Assert.Equal(BritainBank, HomeSpotRules.LoginSpot(isCopy: false, isRed: false, Butcher, BritainBank));
-        Assert.Equal(BritainBank, HomeSpotRules.LoginSpot(isCopy: true, isRed: true, Butcher, BritainBank));
-        Assert.Equal(BritainBank, HomeSpotRules.LoginSpot(isCopy: true, isRed: false, Point3D.Zero, BritainBank));
+        Assert.Equal(Butcher, HomeSpotRules.LoginSpot(homedByTable: true, isRed: false, Butcher, BritainBank));
+        Assert.Equal(BritainBank, HomeSpotRules.LoginSpot(homedByTable: false, isRed: false, Butcher, BritainBank));
+        Assert.Equal(BritainBank, HomeSpotRules.LoginSpot(homedByTable: true, isRed: true, Butcher, BritainBank));
+        Assert.Equal(BritainBank, HomeSpotRules.LoginSpot(homedByTable: true, isRed: false, Point3D.Zero, BritainBank));
     }
 
     private const int Copies = 100;

@@ -1,4 +1,6 @@
+using Server;
 using SosariaAI.Combat;
+using SosariaAI.Configuration;
 using Xunit;
 
 namespace SosariaAI.Tests;
@@ -63,4 +65,35 @@ public class PkRulesTests
     [Fact]
     public void MayBankAt_RedAtBritainBank_IsFalse() =>
         Assert.False(PkRules.MayBankAt(true, BritainBankX, BritainBankY));
+
+    [Fact]
+    public void BucsDen_KeepsTheStockBoxAndSquare()
+    {
+        // The haven a stock shard runs with is the Den box the constants always named.
+        Assert.Equal(PkRules.BucsDen, PkRules.Haven);
+        Assert.Equal(FacetNames.Felucca, PkRules.BucsDen.Facet);
+        Assert.True(PkRules.BucsDen.Contains(PkRules.BucsDenMinX, PkRules.BucsDenMinY));
+        Assert.True(PkRules.BucsDen.Contains(PkRules.BucsDenMaxX, PkRules.BucsDenMaxY));
+        Assert.False(PkRules.BucsDen.Contains(PkRules.BucsDenMinX - 1, PkRules.BucsDenMinY));
+        Assert.False(PkRules.BucsDen.Contains(PkRules.BucsDenMaxX + 1, PkRules.BucsDenMaxY));
+        Assert.False(PkRules.BucsDen.Contains(PkRules.BucsDenMaxX, PkRules.BucsDenMaxY + 1));
+        Assert.True(PkRules.BucsDen.Contains(PkRules.BucsDenHaven.X, PkRules.BucsDenHaven.Y));
+    }
+
+    [Fact]
+    public void RedHaven_HoldsEveryAreaAndNothingElse()
+    {
+        var haven = new RedHaven(
+            "Custom",
+            [new Rectangle2D(10, 10, 5, 5), new Rectangle2D(100, 100, 2, 2)],
+            new Point3D(12, 12, 0)
+        );
+
+        Assert.True(haven.Contains(10, 10));
+        Assert.True(haven.Contains(14, 14));
+        Assert.False(haven.Contains(15, 14));
+        Assert.True(haven.Contains(101, 101));
+        Assert.False(haven.Contains(50, 50));
+        Assert.False(new RedHaven("Custom", [], Point3D.Zero).Contains(0, 0));
+    }
 }

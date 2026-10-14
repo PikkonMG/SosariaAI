@@ -96,10 +96,13 @@ public class PkGangRulesTests
     [Fact]
     public void IsDungeonMouth_SurfaceEntrancesOnly()
     {
-        Assert.True(PkGangRules.IsDungeonMouth("Dungeon", "Destard Entrance", 1176));
-        Assert.False(PkGangRules.IsDungeonMouth("Dungeon", "Destard Level 1", 5243));
-        Assert.False(PkGangRules.IsDungeonMouth("Dungeon", "Ice Entrance", 5210));
-        Assert.False(PkGangRules.IsDungeonMouth("Hunt", "Orc Camp Entrance", 1000));
+        // Surface is the engine's regions' answer, not Felucca's dungeon column: a map of the
+        // shard's own lays its dungeons out anywhere.
+        Assert.True(PkGangRules.IsDungeonMouth("Dungeon", "Destard Entrance", onSurface: true));
+        Assert.False(PkGangRules.IsDungeonMouth("Dungeon", "Destard Level 1", onSurface: false));
+        Assert.False(PkGangRules.IsDungeonMouth("Dungeon", "Destard Level 1", onSurface: true));
+        Assert.False(PkGangRules.IsDungeonMouth("Dungeon", "Ice Entrance", onSurface: false));
+        Assert.False(PkGangRules.IsDungeonMouth("Hunt", "Orc Camp Entrance", onSurface: true));
     }
 
     [Fact]

@@ -4,7 +4,9 @@ using System.Collections.Generic;
 namespace SosariaAI.Configuration;
 
 /// <summary>
-/// Qualifies character and party ids with a facet so two facets never share a key.
+/// Qualifies character and party ids with a facet so two facets never share a key. The facet
+/// is any map name <see cref="FacetNames.TryCanonical"/> knows, so a custom map's people carry
+/// its name: "Sosaria:mira#3".
 /// </summary>
 public static class FacetIds
 {
@@ -67,14 +69,18 @@ public static class FacetIds
         };
     }
 
-    private static bool HasFacetPrefix(string id)
+    /// <summary>The facet an id is qualified with, or null for an id without one.</summary>
+    public static string FacetOf(string id)
     {
-        var separator = id.IndexOf(Separator);
-        if (separator <= 0)
+        if (string.IsNullOrWhiteSpace(id))
         {
-            return false;
+            return null;
         }
 
-        return FacetNames.TryCanonical(id[..separator], out _);
+        var separator = id.IndexOf(Separator);
+
+        return separator > 0 && FacetNames.TryCanonical(id[..separator], out var facet) ? facet : null;
     }
+
+    private static bool HasFacetPrefix(string id) => FacetOf(id) != null;
 }

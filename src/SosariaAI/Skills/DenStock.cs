@@ -10,7 +10,8 @@ namespace SosariaAI.Skills;
 
 /// <summary>
 /// What the shops of Buccaneer's Den have on their shelves, found the way a red's shopping
-/// trip finds a shop (<see cref="ShopFinder"/>), from the Den's square. A fixed list once said
+/// trip finds a shop (<see cref="ShopFinder"/>), from the Den's square: the reds' haven
+/// (<see cref="PkRules.Haven"/>) on whatever map holds it. A fixed list once said
 /// the Den sold only arrows and bolts, though its healer sells bandages. A red that turned
 /// home for a supply no Den shop sold rode out and back 292 times in one night, so a supply
 /// counts only when every type the red is short of is on a Den shelf. The low check runs for
@@ -83,7 +84,8 @@ public static class DenStock
             return (look.Sells, look.Price);
         }
 
-        var shop = ShopFinder.NearestStocked(FacetNames.Felucca, Map.Felucca, PkRules.BucsDenHaven, red: true, tokens, [type]);
+        var haven = PkRules.Haven;
+        var shop = ShopFinder.NearestStocked(haven.Facet, FacetMaps.Resolve(haven.Facet), haven.Home, red: true, tokens, [type]);
         var price = shop is { } stocked ? VendorDeal.CheapestPrice([stocked.Vendor], [type]) : 0;
         Looks[(kind, type)] = (shop != null, price, now + Freshness);
         return (shop != null, price);

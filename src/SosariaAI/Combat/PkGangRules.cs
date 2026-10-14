@@ -29,9 +29,6 @@ public static class PkGangRules
     /// <summary>Gang mates this close join the gang's fight.</summary>
     public const int CallRange = 16;
 
-    /// <summary>Felucca's dungeon halls lie east of this column; a mouth stands on the surface west of it.</summary>
-    public const int SurfaceWidth = 5120;
-
     public const string MouthSuffix = "Entrance";
 
     /// <summary>A gang lurks at its camp this long before it moves on.</summary>
@@ -114,9 +111,14 @@ public static class PkGangRules
         return gangs;
     }
 
-    /// <summary>A dungeon's surface entrance: where crews came out hurt and loaded, and reds waited for them.</summary>
-    public static bool IsDungeonMouth(string kind, string name, int x) =>
+    /// <summary>
+    /// A dungeon's surface entrance: where crews came out hurt and loaded, and reds waited for
+    /// them. <paramref name="onSurface"/> says the entrance lies in no dungeon region. The old test
+    /// read Felucca's dungeon column (x below 5120) and called every entrance of another map's
+    /// layout a mouth or none.
+    /// </summary>
+    public static bool IsDungeonMouth(string kind, string name, bool onSurface) =>
         string.Equals(kind, nameof(Navigation.DestinationKind.Dungeon), StringComparison.OrdinalIgnoreCase) &&
         name?.EndsWith(MouthSuffix, StringComparison.OrdinalIgnoreCase) == true &&
-        x < SurfaceWidth;
+        onSurface;
 }

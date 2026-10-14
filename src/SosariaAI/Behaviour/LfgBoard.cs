@@ -1232,7 +1232,7 @@ public static class LfgBoard
 
     /// <summary>Where groups formed: in town or at a bank, by a public moongate, or outside a dungeon door.</summary>
     private static bool AtMeetingSpot(SosariaCharacter character) =>
-        SosariaCharacter.UnderGuards(character) || Meeting.AtMeetingPoint(character.Location) ||
+        SosariaCharacter.UnderGuards(character) || Meeting.AtMeetingPoint(character.Location, character.HomeFacet) ||
         BankPlaza.Contains(character.Location, BankPlaza.BankFor(NavWorld.DestinationsFor(character.HomeFacet), character.Location)) ||
         NearMoongate(character) || AtDungeonDoor(character);
 

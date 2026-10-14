@@ -21,12 +21,13 @@ public sealed class FacetSpawnRequest
 }
 
 /// <summary>
-/// Turns characters.json maps/facets into the spawn list for each enabled facet.
-/// Unknown names and enabled facets with no roster become warnings, not spawns.
+/// Turns characters.json maps/facets into the spawn list for each enabled facet. A facet is
+/// any map the server has, by its name (<see cref="FacetNames.TryCanonical"/>). Names the server
+/// has no map for and enabled facets with no roster become warnings, not spawns.
 /// </summary>
 public static class FacetSpawnPlanner
 {
-    public const string UnknownFacetTemplate = "Unknown facet name {Facet} was skipped";
+    public const string UnknownFacetTemplate = "{Facet} is not a map this server has; it was skipped";
     public const string MissingContentTemplate =
         "{Facet} is enabled but has no content block and will spawn nothing";
     public const string EraSkippedTemplate =

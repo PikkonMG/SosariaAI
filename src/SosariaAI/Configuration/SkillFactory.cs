@@ -38,7 +38,7 @@ public static class SkillFactory
             return new PracticeSkill(practice);
         }
 
-        var mapName = string.IsNullOrWhiteSpace(facetName) ? CharactersFile.DefaultMapName : facetName;
+        var mapName = FacetMaps.OrDefault(facetName);
 
         return step.Skill switch
         {

@@ -48,9 +48,11 @@ public static class CraftCareerRules
     ];
 
     /// <summary>
-    /// Towns with a working station for each trade: an anvil and a forge for the smith (Yew has
-    /// none), a tailor or tanner for the tailor, a carpenter or tinker for wood, a bowyer for
-    /// the fletcher, an alchemist for potions, a mage or scribe for scrolls, a tinker's guild.
+    /// Britannia's towns with a working station for each trade: an anvil and a forge for the
+    /// smith (Yew has none), a tailor or tanner for the tailor, a carpenter or tinker for wood, a
+    /// bowyer for the fletcher, an alchemist for potions, a mage or scribe for scrolls, a tinker's
+    /// guild. A map the stock tables do not fit homes a trade in any of its bank towns
+    /// (<see cref="WorldAnchors.FromCatalog"/>).
     /// </summary>
     private static readonly Dictionary<string, WorkSite[]> HomeTowns = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -196,7 +198,7 @@ public static class CraftCareerRules
             }
         }
 
-        routines[CraftRoutineId] = CraftRoutine(kind, WorkSites.HomeFor(composed.Spawn, uniqueId, kind));
+        routines[CraftRoutineId] = CraftRoutine(kind, WorkSites.HomeFor(composed.Spawn, uniqueId, kind), WorldAnchors.ForId(uniqueId));
         var choices = new List<ChoiceDefinition>();
 
         foreach (var choice in composed.Choices ?? [])
@@ -215,16 +217,17 @@ public static class CraftCareerRules
     /// <summary>
     /// The steps of a crafter's day: work the station, sell, restock, bank, and hawk what it kept.
     /// A trade with a harvest of its own (<see cref="CraftTrade.GatherKind"/>) also works the
-    /// site of that harvest nearest <paramref name="home"/> and walks the load back to town, so a
-    /// smith with no ingots for sale digs and smelts its own.
+    /// site of that harvest nearest <paramref name="home"/> among the facet's sites and walks the
+    /// load back to town, so a smith with no ingots for sale digs and smelts its own. On a map
+    /// with no site of that harvest it only buys its stock.
     /// </summary>
-    public static List<SkillStepDefinition> CraftRoutine(string kind, Point3D home)
+    public static List<SkillStepDefinition> CraftRoutine(string kind, Point3D home, FacetAnchors anchors)
     {
         List<SkillStepDefinition> steps = [new() { Skill = kind }];
 
-        if (TradeByKind(kind)?.GatherKind is { } gather)
+        if (TradeByKind(kind)?.GatherKind is { } gather && WorkSites.NearestSite(anchors, gather, home) is { } nearest)
         {
-            var site = WorkSites.NearestSite(gather, home).Harvest;
+            var site = nearest.Harvest;
             steps.Add(new() { Skill = gather, Area = new AreaDefinition { X = site.X, Y = site.Y, Width = site.Width, Height = site.Height } });
             steps.Add(new() { Skill = SkillKinds.GoTo, Target = CharactersFile.DefaultBankSpot });
         }

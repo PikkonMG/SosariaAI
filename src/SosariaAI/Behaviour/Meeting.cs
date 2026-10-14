@@ -20,20 +20,6 @@ namespace SosariaAI.Behaviour;
 public static class Meeting
 {
     private static readonly ILogger logger = SosariaLog.For(typeof(Meeting));
-    private static readonly Point3D[] TownPads = TownHomes();
-
-    private static Point3D[] TownHomes()
-    {
-        var sites = WorkSites.TownSites;
-        var pads = new Point3D[sites.Length];
-
-        for (var i = 0; i < sites.Length; i++)
-        {
-            pads[i] = sites[i].Home;
-        }
-
-        return pads;
-    }
 
     public static void Consider(SosariaCharacter character)
     {
@@ -66,7 +52,7 @@ public static class Meeting
         }
 
         var now = Core.Now;
-        var atQuiet = AtMeetingPoint(character.Location);
+        var atQuiet = AtMeetingPoint(character.Location, character.HomeFacet);
 
         if (!Brain.Conversations.SpeakerMayGreet(character.Serial, now, MeetingRules.SpeakerQuiet))
         {
@@ -106,9 +92,9 @@ public static class Meeting
         }
     }
 
-    /// <summary>At the bank or a town's home pad, where people wait for each other.</summary>
-    public static bool AtMeetingPoint(Point3D at) =>
-        MeetingRules.InQuietPlace(at, CharactersFile.DefaultBankSpot, TownPads);
+    /// <summary>At the bank or a town's home pad of the facet (<see cref="WorldAnchors"/>), where people wait for each other.</summary>
+    public static bool AtMeetingPoint(Point3D at, string facet) =>
+        MeetingRules.InQuietPlace(at, CharactersFile.DefaultBankSpot, WorldAnchors.For(facet).TownHomes);
 
     public static bool ShouldSpeak(string line, IReadOnlyList<string> recentSpeech) =>
         !string.IsNullOrWhiteSpace(line) && !SpokenRepeat.IsNearRepeat(line, recentSpeech);

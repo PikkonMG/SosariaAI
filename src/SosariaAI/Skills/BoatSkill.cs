@@ -5,6 +5,7 @@ using Server.Multis;
 using SosariaAI.Behaviour;
 using SosariaAI.Configuration;
 using SosariaAI.Mobiles;
+using SosariaAI.Spawning;
 using SosariaAI.Logging;
 
 namespace SosariaAI.Skills;
@@ -166,7 +167,7 @@ public sealed class BoatSkill : Skill
             return SkillStatus.Failed;
         }
 
-        if (!BoatRules.TryFindFit(_character.Map, BoatRules.BritainOpenWater, out var fit))
+        if (WaterToLaunch() is not { } water || !BoatRules.TryFindFit(_character.Map, water, out var fit))
         {
             return SkillStatus.Failed;
         }
@@ -187,5 +188,21 @@ public sealed class BoatSkill : Skill
         BankTeller.PayPackThenBank(_character, need);
         _character.BoatSerial = (int)boat.Serial.Value;
         return SkillStatus.Done;
+    }
+
+    /// <summary>
+    /// Where the boat is put in: the Britain harbour on a Britannia map, else the shore nearest
+    /// home that the map's own nav build found. Null on a map with neither.
+    /// </summary>
+    private Point3D? WaterToLaunch()
+    {
+        var anchors = WorldAnchors.For(_character.HomeFacet);
+
+        if (anchors.IsStock)
+        {
+            return BoatRules.BritainOpenWater;
+        }
+
+        return WorkSites.NearestSite(anchors, SkillKinds.Fish, _character.HomeSpot)?.Home;
     }
 }

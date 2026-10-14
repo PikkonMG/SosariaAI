@@ -42,7 +42,7 @@ public static class RedAlarm
     public static void Consider(SosariaCharacter character)
     {
         if (character.IsPk || character.Build?.Role == CharacterRole.Fighter || character.Combatant != null ||
-            character.HomeFacet != FacetNames.Felucca || !People.InWorld(character))
+            !FacetMaps.OpenPvp(character.HomeFacet) || !People.InWorld(character))
         {
             return;
         }

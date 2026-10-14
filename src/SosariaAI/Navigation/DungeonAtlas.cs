@@ -59,8 +59,8 @@ public static class DungeonAtlas
             return built;
         }
 
-        var name = string.IsNullOrWhiteSpace(facet) ? FacetNames.Felucca : facet;
-        var placeAt = DungeonGround.RegionNames(Map.Parse(name));
+        var name = FacetMaps.OrDefault(facet);
+        var placeAt = DungeonGround.RegionNames(FacetMaps.Resolve(name));
         var dataRoot = NavWorld.ResolveDataRoot();
         var spawn = GroundRating.Points(
             WorldGenerator.SpawnersFor(dataRoot, name, WorldSetupRules.SpawnSets(EraBands.Current())),

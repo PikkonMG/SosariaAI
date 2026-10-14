@@ -12,25 +12,30 @@ namespace SosariaAI.Configuration;
 
 /// <summary>
 /// Default characters. A walk step names only where it goes; the navigation graph plans
-/// the way there.
+/// the way there. A new file has a block for each map the server has: the six stock maps as
+/// they always were, and a map of the shard's own with the same roster, whose Britannia spots
+/// give way to the map's own places at boot (<see cref="Spawning.WorldAnchors"/>).
 /// </summary>
 public static class CharactersFile
 {
-    public const string DefaultMapName = "Felucca";
     /// <summary>
     /// Peak Felucca population in a new characters.json (operator approved 2026-09-23).
     /// A file that names a count keeps it.
     /// </summary>
     public const int DefaultFeluccaCount = 200;
 
+    /// <summary>The people of a map of the shard's own in a new file: as many as Felucca's.</summary>
+    public const int DefaultCustomMapCount = DefaultFeluccaCount;
+
     public const int DefaultTrammelCount = 5;
     public const int DisabledFacetCount = 0;
     /// <summary>
-    /// A new file turns reds on in Felucca and writes the count out: one in ten of the
-    /// people (<see cref="OutlawRules.RedShare"/>). Other facets have no reds. A file that
-    /// leaves either value out gets the same rule when it loads.
+    /// A new file turns reds on in Felucca, and on a map of the shard's own with open PvP, and
+    /// writes the count out: one in ten of the people (<see cref="OutlawRules.RedShare"/>). Other
+    /// facets have no reds. A file that leaves pkEnabled out gets reds on a map with open PvP
+    /// (<see cref="FacetMaps.OpenPvp(string)"/>) when it loads; no map without it has reds.
     /// </summary>
-    public const bool DefaultFeluccaPkEnabled = true;
+    public const bool DefaultOpenPvpPkEnabled = true;
     public const bool DefaultPkEnabled = false;
     public const int DefaultPkCount = 0;
 
@@ -127,31 +132,37 @@ public static class CharactersFile
 
         // The file holds the shared life routines once. The config handed back has them
         // folded into each character, as the next boot's read of the file does.
-        var created = CreateDefaultFile(EraBands.Current());
+        var created = CreateDefaultFile(EraBands.Current(), FacetMaps.Registered());
         JsonConfig.Serialize(path, created);
         LifeRoutineMerge.Apply(created);
         return created;
     }
 
-    /// <summary>The built-in setup for the running era, with the shared life routines folded into each character.</summary>
+    /// <summary>The built-in setup for the running era and the server's maps, with the shared life routines folded into each character.</summary>
     public static CharactersConfiguration CreateDefault() => CreateDefault(EraBands.Current());
 
-    /// <summary>The built-in setup for <paramref name="band"/>, with the shared life routines folded into each character.</summary>
-    public static CharactersConfiguration CreateDefault(EraBand band)
+    /// <summary>The built-in setup for <paramref name="band"/> and the server's maps, with the shared life routines folded into each character.</summary>
+    public static CharactersConfiguration CreateDefault(EraBand band) => CreateDefault(band, FacetMaps.Registered());
+
+    /// <summary>
+    /// The built-in setup for <paramref name="band"/> and the maps <paramref name="maps"/>, with
+    /// the shared life routines folded into each character. No map at all writes the six stock maps.
+    /// </summary>
+    public static CharactersConfiguration CreateDefault(EraBand band, IReadOnlyList<MapShape> maps)
     {
-        var created = CreateDefaultFile(band);
+        var created = CreateDefaultFile(band, maps);
         LifeRoutineMerge.Apply(created);
         return created;
     }
 
     /// <summary>
-    /// The facets a new file turns on in an era. Felucca always; Trammel once the era is
+    /// The stock facets a new file turns on in an era. Felucca always; Trammel once the era is
     /// past the Second Age, whose 1999 feel had one world. Ilshenar, Malas, Tokuno and Ter
     /// Mur stay off in every era: no navigation graph ships for them. An operator file
-    /// keeps its own choice.
+    /// keeps its own choice. A map of the shard's own follows <see cref="CreateDefault(EraBand, IReadOnlyList{MapShape})"/>.
     /// </summary>
     public static bool DefaultFacetOn(string facet, EraBand band) =>
-        FacetNames.TryCanonical(facet, out var name) &&
+        FacetNames.TryStock(facet, out var name) &&
         name switch
         {
             FacetNames.Felucca => true,
@@ -159,33 +170,98 @@ public static class CharactersFile
             _ => false
         };
 
-    /// <summary>The built-in setup as it is written to disk: shared routines held once.</summary>
-    private static CharactersConfiguration CreateDefaultFile(EraBand band) =>
-        new()
+    /// <summary>The six stock maps at their stock sizes, as a server with no map registered stands in for.</summary>
+    private static readonly MapShape[] StockShapes =
+    [
+        new(FacetNames.Felucca, FacetMaps.BritanniaWidth, FacetMaps.BritanniaHeight, OpenPvp: true),
+        new(FacetNames.Trammel, FacetMaps.BritanniaWidth, FacetMaps.BritanniaHeight, OpenPvp: false),
+        new(FacetNames.Ilshenar, FacetMaps.IlshenarWidth, FacetMaps.IlshenarHeight, OpenPvp: false),
+        new(FacetNames.Malas, FacetMaps.MalasWidth, FacetMaps.MalasHeight, OpenPvp: false),
+        new(FacetNames.Tokuno, FacetMaps.TokunoSide, FacetMaps.TokunoSide, OpenPvp: false),
+        new(FacetNames.TerMur, FacetMaps.TerMurWidth, FacetMaps.TerMurHeight, OpenPvp: false)
+    ];
+
+    /// <summary>
+    /// The built-in setup as it is written to disk: shared routines held once. Each stock map
+    /// the server has, in stock order, is written as it always was. Then each map of the shard's
+    /// own gets the Britain roster and, with open PvP, reds; the first one is turned on when no
+    /// stock Felucca or Trammel is, so a one-map shard has people on its first boot.
+    /// </summary>
+    private static CharactersConfiguration CreateDefaultFile(EraBand band, IReadOnlyList<MapShape> maps)
+    {
+        var shapes = maps is { Count: > 0 } ? maps : StockShapes;
+        var file = new CharactersConfiguration
         {
             Career = new(),
             TownScuffles = new(),
             LifeRoutines = LifeRoutineDefaults.Create(),
-            HousePlots =
-            [
-                DefaultHousePlot(FacetNames.Felucca),
-                DefaultHousePlot(FacetNames.Trammel)
-            ],
+            HousePlots = [],
             Nav = new(),
-            Maps = new(StringComparer.OrdinalIgnoreCase)
-            {
-                [FacetNames.Felucca] = RedMap(DefaultFeluccaCount),
-                [FacetNames.Trammel] = QuietMap(DefaultFacetOn(FacetNames.Trammel, band), DefaultTrammelCount),
-                [FacetNames.Ilshenar] = DisabledMap(),
-                [FacetNames.Malas] = DisabledMap(),
-                [FacetNames.Tokuno] = DisabledMap(),
-                [FacetNames.TerMur] = DisabledMap()
-            },
+            Maps = new(StringComparer.OrdinalIgnoreCase),
             Facets = new(StringComparer.OrdinalIgnoreCase)
+        };
+        var britanniaOn = false;
+
+        for (var i = 0; i < FacetNames.All.Length; i++)
+        {
+            var name = FacetNames.All[i];
+
+            if (!HasStockShape(shapes, name))
             {
-                [FacetNames.Felucca] = CreateBritainContent(),
-                [FacetNames.Trammel] = CreateBritainContent()
+                continue;
             }
+
+            file.Maps[name] = StockMap(name, band);
+            britanniaOn |= file.Maps[name].Enabled;
+
+            if (name is FacetNames.Felucca or FacetNames.Trammel)
+            {
+                file.HousePlots.Add(DefaultHousePlot(name));
+                file.Facets[name] = CreateBritainContent();
+            }
+        }
+
+        var customOn = !britanniaOn;
+
+        for (var i = 0; i < shapes.Count; i++)
+        {
+            var shape = shapes[i];
+
+            if (FacetMaps.IsStock(shape.Name, shape.Width, shape.Height) || string.IsNullOrWhiteSpace(shape.Name))
+            {
+                continue;
+            }
+
+            file.Maps[shape.Name] = shape.OpenPvp
+                ? RedMap(customOn, DefaultCustomMapCount)
+                : QuietMap(customOn, DefaultCustomMapCount);
+            file.Facets[shape.Name] = CreateBritainContent();
+            customOn = false;
+        }
+
+        return file;
+    }
+
+    private static bool HasStockShape(IReadOnlyList<MapShape> shapes, string name)
+    {
+        for (var i = 0; i < shapes.Count; i++)
+        {
+            if (string.Equals(shapes[i].Name, name, StringComparison.OrdinalIgnoreCase) &&
+                FacetMaps.IsStock(shapes[i].Name, shapes[i].Width, shapes[i].Height))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static MapToggle StockMap(string name, EraBand band) =>
+        name switch
+        {
+            FacetNames.Felucca => RedMap(enabled: true, DefaultFeluccaCount),
+            FacetNames.Trammel => QuietMap(DefaultFacetOn(FacetNames.Trammel, band), DefaultTrammelCount),
+            _ => DisabledMap()
         };
 
     // A facet without reds. Trammel keeps its count while off, so turning it on is one edit.
@@ -199,13 +275,13 @@ public static class CharactersFile
             PkGangPercent = PkGangRules.DefaultGangPercent
         };
 
-    private static MapToggle RedMap(int count) =>
+    private static MapToggle RedMap(bool enabled, int count) =>
         new()
         {
-            Enabled = true,
+            Enabled = enabled,
             Count = count,
-            PkEnabled = DefaultFeluccaPkEnabled,
-            PkCount = OutlawRules.RedCount(DefaultFeluccaPkEnabled, pkCount: null, count, DefaultFeluccaPkEnabled),
+            PkEnabled = DefaultOpenPvpPkEnabled,
+            PkCount = OutlawRules.RedCount(DefaultOpenPvpPkEnabled, pkCount: null, count, DefaultOpenPvpPkEnabled),
             PkGangPercent = PkGangRules.DefaultGangPercent
         };
 

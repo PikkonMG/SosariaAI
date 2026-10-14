@@ -119,6 +119,7 @@ public static class CharacterSpawner
         var existing = FindExistingCharacters();
         var claimed = new HashSet<SosariaCharacter>();
         var leftover = 0;
+        var mapless = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var work = new List<SpawnWork>();
 
         for (var i = 0; i < requests.Count; i++)
@@ -135,15 +136,31 @@ public static class CharacterSpawner
                 continue;
             }
 
-            // A saved person the plan no longer counts is gone: everyone the server keeps is in the world.
+            var facet = SavedFacet(character.HomeFacet, character.HomeMapName);
+
+            if (!RemovesOffPlan(facet))
+            {
+                mapless[facet] = mapless.GetValueOrDefault(facet) + 1;
+                continue;
+            }
+
             leftover++;
             character.Delete();
+        }
+
+        foreach (var (facet, count) in mapless)
+        {
+            console.Error(
+                "{Count} saved people live on {Facet}, a map this server does not have; they were kept, not spawned",
+                count,
+                facet
+            );
         }
 
         if (leftover > 0)
         {
             console.Information(
-                "{Count} saved people were over the plan cap in characters.json and were removed",
+                "{Count} saved people had no place in the characters.json plan and were removed",
                 leftover
             );
         }
@@ -323,9 +340,9 @@ public static class CharacterSpawner
         List<SpawnWork> work
     )
     {
-        if (!Map.TryParse(request.Facet, null, out var map) || map == null || map == Map.Internal)
+        if (!FacetMaps.TryFind(request.Facet, out var map))
         {
-            logger.Warning(FacetSpawnPlanner.UnknownFacetTemplate, request.Facet);
+            console.Error(FacetSpawnPlanner.UnknownFacetTemplate, request.Facet);
             return;
         }
 
@@ -398,22 +415,20 @@ public static class CharacterSpawner
             : PersonMaker.Compose(uniqueId, slot, request.Content.Roster, Brain.Personas?.All, EraBands.Current());
     }
 
-    private static bool IsOnFacet(SosariaCharacter character, string facet)
-    {
-        var home = character.HomeFacet;
+    private static bool IsOnFacet(SosariaCharacter character, string facet) =>
+        FacetMaps.Same(SavedFacet(character.HomeFacet, character.HomeMapName), facet);
 
-        if (string.IsNullOrWhiteSpace(home))
-        {
-            home = character.HomeMapName;
-        }
+    /// <summary>The facet a saved person lives on: its home facet, else its home map, else the default facet.</summary>
+    internal static string SavedFacet(string homeFacet, string homeMapName) =>
+        FacetMaps.OrDefault(string.IsNullOrWhiteSpace(homeFacet) ? homeMapName : homeFacet);
 
-        if (string.IsNullOrWhiteSpace(home))
-        {
-            return FacetNames.Felucca.Equals(facet, StringComparison.OrdinalIgnoreCase);
-        }
-
-        return home.Equals(facet, StringComparison.OrdinalIgnoreCase);
-    }
+    /// <summary>
+    /// A saved person the plan no longer counts is gone, since everyone the server keeps is in
+    /// the world; but one of a map the server does not have is kept as saved, and the boot log
+    /// names the map. The map may be missing only from this boot's map definitions, and a boot
+    /// once removed every person of a map it did not know as "over the plan cap".
+    /// </summary>
+    internal static bool RemovesOffPlan(string savedFacet) => FacetMaps.TryResolve(savedFacet, out _);
 
     private static List<SosariaCharacter> FindExistingCharacters()
     {
@@ -439,7 +454,8 @@ public static class CharacterSpawner
     {
         var uniqueId = FacetIds.Prefix(request.Facet, entry.UniqueId);
 
-        // A red's first day starts in Buccaneer's Den: anywhere under the guards it dies.
+        // A red's first day starts in its haven, Buccaneer's Den on Britannia: anywhere under
+        // the guards it dies.
         var home = RedGangOf(request, entry) != PkGangRules.NoGang
             ? PkRules.BucsDenHaven
             : WorkSites.HomeFor(
@@ -679,10 +695,11 @@ public static class CharacterSpawner
         var maps = SosariaSettings.Characters?.Maps;
         var entries = request.Entries;
 
+        // Reds live only where the map's rules let a person harm a person, never by the map's name.
         if (maps == null ||
             !maps.TryGetValue(request.Facet, out var toggle) ||
             toggle == null ||
-            !FacetNames.Felucca.Equals(request.Facet, StringComparison.OrdinalIgnoreCase) ||
+            !FacetMaps.OpenPvp(request.Facet) ||
             entries == null ||
             entries.Count == 0)
         {
@@ -693,7 +710,7 @@ public static class CharacterSpawner
             toggle.PkEnabled,
             toggle.PkCount,
             entries.Count,
-            CharactersFile.DefaultFeluccaPkEnabled
+            CharactersFile.DefaultOpenPvpPkEnabled
         );
 
         if (redCount <= 0)

@@ -14,7 +14,9 @@ namespace SosariaAI.Behaviour;
 /// kind in reach. <paramref name="KnowsDoors"/> says the world has dungeon doors at all, so a
 /// null dungeon is its verdict on reach. <paramref name="Dungeon"/> carries the power bar of
 /// its hall as its difficulty (see <see cref="DungeonGround.WithPowerBar"/>).
-/// <paramref name="Catalog"/> tells an authored hunt's own difficulty.
+/// <paramref name="Catalog"/> tells an authored hunt's own difficulty. <paramref name="AuthoredFits"/>
+/// is false on a map the stock tables do not fit (<see cref="Spawning.WorldAnchors"/>), whose
+/// authored hunts name Britannia's ground.
 /// </summary>
 public sealed record HuntHome(
     Point3D Home,
@@ -24,7 +26,8 @@ public sealed record HuntHome(
     bool KnowsDoors = false,
     int Power = 0,
     SkillTier Tier = SkillTier.Novice,
-    DestinationCatalog Catalog = null
+    DestinationCatalog Catalog = null,
+    bool AuthoredFits = true
 );
 
 /// <summary>What a look at a hunt ground finds before a fighter walks there.</summary>
@@ -176,10 +179,11 @@ public static class HuntGround
     /// The public moongates a home is left by, or null for a home walked out of. Buccaneer's Den
     /// is an island with no hunt ground on it: its reds step through the Den's gate, so a
     /// ground's walk from there counts the gates, as a dungeon door's does. The ground within
-    /// the leash of the Den itself held only its town's rats and birds.
+    /// the leash of the Den itself held only its town's rats and birds. A haven elsewhere counts
+    /// the gates of its own map (<see cref="PkRules.Haven"/>).
     /// </summary>
     public static IReadOnlyList<Point3D> GatesOutOf(Point3D home) =>
-        PkRules.InBuccaneersDen(home.X, home.Y) ? MoongateSeeds.LocationsFor(FacetNames.Felucca) : null;
+        PkRules.InBuccaneersDen(home.X, home.Y) ? MoongateSeeds.LocationsFor(PkRules.Haven.Facet) : null;
 
     /// <summary>The hardest spot difficulty a fighter of <paramref name="power"/> takes on.</summary>
     public static int Reach(int power) => (int)(Math.Max(0, power) * PowerReach);
@@ -283,6 +287,8 @@ public static class HuntGround
     /// An authored hunt stays when the character lives within the leash of it and the ground
     /// is not far below it. A character that lives further away, or a veteran whose authored
     /// ground is novice ground, hunts at its own ground. A crew's hunt stays: the party says so.
+    /// On a map whose authored hunts are Britannia's (<see cref="HuntHome.AuthoredFits"/>) every
+    /// hunt goes to the character's own ground: the Britain graveyard's tiles are any field there.
     /// </summary>
     public static SkillStepDefinition ForHome(SkillStepDefinition step, HuntHome hunt)
     {
@@ -298,7 +304,7 @@ public static class HuntGround
         var belowItsTier = string.IsNullOrWhiteSpace(step.Party) &&
                            FarBelow(DifficultyAt(hunt.Catalog, step.Target), hunt.Power, hunt.Tier);
 
-        return beyondLeash || belowItsTier ? AtPlace(step, hunt.Ground, keepsCrew: false) : step;
+        return beyondLeash || belowItsTier || !hunt.AuthoredFits ? AtPlace(step, hunt.Ground, keepsCrew: false) : step;
     }
 
     /// <summary>

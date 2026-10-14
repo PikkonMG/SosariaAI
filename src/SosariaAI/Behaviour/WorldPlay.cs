@@ -79,10 +79,10 @@ public static class WorldPlay
 
     /// <summary>
     /// Felucca rules: a person may harm another person. On a facet with Trammel's rules the
-    /// engine refuses a duel blow, an Order-against-Chaos blow and a lift from a person.
+    /// engine refuses a duel blow, an Order-against-Chaos blow and a lift from a person. The
+    /// map's own rules decide, never its name (<see cref="FacetMaps.OpenPvp(Map)"/>).
     /// </summary>
-    public static bool OpenPvp(Map map) =>
-        map != null && map != Map.Internal && (map.Rules & MapRules.HarmfulRestrictions) == 0;
+    public static bool OpenPvp(Map map) => FacetMaps.OpenPvp(map);
 
     public static bool IsIdle(SosariaCharacter character) =>
         character.Routine is not { NeedsNext: false } routine || IdleSkillKinds.Contains(routine.CurrentSkill?.Name ?? string.Empty);
@@ -551,7 +551,7 @@ public static class WorldPlay
 
             if (!OutlawRules.MayAttack(
                     character.Disposition,
-                    felucca: true,
+                    felucca: OpenPvp(character.Map),
                     guards: SosariaCharacter.UnderGuards(character) || SosariaCharacter.UnderGuards(mobile),
                     packSize,
                     blueCrowd,
@@ -614,9 +614,9 @@ public static class WorldPlay
         Log($"{character.Name} attacks {chosen.Name} with a pack of {packSize}");
     }
 
-    /// <summary>A red's own rules hold: a red of Felucca, out in the world.</summary>
+    /// <summary>A red's own rules hold: a red of a map with open PvP, out in the world.</summary>
     private static bool OutlawRulesHold(SosariaCharacter character) =>
-        character.IsPk && character.HomeFacet == FacetNames.Felucca &&
+        character.IsPk && FacetMaps.OpenPvp(character.HomeFacet) &&
         character.Map != null && character.Map != Map.Internal;
 
     /// <summary>A red's run test (<see cref="OutlawRules.RunReason"/>) on a fight with <paramref name="foe"/> and its side.</summary>

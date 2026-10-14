@@ -5,6 +5,7 @@ using Server.Items;
 using SosariaAI.Behaviour;
 using SosariaAI.Mobiles;
 using SosariaAI.Navigation;
+using SosariaAI.Navigation.Generation;
 
 namespace SosariaAI.Social;
 
@@ -102,24 +103,14 @@ public static class PlaceNames
     // The town the engine's moongate list gives the pad, else the named region it stands in.
     private static string GateTown(Point3D pad, Map map)
     {
-        var lists = PMList.SALists;
+        var gates = MoongateSeeds.GatesFor(map.Name);
 
-        for (var i = 0; i < lists.Length; i++)
+        for (var i = 0; i < gates.Count; i++)
         {
-            if (lists[i].Map != map)
+            if (gates[i].Location.X == pad.X && gates[i].Location.Y == pad.Y &&
+                MoongateGuards.TownOf(gates[i].Number) is { } town)
             {
-                continue;
-            }
-
-            var entries = lists[i].Entries;
-
-            for (var e = 0; e < entries.Length; e++)
-            {
-                if (entries[e].Location.X == pad.X && entries[e].Location.Y == pad.Y &&
-                    MoongateGuards.TownOf(entries[e].Number) is { } town)
-                {
-                    return town;
-                }
+                return town;
             }
         }
 

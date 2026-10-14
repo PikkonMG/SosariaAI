@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using SosariaAI.Behaviour;
+using SosariaAI.Configuration;
 
 namespace SosariaAI.Admin;
 
@@ -9,7 +10,11 @@ public readonly record struct SetupStep(string Command, string Arguments);
 
 /// <summary>
 /// The world a fresh save lacks: decorations, doors, signs, teleporters, moongates, then the
-/// engine's own monster and vendor spawners of the era's spawn sets for each enabled facet. Pure.
+/// engine's own monster and vendor spawners of the era's spawn sets for each enabled facet.
+/// The engine builds the decorations, doors, signs, teleporters, moongates and champion spawns
+/// from Britannia's data files, so they run only when an enabled facet is a stock map
+/// (<see cref="FacetMaps.IsStock(string)"/>): on a map of the shard's own they would place
+/// Britannia's items over its land. Pure but for the map sizes.
 /// </summary>
 public static class WorldSetupRules
 {
@@ -51,27 +56,34 @@ public static class WorldSetupRules
     public static List<SetupStep> Steps(EraBand band, IEnumerable<string> enabledFacets, Func<string, bool> spawnFolderExists)
     {
         var sets = SpawnSets(band);
-        var steps = new List<SetupStep>
-        {
-            new(Decorate, string.Empty),
-            new(DoorGen, string.Empty),
-            new(SignGen, string.Empty),
-            new(TelGen, string.Empty),
-            new(MoonGen, string.Empty)
-        };
-
-        if (BuildsChampions(band))
-        {
-            steps.Add(new SetupStep(GenChamps, string.Empty));
-        }
+        var facets = new List<string>();
 
         foreach (var facet in enabledFacets)
         {
-            if (string.IsNullOrWhiteSpace(facet))
+            if (!string.IsNullOrWhiteSpace(facet))
             {
-                continue;
+                facets.Add(facet);
             }
+        }
 
+        var steps = new List<SetupStep>();
+
+        if (facets.Exists(FacetMaps.IsStock))
+        {
+            steps.Add(new SetupStep(Decorate, string.Empty));
+            steps.Add(new SetupStep(DoorGen, string.Empty));
+            steps.Add(new SetupStep(SignGen, string.Empty));
+            steps.Add(new SetupStep(TelGen, string.Empty));
+            steps.Add(new SetupStep(MoonGen, string.Empty));
+
+            if (BuildsChampions(band))
+            {
+                steps.Add(new SetupStep(GenChamps, string.Empty));
+            }
+        }
+
+        foreach (var facet in facets)
+        {
             for (var i = 0; i < sets.Length; i++)
             {
                 var folder = SpawnFolder(sets[i], facet);

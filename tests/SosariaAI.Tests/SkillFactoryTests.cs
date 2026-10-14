@@ -18,7 +18,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Arrive },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<ArrivalStay>(skill);
@@ -31,7 +31,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Travel, Target = new Point3D(2500, 560, 0) },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<TownTrip>(skill);
@@ -45,7 +45,7 @@ public class SkillFactoryTests
             () => SkillFactory.Create(
                 new SkillStepDefinition { Skill = SkillKinds.Travel },
                 null,
-                CharactersFile.DefaultMapName
+                FacetNames.Felucca
             )
         );
     }
@@ -56,7 +56,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.UpgradeGear },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<UpgradeGearSkill>(skill);
@@ -71,7 +71,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Dungeon, Target = hall, Area = HuntGround.AreaAround(hall) },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         var trip = Assert.IsType<DungeonTripSkill>(skill);
@@ -84,7 +84,7 @@ public class SkillFactoryTests
         Assert.Throws<FormatException>(() => SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Dungeon },
             new FacetContent(),
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         ));
 
     [Fact]
@@ -103,7 +103,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Tavern },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<TavernSkill>(skill);
@@ -116,7 +116,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Visit },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<VisitSkill>(skill);
@@ -129,7 +129,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Sightsee },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<SightseeSkill>(skill);
@@ -142,7 +142,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Loiter },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<LoiterSkill>(skill);
@@ -155,7 +155,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.House },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<HouseSkill>(skill);
@@ -168,7 +168,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.VendorSell },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<VendorSellSkill>(skill);
@@ -206,7 +206,7 @@ public class SkillFactoryTests
     [Fact]
     public void Create_GoToWithNoGoal_Throws() =>
         Assert.Throws<FormatException>(() =>
-            SkillFactory.Create(new SkillStepDefinition { Skill = SkillKinds.GoTo }, null, CharactersFile.DefaultMapName)
+            SkillFactory.Create(new SkillStepDefinition { Skill = SkillKinds.GoTo }, null, FacetNames.Felucca)
         );
 
     [Fact]
@@ -215,7 +215,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Heal },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<HealSkill>(skill);
@@ -228,7 +228,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Alchemy },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<AlchemySkill>(skill);
@@ -241,7 +241,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Inscription },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<InscriptionSkill>(skill);
@@ -254,7 +254,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Peace },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<PracticeSession>(skill);
@@ -267,7 +267,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Track },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<PracticeSession>(skill);
@@ -280,7 +280,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Gate },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<GateSkill>(skill);
@@ -293,7 +293,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Recall },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<RecallSkill>(skill);
@@ -306,7 +306,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Resist },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<PracticeSession>(skill);
@@ -319,7 +319,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Mage },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<PracticeSession>(skill);
@@ -332,7 +332,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Stealth },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<PracticeSession>(skill);
@@ -345,7 +345,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.RemoveTrap },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<PracticeSession>(skill);
@@ -358,7 +358,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Beg },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<PracticeSession>(skill);
@@ -371,7 +371,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Provoke },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<PracticeSession>(skill);
@@ -384,7 +384,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Discord },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<PracticeSession>(skill);
@@ -397,7 +397,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Spirit },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<PracticeSession>(skill);
@@ -410,7 +410,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Vet },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<PracticeSession>(skill);
@@ -423,7 +423,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Lore },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<PracticeSession>(skill);
@@ -436,7 +436,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Cartography },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<CartographySkill>(skill);
@@ -449,7 +449,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Meditate },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<PracticeSession>(skill);
@@ -462,7 +462,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Tinker },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<TinkerSkill>(skill);
@@ -475,7 +475,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Fletch },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<FletchSkill>(skill);
@@ -488,7 +488,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Cook },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<CookSkill>(skill);
@@ -501,7 +501,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Carpentry },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<CarpentrySkill>(skill);
@@ -514,7 +514,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Poison },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<PracticeSession>(skill);
@@ -527,7 +527,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Tailor },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<TailorSkill>(skill);
@@ -540,7 +540,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = SkillKinds.Snoop },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<SnoopSkill>(skill);
@@ -554,7 +554,7 @@ public class SkillFactoryTests
         var skill = SkillFactory.Create(
             new SkillStepDefinition { Skill = kind },
             null,
-            CharactersFile.DefaultMapName
+            FacetNames.Felucca
         );
 
         Assert.IsType<PracticeSession>(skill);
@@ -567,7 +567,7 @@ public class SkillFactoryTests
             SkillFactory.Create(
                 new SkillStepDefinition { Skill = UnknownSkillName },
                 null,
-                CharactersFile.DefaultMapName
+                FacetNames.Felucca
             )
         );
 

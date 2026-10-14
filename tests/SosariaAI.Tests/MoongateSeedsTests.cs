@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Server;
+using Server.Items;
 using SosariaAI.Configuration;
 using SosariaAI.Navigation;
 using SosariaAI.Navigation.Generation;
@@ -15,6 +16,9 @@ public class MoongateSeedsTests
     private const int MoonglowY = 1283;
     private const int MaginciaX = 3563;
     private const int MaginciaY = 2139;
+    private const int LandPadX = 40;
+    private const int LandPadY = 50;
+    private const string UnknownMap = "Atlantis";
 
     [Fact]
     public void LocationsFor_Felucca_IncludesMoonglowAndMagincia()
@@ -78,6 +82,40 @@ public class MoongateSeedsTests
         Assert.Empty(MoongateSeeds.LocationsFor(null));
         Assert.Empty(MoongateSeeds.LocationsFor(""));
         Assert.Empty(MoongateSeeds.LocationsFor("   "));
+    }
+
+    [Fact]
+    public void LocationsFor_AMapOfTheShardsOwn_NeverTakesBritanniasPads()
+    {
+        // Britannia's pads on another map stood in the sea or in the walls.
+        Assert.Empty(MoongateSeeds.LocationsFor(UnknownMap));
+        Assert.Empty(MoongateSeeds.EngineGates(UnknownMap));
+        Assert.Empty(MoongateSeeds.LocationsFor(TestMap.EnsureLand().Name));
+    }
+
+    [Fact]
+    public void GatesFor_AMapOfTheShardsOwn_TakesTheMoongatesStandingOnIt()
+    {
+        var land = TestMap.EnsureLand();
+        TestMap.EnsureRunningWorld();
+        TestMap.EnsureDecayScheduler();
+        var pad = new Point3D(LandPadX, LandPadY, 0);
+        var gate = new PublicMoongate();
+
+        try
+        {
+            gate.MoveToWorld(pad, land);
+            MoongateSeeds.ForgetGates();
+
+            var found = Assert.Single(MoongateSeeds.GatesFor(land.Name));
+            Assert.Equal(pad, found.Location);
+            Assert.Equal(MoongateSeeds.NoNumber, found.Number);
+        }
+        finally
+        {
+            gate.Delete();
+            MoongateSeeds.ForgetGates();
+        }
     }
 
     private static bool Near(Point3D point, int x, int y) =>

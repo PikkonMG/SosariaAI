@@ -51,6 +51,11 @@ public static class EraRules
 
     public static Expansion Current() => Core.Expansion;
 
+    /// <summary>
+    /// True when the era has this land. The six stock lands keep the expansion that brought
+    /// them; any other map the server has (<see cref="FacetNames.TryCanonical"/>) is the shard's
+    /// own and fits every era. False for a name the server has no map for.
+    /// </summary>
     public static bool FacetAllowed(string facet, Expansion expansion)
     {
         if (!FacetNames.TryCanonical(facet, out var name))
@@ -66,7 +71,7 @@ public static class EraRules
             FacetNames.Malas => expansion >= Expansion.AOS,
             FacetNames.Tokuno => expansion >= Expansion.SE,
             FacetNames.TerMur => expansion >= Expansion.SA,
-            _ => false
+            _ => true
         };
     }
 

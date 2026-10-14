@@ -20,7 +20,8 @@ public enum HotSpotKind
 }
 
 /// <summary>
-/// Where Felucca's PvP happened (see <see cref="HotSpots"/>): the ground round a moongate
+/// Where Felucca's PvP happened (see <see cref="HotSpots"/>), and so where it happens on any map
+/// with open PvP: the ground round a moongate
 /// (Yew's gate in the woods above all), the doors of Despise, Covetous,
 /// Destard and Shame, the Britain graveyard and Buccaneer's Den. Red gangs camp one on foot
 /// for a while, jump the travellers who come by, and move on; blue sweeps and war bands ride
@@ -128,6 +129,13 @@ public static class HotSpotRules
     public static bool IsRunCamp(HotSpotKind kind) => kind != HotSpotKind.Den;
 
     public static bool IsBusyDungeon(string dungeon) => Contains(BusyDungeons, dungeon);
+
+    /// <summary>
+    /// A dungeon door is a hot spot: on a stock map the doors of the busy dungeons
+    /// (<see cref="BusyDungeons"/>); on a map of the shard's own every door, since the era's
+    /// traffic names none of its dungeons.
+    /// </summary>
+    public static bool DoorIsHotSpot(string dungeon, bool stockMap) => !stockMap || IsBusyDungeon(dungeon);
 
     public static bool IsHotGraveyard(string name) => Contains(Graveyards, name);
 

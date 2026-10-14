@@ -459,8 +459,9 @@ reason to flee.
 Reds keep off every road node the guards cover, and off every walked leg that
 cuts through guarded ground. Each time the nav graphs load (at boot, after the
 First Time Setup check, and after `[SosariaRebuildNav`) the plugin reads
-Felucca's guarded nodes and legs once and writes `Felucca roads: N nodes and M legs lie under the
-guards; reds keep off them`. Walks add more guarded legs while the shard runs.
+the guarded nodes and legs of each open-PvP map (Felucca on a stock shard) once
+and writes `<map> roads: N nodes and M legs lie under the guards; reds keep off
+them`. Walks add more guarded legs while the shard runs.
 A red on open ground never plans a road across the guards. If no road keeps
 clear of them, it recalls. Only a red that already stands under the guards
 plans once more across them, by the least guarded way, and writes `has no road
@@ -472,7 +473,9 @@ living reds.
 
 `feluccaGuardedMoongates` in `characters.json` lists the Felucca moongates that
 keep their guards (default: Britain, Moonglow, Jhelom). A red takes a public
-moongate, living or as a ghost, only between two unguarded Felucca pads. A
+moongate, living or as a ghost, only between two unguarded pads of an open-PvP
+map. On a map that is not stock Britannia, the moongates are the gate items that
+stand on that map. A
 guarded pad stays barred to it. A red's last way home is the nearest moongate it
 may use, never a guarded pad.
 

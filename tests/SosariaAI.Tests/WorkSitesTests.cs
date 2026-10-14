@@ -158,11 +158,11 @@ public class WorkSitesTests
     [Fact]
     public void NearestSite_IsTheHarvestNearestHome()
     {
-        Assert.Equal(WorkSites.MinocHills, WorkSites.NearestSite(SkillKinds.Mine, WorkSites.MinocTown));
-        Assert.Equal(WorkSites.VesperMine, WorkSites.NearestSite(SkillKinds.Mine, WorkSites.VesperTown));
-        Assert.Equal(WorkSites.CoveMine, WorkSites.NearestSite(SkillKinds.Mine, WorkSites.BritainTown));
-        Assert.Equal(WorkSites.YewWood, WorkSites.NearestSite(SkillKinds.Lumberjack, WorkSites.YewTown));
-        Assert.Equal(WorkSites.BritainWestWood, WorkSites.NearestSite(SkillKinds.Lumberjack, WorkSites.BritainTown));
+        Assert.Equal(WorkSites.MinocHills, WorkSites.NearestSite(WorldAnchors.Stock, SkillKinds.Mine, WorkSites.MinocTown).GetValueOrDefault());
+        Assert.Equal(WorkSites.VesperMine, WorkSites.NearestSite(WorldAnchors.Stock, SkillKinds.Mine, WorkSites.VesperTown).GetValueOrDefault());
+        Assert.Equal(WorkSites.CoveMine, WorkSites.NearestSite(WorldAnchors.Stock, SkillKinds.Mine, WorkSites.BritainTown).GetValueOrDefault());
+        Assert.Equal(WorkSites.YewWood, WorkSites.NearestSite(WorldAnchors.Stock, SkillKinds.Lumberjack, WorkSites.YewTown).GetValueOrDefault());
+        Assert.Equal(WorkSites.BritainWestWood, WorkSites.NearestSite(WorldAnchors.Stock, SkillKinds.Lumberjack, WorkSites.BritainTown).GetValueOrDefault());
     }
 
     [Fact]
@@ -355,12 +355,12 @@ public class WorkSitesTests
     {
         // The trapped miners stood at (3563,2139,31) on the Magincia pad: the gate
         // constant is (3563,2139,0) and the x/y distance is zero at any height.
-        Assert.True(WorkSites.AtNearestGate(WorkSites.MaginciaGate));
-        Assert.True(WorkSites.AtNearestGate(new Point3D(3563, 2139, 31)));
-        Assert.True(WorkSites.AtNearestGate(new Point3D(3563 + GatePad.ReachTiles, 2139, 0)));
-        Assert.False(WorkSites.AtNearestGate(new Point3D(3563 + GatePad.ReachTiles + 1, 2139, 0)));
-        Assert.False(WorkSites.AtNearestGate(WorkSites.MaginciaTown));
-        Assert.False(WorkSites.AtNearestGate(new Point3D(3515, 2120, 20)));
+        Assert.True(AtNearestFeluccaGate(WorkSites.MaginciaGate));
+        Assert.True(AtNearestFeluccaGate(new Point3D(3563, 2139, 31)));
+        Assert.True(AtNearestFeluccaGate(new Point3D(3563 + GatePad.ReachTiles, 2139, 0)));
+        Assert.False(AtNearestFeluccaGate(new Point3D(3563 + GatePad.ReachTiles + 1, 2139, 0)));
+        Assert.False(AtNearestFeluccaGate(WorkSites.MaginciaTown));
+        Assert.False(AtNearestFeluccaGate(new Point3D(3515, 2120, 20)));
     }
 
     [Fact]
@@ -370,12 +370,25 @@ public class WorkSitesTests
         var graveyard = new Point3D(1386, 1476, 10);
         bool NotBritain(Point3D gate) => gate != WorkSites.BritainGate;
 
-        Assert.Equal(WorkSites.BritainGate, WorkSites.NearestGate(graveyard));
-        Assert.NotEqual(WorkSites.BritainGate, WorkSites.NearestGate(graveyard, NotBritain));
-        Assert.Equal(WorkSites.BritainGate, WorkSites.NearestGate(graveyard, static _ => false));
-        Assert.True(WorkSites.AtNearestGate(WorkSites.BritainGate));
-        Assert.False(WorkSites.AtNearestGate(WorkSites.BritainGate, NotBritain));
+        Assert.Equal(WorkSites.BritainGate, WorkSites.NearestGate(FacetNames.Felucca, graveyard, static _ => true));
+        Assert.NotEqual(WorkSites.BritainGate, WorkSites.NearestGate(FacetNames.Felucca, graveyard, NotBritain));
+        Assert.Equal(WorkSites.BritainGate, WorkSites.NearestGate(FacetNames.Felucca, graveyard, static _ => false));
+        Assert.True(AtNearestFeluccaGate(WorkSites.BritainGate));
+        Assert.False(WorkSites.AtNearestGate(FacetNames.Felucca, WorkSites.BritainGate, NotBritain));
     }
+
+    [Fact]
+    public void NearestGate_OnAMapWithNoGate_IsNone()
+    {
+        // A map of the shard's own with no moongate item: no Britannia pad stands in for one.
+        var land = TestMap.EnsureLand();
+
+        Assert.Equal(Point3D.Zero, WorkSites.NearestGate(land.Name, WorkSites.MaginciaGate, static _ => true));
+        Assert.False(WorkSites.AtNearestGate(land.Name, WorkSites.MaginciaGate, static _ => true));
+    }
+
+    private static bool AtNearestFeluccaGate(Point3D location) =>
+        WorkSites.AtNearestGate(FacetNames.Felucca, location, static _ => true);
 
     [Fact]
     public void LegacyGateHomes_AreRecognizedForSafeMigration()

@@ -271,7 +271,7 @@ public static class Scenes
             return;
         }
 
-        var place = Meeting.AtMeetingPoint(character.Location) ? LfgBoard.PlaceOf(character) : null;
+        var place = Meeting.AtMeetingPoint(character.Location, character.HomeFacet) ? LfgBoard.PlaceOf(character) : null;
 
         if (place == null)
         {

@@ -7,13 +7,23 @@ using SosariaAI.Spawning;
 
 namespace SosariaAI.Navigation.Generation;
 
+/// <summary>One public moongate pad, with the engine's name number for its gate (0 when it has none).</summary>
+public readonly record struct PublicGate(Point3D Location, int Number);
+
 /// <summary>
-/// Public moongate pads for one facet. Prefer live <see cref="PMList"/> entries when Map
-/// is available; otherwise use the Felucca and Trammel XY from ModernUO PublicMoongate.
+/// Public moongate pads for one facet. A stock map takes the engine's <see cref="PMList"/>
+/// entries, else the Felucca and Trammel pads of ModernUO's PublicMoongate. The engine builds
+/// every list at once and reads Map.Trammel to do it, so on a shard without Trammel the first
+/// touch throws; it is read here and nowhere else, once, and a list it cannot build is none.
+/// A map the stock tables do not fit takes only the public moongate items standing on it:
+/// Britannia's pads there would be gates in the sea.
 /// </summary>
 public static class MoongateSeeds
 {
     public const string NamePrefix = "moon-";
+
+    /// <summary>A pad the engine's lists do not name.</summary>
+    public const int NoNumber = 0;
 
     /// <summary>The eight Virtue gates both Felucca and Trammel stand, in the server's order.</summary>
     private static readonly Point3D[] SharedGates =
@@ -35,38 +45,91 @@ public static class MoongateSeeds
 
     private static readonly Point3D[] TrammelFallback = [.. SharedGates, NewHavenGate];
 
-    public static IReadOnlyList<Point3D> LocationsFor(string facet)
+    private static readonly object GatesLock = new();
+    private static readonly Dictionary<string, IReadOnlyList<PublicGate>> GatesByFacet = new(StringComparer.OrdinalIgnoreCase);
+    private static IReadOnlyList<PMList> _engineLists;
+
+    /// <summary>
+    /// The pads of this facet. A custom map's pads are read from the world's items once, until
+    /// <see cref="ForgetGates"/>: the scan walks every item.
+    /// </summary>
+    public static IReadOnlyList<PublicGate> GatesFor(string facet)
     {
         if (string.IsNullOrWhiteSpace(facet))
         {
             return [];
         }
 
-        try
+        if (FacetMaps.IsStock(facet))
         {
-            var live = TryLiveLocations(facet);
+            return StockGates(facet);
+        }
 
-            if (live != null)
+        lock (GatesLock)
+        {
+            if (!GatesByFacet.TryGetValue(facet, out var gates))
             {
-                return live;
+                gates = WorldGates(facet);
+                GatesByFacet[facet] = gates;
             }
+
+            return gates;
         }
-        catch
+    }
+
+    public static IReadOnlyList<Point3D> LocationsFor(string facet)
+    {
+        var gates = GatesFor(facet);
+        var locations = new Point3D[gates.Count];
+
+        for (var i = 0; i < gates.Count; i++)
         {
-            // Map may be unavailable outside a running server.
+            locations[i] = gates[i].Location;
         }
 
-        if (facet.Equals(FacetNames.Felucca, StringComparison.OrdinalIgnoreCase))
-        {
-            return FeluccaFallback;
-        }
+        return locations;
+    }
 
-        if (facet.Equals(FacetNames.Trammel, StringComparison.OrdinalIgnoreCase))
+    /// <summary>
+    /// The engine's pads of a stock facet, with their name numbers; empty when the engine has no
+    /// list for it or cannot build its lists.
+    /// </summary>
+    public static IReadOnlyList<PublicGate> EngineGates(string facet)
+    {
+        var lists = EngineLists();
+
+        for (var i = 0; i < lists.Count; i++)
         {
-            return TrammelFallback;
+            var list = lists[i];
+
+            if (list?.Map == null || list.Entries == null || !SameMapName(list.Map, facet))
+            {
+                continue;
+            }
+
+            var gates = new PublicGate[list.Entries.Length];
+
+            for (var e = 0; e < list.Entries.Length; e++)
+            {
+                gates[e] = new PublicGate(list.Entries[e].Location, list.Entries[e].Number);
+            }
+
+            return gates;
         }
 
         return [];
+    }
+
+    /// <summary>
+    /// Drops the custom maps' pads read so far. The nav load calls it before each build or check:
+    /// First Time Setup places a custom map's gates after the boot read none.
+    /// </summary>
+    public static void ForgetGates()
+    {
+        lock (GatesLock)
+        {
+            GatesByFacet.Clear();
+        }
     }
 
     public static void Link(IList<NavNode> nodes, string facet)
@@ -98,43 +161,88 @@ public static class MoongateSeeds
         SeedAttach.JoinComplete(nodes, moonNames, NavGateKind.Moongate);
     }
 
-    private static IReadOnlyList<Point3D> TryLiveLocations(string facet)
+    private static IReadOnlyList<PublicGate> StockGates(string facet)
     {
-        PMList[] lists =
-        [
-            PMList.Felucca,
-            PMList.Trammel,
-            PMList.Ilshenar,
-            PMList.Malas,
-            PMList.Tokuno,
-            PMList.TerMur
-        ];
+        var engine = EngineGates(facet);
 
-        for (var i = 0; i < lists.Length; i++)
+        if (engine.Count > 0)
         {
-            var list = lists[i];
-
-            if (list?.Map == null || list.Entries == null)
-            {
-                continue;
-            }
-
-            if (!SameMapName(list.Map, facet))
-            {
-                continue;
-            }
-
-            var points = new List<Point3D>(list.Entries.Length);
-
-            for (var e = 0; e < list.Entries.Length; e++)
-            {
-                points.Add(list.Entries[e].Location);
-            }
-
-            return points;
+            return engine;
         }
 
-        return null;
+        if (facet.Equals(FacetNames.Felucca, StringComparison.OrdinalIgnoreCase))
+        {
+            return Unnumbered(FeluccaFallback);
+        }
+
+        if (facet.Equals(FacetNames.Trammel, StringComparison.OrdinalIgnoreCase))
+        {
+            return Unnumbered(TrammelFallback);
+        }
+
+        return [];
+    }
+
+    private static PublicGate[] Unnumbered(Point3D[] pads)
+    {
+        var gates = new PublicGate[pads.Length];
+
+        for (var i = 0; i < pads.Length; i++)
+        {
+            gates[i] = new PublicGate(pads[i], NoNumber);
+        }
+
+        return gates;
+    }
+
+    // The public moongate items standing on the facet's map.
+    private static IReadOnlyList<PublicGate> WorldGates(string facet)
+    {
+        if (!FacetMaps.TryFind(facet, out var map))
+        {
+            return [];
+        }
+
+        var gates = new List<PublicGate>();
+
+        foreach (var item in World.Items.Values)
+        {
+            if (item is PublicMoongate { Deleted: false } gate && gate.Map == map)
+            {
+                gates.Add(new PublicGate(gate.Location, NoNumber));
+            }
+        }
+
+        return gates;
+    }
+
+    private static IReadOnlyList<PMList> EngineLists()
+    {
+        lock (GatesLock)
+        {
+            return _engineLists ??= ReadEngineLists();
+        }
+    }
+
+    private static PMList[] ReadEngineLists()
+    {
+        try
+        {
+            return
+            [
+                PMList.Felucca,
+                PMList.Trammel,
+                PMList.Ilshenar,
+                PMList.Malas,
+                PMList.Tokuno,
+                PMList.TerMur
+            ];
+        }
+        catch (TypeInitializationException)
+        {
+            // The lists read a map this server does not have.
+            return [];
+        }
     }
 
     private static bool SameMapName(Map map, string facet) =>

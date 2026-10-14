@@ -329,7 +329,7 @@ public partial class SosariaCharacter : PlayerMobile
         _homeCorner == Point3D.Zero ? HomeSpot : _homeCorner;
 
     /// <summary>Where the character logs in and comes back after death.</summary>
-    public Point3D LoginSpot => HomeSpotRules.LoginSpot(WorkSites.IsCopy(CharacterId), IsPk, _homeCorner, HomeSpawn);
+    public Point3D LoginSpot => HomeSpotRules.LoginSpot(WorkSites.HomedByTable(CharacterId), IsPk, _homeCorner, HomeSpawn);
 
     private static int LeashRadius =>
         SosariaSettings.Characters?.Career?.LeashRadius ?? CareerSettings.DefaultLeashRadius;
@@ -472,7 +472,7 @@ public partial class SosariaCharacter : PlayerMobile
                    WorldPlay.MayStartFightInDen(this, opponent);
         }
 
-        if (IsPk && HomeFacet == FacetNames.Felucca && People.IsLivingPlayer(m))
+        if (IsPk && FacetMaps.OpenPvp(HomeFacet) && People.IsLivingPlayer(m))
         {
             if (WorldPlay.InDeathGrace(this, m, Core.Now))
             {
@@ -483,7 +483,7 @@ public partial class SosariaCharacter : PlayerMobile
             var (pack, crowd) = RedGang.Surroundings(this);
             return OutlawRules.MayAttack(
                     Disposition,
-                    felucca: true,
+                    felucca: FacetMaps.OpenPvp(Map),
                     guards: UnderGuards(this) || UnderGuards(m),
                     pack,
                     crowd,
@@ -656,7 +656,8 @@ public partial class SosariaCharacter : PlayerMobile
         // A saved copy homed in the other side's town moves too, or a restart keeps both
         // sides at one bank.
         if (!alreadyInWorld || HomeSpawn == Point3D.Zero ||
-            WorkSites.IsCopy(uniqueId) && (WorkSites.NeedsNewCopyHome(HomeSpawn) || !SideHomes.Allows(side, HomeSpawn)))
+            WorkSites.HomedByTable(uniqueId) &&
+            (WorkSites.NeedsNewCopyHome(HomeSpawn) || !SideHomes.Allows(WorldAnchors.ForId(uniqueId), side, HomeSpawn)))
         {
             HomeSpawn = WorkSites.HomeFor(
                 definition.Spawn,
@@ -666,7 +667,7 @@ public partial class SosariaCharacter : PlayerMobile
             );
         }
         HomeFacet = string.IsNullOrWhiteSpace(facetName)
-            ? map?.Name ?? CharactersFile.DefaultMapName
+            ? map?.Name ?? FacetMaps.Default
             : facetName;
         HomeMapName = HomeFacet;
         ReturnAfterDeath = definition.ReturnAfterDeath ?? CharactersFile.DefaultReturnAfterDeath;
@@ -713,7 +714,7 @@ public partial class SosariaCharacter : PlayerMobile
         var leash = HomeLeash.ConfiguredRadius();
         var catalog = NavWorld.DestinationsFor(HomeFacet);
         var seed = unchecked((int)Serial.Value);
-        var homeMap = Map.Parse(HomeFacet);
+        var homeMap = FacetMaps.Resolve(HomeFacet);
         var tier = PersonProfile.Tier;
         _huntHomePowerBand = band;
         _huntHomePrey = prey;
@@ -735,7 +736,8 @@ public partial class SosariaCharacter : PlayerMobile
             DungeonGround.KnowsDoors(homeMap),
             power,
             tier,
-            catalog
+            catalog,
+            WorldAnchors.For(HomeFacet).IsStock
         );
         return _huntHome;
     }
@@ -972,7 +974,12 @@ public partial class SosariaCharacter : PlayerMobile
     /// </summary>
     public void ResumeSession()
     {
-        var map = Map.Parse(string.IsNullOrEmpty(HomeFacet) ? CharactersFile.DefaultMapName : HomeFacet);
+        if (!FacetMaps.TryResolve(HomeFacet, out var map))
+        {
+            logger.Error("{Name} cannot log in: the server has no map {Facet}", Name, HomeFacet);
+            return;
+        }
+
         var location = LoginSpot;
         var dungeon = DungeonReturn.SpotFor(map, LogoutLocation);
 
@@ -2189,7 +2196,7 @@ public partial class SosariaCharacter : PlayerMobile
         }
 
         var hunt = HuntHomeNow();
-        var map = Map.Parse(HomeFacet);
+        var map = FacetMaps.Resolve(HomeFacet);
         return DeathAvoid.FriendFellAt(
             places,
             hunt?.Ground == null ? null : PlaceNames.Of(hunt.Ground.Arrival, map),
@@ -3895,7 +3902,12 @@ public partial class SosariaCharacter : PlayerMobile
         _returnTimer.Cancel();
         ReturnAt = default;
 
-        var map = Map.Parse(string.IsNullOrEmpty(HomeMapName) ? CharactersFile.DefaultMapName : HomeMapName);
+        if (!FacetMaps.TryResolve(HomeMapName, out var map))
+        {
+            logger.Error("{Name} cannot return from death: the server has no map {Facet}", Name, HomeMapName);
+            return;
+        }
+
         var location = LoginSpot;
 
         if (map != null && map != Map.Internal && !map.CanSpawnMobile(location))

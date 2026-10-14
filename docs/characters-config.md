@@ -26,7 +26,7 @@ not in this file.
 | `musingIntervalMinutes` | `8` | The least time, in minutes, between two tries at an unprompted line by one character. A try also needs a new event. 0 or less uses 8. |
 | `feluccaGuardedMoongates` | `["Britain", "Moonglow", "Jhelom"]` | The Felucca moongates, by town, that keep their guards. See [Guarded moongates](#guarded-moongates). |
 | `lifeRoutines` | built-in set | The routines every character shares: `tavern`, `bankcrowd`, `visit`, `sightsee`, `house`, and `stable`. Each entry has `enabled` (default `true`), `weight` (default 1, how often a character wants it), `description`, an optional `requiredPower`, and `steps`. `"enabled": false` takes the routine away from every character. A roster entry that has its own routine or choice of the same id keeps it. A missing or empty block uses the built-in set. |
-| `housePlots` | `britain-east` at (1755, 1474, 0) on Felucca and Trammel | Where a character puts the house it buys. Each entry has `map`, `x`, `y`, and `z`. A character takes the first plot on its home facet, or the first plot with no `map`. With no plot that fits, it uses the default spot. |
+| `housePlots` | `britain-east` at (1755, 1474, 0) on Felucca and Trammel | Where a character puts the house it buys. Each entry has `map`, `x`, `y`, and `z`. A character takes the first plot on its home facet, or the first plot with no `map`. With no plot that fits, it uses the default spot. The default spot is in Britannia, so give a [custom map](#custom-maps) its own plot. |
 | `career` | see [career](#career) | Work, fight, and group rules. |
 | `townScuffles` | see [townScuffles](#townscuffles) | Small Order and Chaos fights in towns. |
 | `nav` | see [nav](#nav) | Navigation graphs. |
@@ -94,8 +94,11 @@ setup places the same items each time. To build anyway, set
 
 ## maps
 
-`maps.<facet>` turns each facet on and sets its people. The facets are
-`Felucca`, `Trammel`, `Ilshenar`, `Malas`, `Tokuno`, and `TerMur`.
+`maps.<facet>` turns each facet on and sets its people. A facet is a map of the
+server, by its name in ModernUO's `map-definitions.json`: `Felucca`, `Trammel`,
+`Ilshenar`, `Malas`, `Tokuno`, `TerMur`, or the name of a
+[custom map](#custom-maps). A name the server has no map for is skipped, and the
+boot log says so.
 
 The defaults below are what a new file writes. In an existing file, a missing
 `enabled` reads `false` and a missing `count` reads `0`. A file with no `maps`
@@ -104,16 +107,53 @@ block spawns nobody.
 | Key | New file | What it does |
 |---|---|---|
 | `enabled` | `true` for Felucca; `true` for Trammel except in the T2A era; `false` for the others | `true` puts people on this facet. |
-| `count` | `200` for Felucca, `5` for Trammel, `0` for the others | How many people live on the facet. The plan goes through the roster in order and repeats it until it has this many. When the count is below the roster size, the last roster people do not spawn, and the boot log says `Felucca count N is below its roster of M`. At boot, saved people over the count are removed. |
-| `pkEnabled` | `true` for Felucca, `false` for the others | `true` makes some of the facet's people reds. Only Felucca has reds. A missing key uses the default. |
+| `count` | `200` for Felucca, `5` for Trammel, `200` for a custom map, `0` for the others | How many people live on the facet. The plan goes through the roster in order and repeats it until it has this many. When the count is below the roster size, the last roster people do not spawn, and the boot log says `Felucca count N is below its roster of M`. At boot, saved people over the count are removed. Saved people of a map the server does not have are kept, and the boot log names the map. |
+| `pkEnabled` | `true` for Felucca and for a custom map with open PvP, `false` for the others | `true` makes some of the facet's people reds. Reds live only on a map with open PvP: its rules let a person harm a person, as Felucca's do. A missing key reads `true`. |
 | `pkCount` | one in ten of `count` | How many reds (20 for a Felucca count of 200). It can not be more than `count`. A missing key uses the default. |
 | `pkGangPercent` | `80` | The share of the reds, 0 to 100, that ride in gangs of two to four. The other reds hunt alone. A missing key uses the default. |
+| `openPvp` | not written | `false` stops PvP on a map whose rules allow it: no reds, duels, Order and Chaos fights, or thieves there. A missing key, or `true`, uses the map's rules. `true` does not open a map with Trammel's rules, because the engine stops the attack there. |
+| `redHaven` | not written | Where the reds of this map live, bank, and rest. Write a region name of the map, such as `"Pirate Town"`, or a rectangle, such as `{ "x": 100, "y": 200, "width": 60, "height": 60 }`. A missing key uses Buccaneer's Den on a stock map. On a custom map, it uses a place from the map's nav catalog. See [custom maps](#custom-maps). |
+
+## Custom maps
+
+SosariaAI works on a shard with maps of its own, also a shard with one map that
+is not named Felucca. A map is stock when its name is a stock name and its size
+is the stock size of that map. Felucca and Trammel are stock at 7168 x 4096 and
+at 6144 x 4096. Each other map is a custom map.
+
+- First boot writes a block in `maps` and in `facets` for each map the server
+  has. A custom map gets the Britain roster. When no stock Felucca or Trammel is
+  on, the first custom map is on with 200 people.
+- On a custom map, the Britannia spots of the roster do not set homes, banks,
+  work, moongate trips, or hunts. Each bank of the map is a town, so a custom map
+  needs bankers. Each person lives at one of the map's banks.
+  Each person works at the nearest wood, mine, or shore that the nav build found
+  near the bank, in the leash (`career.leashRadius`). A hunt goes to a hunt place
+  of the map. The public moongates are the moongate items on the map. The log
+  counts the banks, work places, and moongates that SosariaAI found.
+- With two banks or more, the banks take Order and Chaos in turn. With one
+  bank, the town has no side.
+- PvP follows the map's rules, not the map's name. Reds, duels, Order and Chaos
+  fights, thieves, and the red alarm live only on a map with open PvP. Use
+  `openPvp` to stop PvP on a map.
+- The reds' haven is the first enabled map with reds in `maps`. Set `redHaven`
+  to choose it. Without `redHaven`, a custom map uses its unguarded bank that is
+  farthest from the other banks, when the map has two banks or more. If not, it
+  uses an unguarded dungeon entrance. If not, it uses the bank that is farthest
+  from the others. The haven is a square of 65 x 65 tiles round that spot. The
+  log names the spot. The shard has one haven.
+- First Time Setup runs `Decorate`, `DoorGen`, `SignGen`, `TelGen`, `MoonGen`,
+  and `GenChamps` only when an enabled map is stock. These commands place
+  Britannia's items. On a custom map they do not run. The spawner import still
+  runs for each map that has a folder in `Data/Spawns`.
+- The guarded moongate setting changes only a stock Felucca.
+- Give each custom map a house plot in `housePlots`.
 
 ## facets
 
 `facets.<facet>` holds the content for one facet. A new file writes Britain
-content for Felucca and Trammel. An enabled facet with no block logs that it
-has no content block and spawns nobody.
+content for Felucca, for Trammel, and for each custom map. An enabled facet with
+no block logs that it has no content block and spawns nobody.
 
 | Key | What it holds |
 |---|---|
@@ -172,6 +212,8 @@ Older files with hand-made waypoints (`routes`, `route`, `reverse`, `via`) still
 load. The loader skips those keys, and the step walks to its `target`.
 
 ## Guarded moongates
+
+This setting changes only a stock Felucca.
 
 The engine data puts every Felucca moongate pad in one guarded region, and in a
 T2A-era shard the guards strike a red who steps on a guarded pad. At boot the

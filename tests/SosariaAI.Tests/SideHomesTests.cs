@@ -93,10 +93,10 @@ public class SideHomesTests
     {
         var britainOnly = new[] { WorkSites.TownSites[0], WorkSites.TownSites[0] };
 
-        Assert.Equal(britainOnly, SideHomes.For(GuildType.Order, britainOnly));
+        Assert.Equal(britainOnly, SideHomes.For(WorldAnchors.Stock, GuildType.Order, britainOnly));
         Assert.All(
-            SideHomes.For(GuildType.Chaos, britainOnly),
-            site => Assert.Equal(GuildType.Chaos, SideHomes.SideOf(site.Home))
+            SideHomes.For(WorldAnchors.Stock, GuildType.Chaos, britainOnly),
+            site => Assert.Equal(GuildType.Chaos, SideHomes.SideOf(WorldAnchors.Stock, site.Home))
         );
     }
 
@@ -168,20 +168,20 @@ public class SideHomesTests
     [Fact]
     public void AHomeInNoTown_HoldsNoSide()
     {
-        Assert.Equal(GuildType.Regular, SideHomes.SideOf(PkRules.BucsDenHaven));
-        Assert.True(SideHomes.Allows(GuildType.Order, PkRules.BucsDenHaven));
-        Assert.True(SideHomes.Allows(GuildType.Chaos, PkRules.BucsDenHaven));
+        Assert.Equal(GuildType.Regular, SideHomes.SideOf(WorldAnchors.Stock, PkRules.BucsDenHaven));
+        Assert.True(SideHomes.Allows(WorldAnchors.Stock, GuildType.Order, PkRules.BucsDenHaven));
+        Assert.True(SideHomes.Allows(WorldAnchors.Stock, GuildType.Chaos, PkRules.BucsDenHaven));
         Assert.Equal(GuildType.Regular, SideHomes.HomeSide("Felucca:bran#3", CharactersFile.BranSpawn));
     }
 
     [Fact]
     public void ATownHoldsOneSide()
     {
-        Assert.True(SideHomes.Allows(GuildType.Order, WorkSites.BritainTown));
-        Assert.False(SideHomes.Allows(GuildType.Chaos, WorkSites.BritainTown));
-        Assert.True(SideHomes.Allows(GuildType.Chaos, WorkSites.YewTown));
-        Assert.False(SideHomes.Allows(GuildType.Order, WorkSites.YewTown));
-        Assert.True(SideHomes.Allows(GuildType.Regular, WorkSites.YewTown));
+        Assert.True(SideHomes.Allows(WorldAnchors.Stock, GuildType.Order, WorkSites.BritainTown));
+        Assert.False(SideHomes.Allows(WorldAnchors.Stock, GuildType.Chaos, WorkSites.BritainTown));
+        Assert.True(SideHomes.Allows(WorldAnchors.Stock, GuildType.Chaos, WorkSites.YewTown));
+        Assert.False(SideHomes.Allows(WorldAnchors.Stock, GuildType.Order, WorkSites.YewTown));
+        Assert.True(SideHomes.Allows(WorldAnchors.Stock, GuildType.Regular, WorkSites.YewTown));
     }
 
     [Fact]

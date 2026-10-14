@@ -1,6 +1,7 @@
 using Server;
 using Server.Items;
 using SosariaAI.Mobiles;
+using SosariaAI.Configuration;
 
 namespace SosariaAI.Skills;
 
@@ -84,7 +85,7 @@ public static class TreasureMaps
         }
 
         var rightFacet = map.ChestMap != null && character.Map == map.ChestMap &&
-                         Map.Parse(character.HomeFacet) == map.ChestMap;
+                         FacetMaps.Resolve(character.HomeFacet) == map.ChestMap;
 
         return TreasureHuntRules.MayHunt(
             map.Level,

@@ -33,7 +33,11 @@ public class CharacterSpawnerTests
         var bindIndex = initialize.LastIndexOf(BindFacetCall, StringComparison.Ordinal);
 
         Assert.True(bindIndex >= 0, "CharacterSpawner.Initialize must bind saved characters.");
-        Assert.Contains("over the plan cap in characters.json and were removed", initialize);
+        Assert.Contains("had no place in the characters.json plan and were removed", initialize);
+
+        // A person of a map the server lacks is kept and named, never removed as "over the cap".
+        Assert.Contains("a map this server does not have; they were kept, not spawned", initialize);
+        Assert.DoesNotContain("over the plan cap", initialize);
 
         // Binds and spawns drain in slices, so the pulse lives at the end of the
         // pump, not inside Initialize.

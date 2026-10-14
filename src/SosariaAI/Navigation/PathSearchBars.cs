@@ -11,8 +11,8 @@ namespace SosariaAI.Navigation;
 /// <summary>
 /// Roads a traveler will not take. A murderer keeps off every node the town guards cover and
 /// takes a public moongate only between two pads the guards do not cover, as GateTravel's
-/// moongate rule says: a red that steps out onto a guarded pad dies where it lands. Off
-/// Felucca it takes none. When the trip starts under the guards, the nodes near the start
+/// moongate rule says: a red that steps out onto a guarded pad dies where it lands. Off a
+/// map with open PvP it takes none. When the trip starts under the guards, the nodes near the start
 /// stay open, so a red caught in town can still walk out, but a guarded pad never is. A trip
 /// that starts on open ground keeps every guarded node barred: a window round every start
 /// let a red's road run through any town near where it set out. A red with no road clear of
@@ -190,7 +190,7 @@ public sealed class PathSearchBars
             : new PathSearchBars(
                 GuardedNodes(graph, map),
                 start,
-                noMoongates: map != Map.Felucca,
+                noMoongates: !FacetMaps.OpenPvp(map),
                 openAroundStart: GuardCall.IsGuardedPlace(start, map),
                 legs: GuardedLegs.For(graph, map),
                 pads: pads,
@@ -198,16 +198,18 @@ public sealed class PathSearchBars
             );
 
     /// <summary>
-    /// Reads the guarded nodes and legs of Felucca's graph, where reds walk, whenever the graph
-    /// loads (<see cref="NavWorld"/>). The legs are read tile by tile, near a million tiles, and
-    /// the first red plan of the day paid for it on the world thread mid-play. Returns the
-    /// guarded node and leg counts for the log.
+    /// Reads the guarded nodes and legs of a red facet's graph, where reds walk, whenever the
+    /// graph loads (<see cref="NavWorld"/>). The legs are read tile by tile, near a million tiles
+    /// on Felucca, and the first red plan of the day paid for it on the world thread mid-play.
+    /// Returns the guarded node and leg counts for the log; none for a facet with no graph or map.
     /// </summary>
-    public static (int Nodes, int Legs) WarmFelucca()
+    public static (int Nodes, int Legs) WarmGuards(string facet)
     {
-        var graph = NavWorld.GraphFor(FacetNames.Felucca);
+        var graph = NavWorld.GraphFor(facet);
 
-        return graph == null ? default : (GuardedNodes(graph, Map.Felucca).Count, GuardedLegs.For(graph, Map.Felucca).Count);
+        return graph == null || !FacetMaps.TryResolve(facet, out var map)
+            ? default
+            : (GuardedNodes(graph, map).Count, GuardedLegs.For(graph, map).Count);
     }
 
     private static HashSet<int> GuardedNodes(NavGraph graph, Map map)

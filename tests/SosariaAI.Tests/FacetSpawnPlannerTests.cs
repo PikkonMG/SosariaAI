@@ -30,6 +30,33 @@ public class FacetSpawnPlannerTests
     }
 
     [Fact]
+    public void Plan_AMapOfTheShardsOwn_IsPlannedInAnyEra()
+    {
+        // The six-name list skipped a one-map shard's own map, so nobody spawned.
+        const int People = 3;
+        var land = TestMap.EnsureLand().Name;
+        var config = new CharactersConfiguration
+        {
+            Maps = new()
+            {
+                [land] = new MapToggle { Enabled = true, Count = People }
+            },
+            Facets = new()
+            {
+                [land] = new FacetContent { Roster = [new CharacterDefinition { Id = "connor" }] }
+            }
+        };
+        var warnings = new List<FacetPlanWarning>();
+
+        var requests = FacetSpawnPlanner.Plan(config, warnings, Expansion.T2A);
+
+        var request = Assert.Single(requests);
+        Assert.Equal(land, request.Facet);
+        Assert.Equal(People, request.Entries.Count);
+        Assert.Empty(warnings);
+    }
+
+    [Fact]
     public void Plan_EnabledFacetWithNoContent_IsSkipped()
     {
         var config = new CharactersConfiguration

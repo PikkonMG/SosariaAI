@@ -13,13 +13,15 @@ public readonly record struct FactionSpot(string Name, Point3D Location);
 /// Felucca's faction meeting points: road crossings and gate roads outside the towns of the
 /// Second Age, each a road node of the nav graph and at least twenty tiles past the guard line,
 /// clear of any bank, healer, moongate and shrine; war bands also ride to the PvP hot spots
-/// (see <see cref="HotSpots"/>). Trammel has none: its rules forbid the fight.
+/// (see <see cref="HotSpots"/>). The roads are Britannia's, so they serve a stock map with
+/// open PvP; Trammel's rules forbid the fight, and a map of the shard's own has only its hot
+/// spots.
 /// </summary>
 public static class FactionSpots
 {
     private static readonly Dictionary<Map, IReadOnlyList<FactionSpot>> WithHotSpots = new();
 
-    private static readonly FactionSpot[] Felucca =
+    private static readonly FactionSpot[] BritanniaRoads =
     [
         new("the Britain north crossroads", new Point3D(1471, 1330, 0)),
         new("the Despise road", new Point3D(1358, 1107, 0)),
@@ -33,7 +35,7 @@ public static class FactionSpots
     ];
 
     public static IReadOnlyList<FactionSpot> For(string facet) =>
-        string.Equals(facet, FacetNames.Felucca, StringComparison.OrdinalIgnoreCase) ? Felucca : [];
+        !string.IsNullOrWhiteSpace(facet) && FacetMaps.IsStock(facet) && FacetMaps.OpenPvp(facet) ? BritanniaRoads : [];
 
     /// <summary>The road spots of the map's facet, then its PvP hot spots, where war bands sweep for the other side too.</summary>
     public static IReadOnlyList<FactionSpot> ForMap(Map map)

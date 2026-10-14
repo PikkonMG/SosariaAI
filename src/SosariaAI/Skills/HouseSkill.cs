@@ -7,6 +7,7 @@ using SosariaAI.Behaviour;
 using SosariaAI.Configuration;
 using SosariaAI.Memory;
 using SosariaAI.Mobiles;
+using SosariaAI.Spawning;
 using SosariaAI.Logging;
 
 namespace SosariaAI.Skills;
@@ -267,7 +268,7 @@ public sealed class HouseSkill : Skill
 
         if (plots == null || plots.Count == 0)
         {
-            return HouseRules.DefaultPlot();
+            return DefaultPlotOn(character);
         }
 
         for (var i = 0; i < plots.Count; i++)
@@ -280,6 +281,13 @@ public sealed class HouseSkill : Skill
             }
         }
 
-        return HouseRules.DefaultPlot();
+        return DefaultPlotOn(character);
     }
+
+    /// <summary>
+    /// The default plot is a Britannia spot east of Britain: on any other map there is no default,
+    /// and a house waits for a <c>housePlots</c> entry.
+    /// </summary>
+    private static Point3D DefaultPlotOn(SosariaCharacter character) =>
+        WorldAnchors.For(character.HomeFacet).IsStock ? HouseRules.DefaultPlot() : Point3D.Zero;
 }

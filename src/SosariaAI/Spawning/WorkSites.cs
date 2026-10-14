@@ -14,7 +14,9 @@ public readonly record struct WorkSite(string Name, Point3D Home, Rectangle2D Ha
 /// <summary>
 /// Copies of a job do not all work the Britain west wood. Fixtures keep the authored
 /// tile. Copies pick a town by a stable id hash, and the town's bank street is home.
-/// Harvest boxes stay next to those towns so a worker is not sent into orc woods.
+/// Harvest boxes stay next to those towns so a worker is not sent into orc woods. The towns,
+/// sites and gates are the Britannia tables below on a stock map, and the map's own places on
+/// any other (<see cref="WorldAnchors"/>), found by the facet in the person's unique id.
 /// </summary>
 public static class WorkSites
 {
@@ -175,7 +177,7 @@ public static class WorkSites
 
     // Britain weighs as much as the other big towns. At four shares it held 147 of 800 people
     // on a fresh world, twice any other town, and its bank was a wall of bodies.
-    private static WorkSite[] TownPopulation { get; } =
+    internal static WorkSite[] TownPopulation { get; } =
     [
         Town(BritainTown, "Britain bank"), Town(BritainTown, "Britain bank"),
         Town(MinocTown, "Minoc bank"), Town(MinocTown, "Minoc bank"),
@@ -192,27 +194,29 @@ public static class WorkSites
         BritainGate, YewGate, MinocGate, TrinsicGate, SkaraGate, MoonglowGate, JhelomGate, MaginciaGate, CoveGate
     ];
 
-    /// <summary>The public moongate nearest a spot. A Skara person walking for the Britain pad as a way home never got there.</summary>
-    public static Point3D NearestGate(Point3D from) => NearestGate(from, static _ => true);
-
     /// <summary>
-    /// The public moongate nearest a spot that <paramref name="usable"/> accepts, or the
-    /// Britain gate when it accepts none. A red's last way home was the guarded Britain pad
-    /// from the Britain graveyard, and the walk refused itself at once.
+    /// The public moongate of the facet nearest a spot that <paramref name="usable"/> accepts, or
+    /// the facet's first gate (Britain's on Britannia) when it accepts none; zero on a facet with
+    /// no gate. A Skara person walking for the Britain pad as a way home never got there, and a
+    /// red's last way home was the guarded Britain pad from the Britain graveyard, where the walk
+    /// refused itself at once.
     /// </summary>
-    public static Point3D NearestGate(Point3D from, Func<Point3D, bool> usable)
+    public static Point3D NearestGate(string facet, Point3D from, Func<Point3D, bool> usable) =>
+        NearestGate(WorldAnchors.For(facet).PublicGates, from, usable);
+
+    private static Point3D NearestGate(IReadOnlyList<Point3D> gates, Point3D from, Func<Point3D, bool> usable)
     {
-        var best = BritainGate;
+        var best = gates.Count > 0 ? gates[0] : Point3D.Zero;
         var bestDistance = int.MaxValue;
 
-        for (var i = 0; i < PublicGates.Length; i++)
+        for (var i = 0; i < gates.Count; i++)
         {
-            var distance = NavMetric.Chebyshev(from, PublicGates[i]);
+            var distance = NavMetric.Chebyshev(from, gates[i]);
 
-            if (distance < bestDistance && usable(PublicGates[i]))
+            if (distance < bestDistance && usable(gates[i]))
             {
                 bestDistance = distance;
-                best = PublicGates[i];
+                best = gates[i];
             }
         }
 
@@ -220,15 +224,13 @@ public static class WorkSites
     }
 
     /// <summary>
-    /// The nearest public gate is already under the character's feet. A walk to it ends
-    /// where it begins and reports success, which clears the failure count a real trip
-    /// was meant to raise. Miners gated onto the Magincia pad looped on this all day.
+    /// The nearest public gate <paramref name="usable"/> accepts is already under the character's
+    /// feet. A walk to it ends where it begins and reports success, which clears the failure count
+    /// a real trip was meant to raise. Miners gated onto the Magincia pad looped on this all day.
     /// </summary>
-    public static bool AtNearestGate(Point3D location) => AtNearestGate(location, static _ => true);
-
-    /// <summary><see cref="AtNearestGate(Point3D)"/> for the nearest gate <paramref name="usable"/> accepts.</summary>
-    public static bool AtNearestGate(Point3D location, Func<Point3D, bool> usable) =>
-        NavMetric.Chebyshev(location, NearestGate(location, usable)) <= GatePad.ReachTiles;
+    public static bool AtNearestGate(string facet, Point3D location, Func<Point3D, bool> usable) =>
+        NearestGate(facet, location, usable) is var gate && gate != Point3D.Zero &&
+        NavMetric.Chebyshev(location, gate) <= GatePad.ReachTiles;
 
     public static bool IsLegacyGateHome(Point3D home) =>
         home == BritainGate || home == YewGate || home == MinocGate || home == TrinsicGate ||
@@ -240,6 +242,13 @@ public static class WorkSites
     /// </summary>
     public static bool NeedsNewCopyHome(Point3D home) =>
         IsLegacyGateHome(home) || home == BritainMine.Home;
+
+    /// <summary>
+    /// True when the person's home, bank and work come from the facet's tables
+    /// (<see cref="WorldAnchors"/>), not its authored spots: every copy, and everyone on a map the
+    /// stock tables do not fit, whose roster spots are Britannia's.
+    /// </summary>
+    public static bool HomedByTable(string uniqueId) => IsCopy(uniqueId) || !WorldAnchors.ForId(uniqueId).IsStock;
 
     public static bool IsCopy(string uniqueId)
     {
@@ -285,6 +294,12 @@ public static class WorkSites
     public static Point3D WalkTarget(Point3D authored, string uniqueId) =>
         WalkTarget(authored, uniqueId, Point3D.Zero);
 
+    /// <summary>
+    /// Where a walk to an authored spot goes for this person: a work spot to its own work patch,
+    /// the default bank to its own bank, and, on a map the stock tables do not fit, a Britannia
+    /// moongate pad to the map's public moongate nearest home (home itself when it has none).
+    /// Any other spot stays as authored.
+    /// </summary>
     /// <param name="homeSpot">
     /// The character's own bank spot. A copy's bank came from a hash over every town, so
     /// a Magincia woodcutter banked in Minoc and never got there.
@@ -304,13 +319,23 @@ public static class WorkSites
 
         if (authored == CharactersFile.DefaultBankSpot)
         {
-            if (IsCopy(uniqueId))
+            if (HomedByTable(uniqueId))
             {
-                var town = homeSpot != Point3D.Zero ? homeSpot : TownSites[StableIndex(uniqueId) % TownSites.Length].Home;
+                var towns = WorldAnchors.ForId(uniqueId).Towns;
+                var town = homeSpot != Point3D.Zero ? homeSpot
+                    : towns.Count > 0 ? towns[StableIndex(uniqueId) % towns.Count].Home
+                    : authored;
                 return OffPad(town, uniqueId);
             }
 
             return Scatter(authored, uniqueId, BankScatterRadius);
+        }
+
+        if (Array.Exists(PublicGates, stockPad => stockPad == authored) && WorldAnchors.ForId(uniqueId) is { IsStock: false } anchors)
+        {
+            var from = homeSpot != Point3D.Zero ? homeSpot : authored;
+            var pad = NearestGate(anchors.PublicGates, from, static _ => true);
+            return pad != Point3D.Zero ? pad : from;
         }
 
         return authored;
@@ -339,7 +364,7 @@ public static class WorkSites
     /// walks ended with no tile to stand on within eight tiles of the goal.
     /// </summary>
     public static int ApproachHeight(Point3D authored, string uniqueId, Point3D siteHome) =>
-        IsCopy(uniqueId) ? siteHome.Z : authored.Z;
+        HomedByTable(uniqueId) ? siteHome.Z : authored.Z;
 
     /// <summary>
     /// A tile inside an authored harvest box. A walk there is read as a trip to work and
@@ -425,17 +450,19 @@ public static class WorkSites
         HomeFor(authored, uniqueId, skillKind, GuildType.Regular);
 
     /// <summary>
-    /// The home of a copy: the town of the site its id picks among the sites its side may call
-    /// home (<see cref="SideHomes"/>). A fixture keeps its authored spawn.
+    /// The home of a copy, and of anyone on a map the stock tables do not fit: the town of the
+    /// site its id picks among the sites its side may call home (<see cref="SideHomes"/>). A
+    /// fixture of a stock map keeps its authored spawn, as does anyone on a map with no town yet.
     /// </summary>
     public static Point3D HomeFor(Point3D authored, string uniqueId, string skillKind, GuildType side)
     {
-        if (!IsCopy(uniqueId))
+        if (!HomedByTable(uniqueId))
         {
             return authored;
         }
 
-        var sites = SideHomes.For(side, KindSites(skillKind));
+        var anchors = WorldAnchors.ForId(uniqueId);
+        var sites = SideHomes.For(anchors, side, anchors.HomeSites(skillKind));
         var home = sites.Count == 0 ? Point3D.Zero : sites[StableIndex(uniqueId) % sites.Count].Home;
         return home == Point3D.Zero ? authored : home;
     }
@@ -472,20 +499,21 @@ public static class WorkSites
         return SkillKinds.IdleWander;
     }
 
+    /// <summary>
+    /// The site a person works: a fixture of a stock map its authored box, anyone else the
+    /// site its id picks among the facet's sites of the work (<see cref="FacetAnchors.HomeSites"/>);
+    /// the authored box on a map with no site yet.
+    /// </summary>
     public static WorkSite SiteFor(string skillKind, string uniqueId, Rectangle2D authored)
     {
-        if (!IsCopy(uniqueId))
+        if (!HomedByTable(uniqueId))
         {
             return Authored(authored);
         }
 
-        var sites = KindSites(skillKind);
-        return sites[StableIndex(uniqueId) % sites.Count];
+        var sites = WorldAnchors.ForId(uniqueId).HomeSites(skillKind);
+        return sites.Count == 0 ? Authored(authored) : sites[StableIndex(uniqueId) % sites.Count];
     }
-
-    /// <summary>The sites a copy of this work picks from: the weighted town list for town life.</summary>
-    private static IReadOnlyList<WorkSite> KindSites(string skillKind) =>
-        skillKind == SkillKinds.IdleWander ? TownPopulation : SitesOf(skillKind);
 
     /// <summary>
     /// The site a harvest works. A crafter digging or cutting its own stock works the patch its
@@ -519,13 +547,13 @@ public static class WorkSites
         var own = HarvestSite(skillKind, uniqueId, authored, ownStock);
         var sites = new List<WorkSite> { own };
 
-        if (ownStock || !IsCopy(uniqueId))
+        if (ownStock || !HomedByTable(uniqueId))
         {
             return sites;
         }
 
         var others = new List<(WorkSite Site, int Distance)>();
-        AddInLeash(others, SitesOf(skillKind), own, home, leash);
+        AddInLeash(others, WorldAnchors.ForId(uniqueId).SitesOf(skillKind), own, home, leash);
         AddInLeash(others, NearestWorldSites(skillKind, worldPlaces, home), own, home, leash);
         others.Sort(static (left, right) => left.Distance.CompareTo(right.Distance));
 
@@ -590,12 +618,13 @@ public static class WorkSites
 
     /// <summary>
     /// The site of a harvest whose work box lies nearest <paramref name="home"/>: a Minoc smith
-    /// mines the Minoc hills, a Yew carpenter cuts the Yew wood.
+    /// mines the Minoc hills, a Yew carpenter cuts the Yew wood. Null on a facet with no site of
+    /// the harvest.
     /// </summary>
-    public static WorkSite NearestSite(string skillKind, Point3D home)
+    public static WorkSite? NearestSite(FacetAnchors anchors, string skillKind, Point3D home)
     {
-        var sites = SitesOf(skillKind);
-        var best = sites[0];
+        var sites = anchors.SitesOf(skillKind);
+        WorkSite? best = null;
         var bestDistance = int.MaxValue;
 
         for (var i = 0; i < sites.Count; i++)
@@ -664,16 +693,7 @@ public static class WorkSites
     /// <summary>The cells of <see cref="PatchSize"/> a side of this length splits into, the last one short.</summary>
     private static int CellsAcross(int length) => Math.Max(1, (length + PatchSize - 1) / PatchSize);
 
-    private static WorkSite Town(Point3D gate, string name) =>
-        new(name, gate, new Rectangle2D(gate.X, gate.Y, 1, 1));
-
-    private static IReadOnlyList<WorkSite> SitesOf(string skillKind) =>
-        skillKind switch
-        {
-            SkillKinds.Lumberjack => LumberSites,
-            SkillKinds.Mine => MineSites,
-            SkillKinds.Fish => FishSites,
-            _ when CraftCareerRules.HomesFor(skillKind) is { Count: > 0 } towns => towns,
-            _ => TownSites
-        };
+    /// <summary>A town's site: its home spot, worked on that one tile.</summary>
+    internal static WorkSite Town(Point3D home, string name) =>
+        new(name, home, new Rectangle2D(home.X, home.Y, 1, 1));
 }

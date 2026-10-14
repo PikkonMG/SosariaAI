@@ -155,6 +155,13 @@ public class FactionRulesTests
     }
 
     [Fact]
+    public void Spots_NoBritanniaRoadOnAMapOfTheShardsOwn()
+    {
+        // The test land has Felucca's rules but none of Britannia's roads.
+        Assert.Empty(FactionSpots.For(TestMap.EnsureLand().Name));
+    }
+
+    [Fact]
     public void Spots_OutsideEveryBucsDenAndNamedOnce()
     {
         var names = new HashSet<string>(StringComparer.Ordinal);
