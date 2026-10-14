@@ -87,11 +87,13 @@ public static class ActivityLog
         if (skill is HarvestSkill harvest)
         {
             logger.Information(
-                "{Name} gathered {Gained} {Haul} on {Skill}; the backpack holds {Count}",
+                "{Name} gathered {Gained} {Haul} on {Skill} in {SwingTries} swing tries at skill {WorkSkill:F1}; the backpack holds {Count}",
                 character.Name,
                 harvest.Gained,
                 harvest.HaulNoun,
                 skill.Name,
+                harvest.SwingTries,
+                harvest.WorkSkill,
                 harvest.ResourceCount
             );
         }

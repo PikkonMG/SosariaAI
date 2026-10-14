@@ -3196,7 +3196,9 @@ public partial class SosariaCharacter : PlayerMobile
     {
         var now = Core.Now;
 
-        if (now < _nextPassingLookAt || !MountRules.LooksInPassing(Mounted, IsGhost, Hidden, Combatant != null))
+        var workOnFoot = Routine?.CurrentSkill is HarvestSkill { RidingBlocksWork: true };
+
+        if (now < _nextPassingLookAt || !MountRules.LooksInPassing(Mounted, IsGhost, Hidden, Combatant != null, workOnFoot))
         {
             return false;
         }

@@ -131,11 +131,18 @@ public class MountRulesTests
     [Fact]
     public void LooksInPassing_OnlyAliveSeenOnFootAndOutOfAFight()
     {
-        Assert.True(MountRules.LooksInPassing(mounted: false, ghost: false, hidden: false, inFight: false));
-        Assert.False(MountRules.LooksInPassing(mounted: true, ghost: false, hidden: false, inFight: false));
-        Assert.False(MountRules.LooksInPassing(mounted: false, ghost: true, hidden: false, inFight: false));
-        Assert.False(MountRules.LooksInPassing(mounted: false, ghost: false, hidden: true, inFight: false));
-        Assert.False(MountRules.LooksInPassing(mounted: false, ghost: false, hidden: false, inFight: true));
+        Assert.True(MountRules.LooksInPassing(mounted: false, ghost: false, hidden: false, inFight: false, workOnFoot: false));
+        Assert.False(MountRules.LooksInPassing(mounted: true, ghost: false, hidden: false, inFight: false, workOnFoot: false));
+        Assert.False(MountRules.LooksInPassing(mounted: false, ghost: true, hidden: false, inFight: false, workOnFoot: false));
+        Assert.False(MountRules.LooksInPassing(mounted: false, ghost: false, hidden: true, inFight: false, workOnFoot: false));
+        Assert.False(MountRules.LooksInPassing(mounted: false, ghost: false, hidden: false, inFight: true, workOnFoot: false));
+    }
+
+    [Fact]
+    public void LooksInPassing_NotWhileAJobNeedsTheRiderOnFoot()
+    {
+        // A miner got off to dig and was put back on its horse three seconds later.
+        Assert.False(MountRules.LooksInPassing(mounted: false, ghost: false, hidden: false, inFight: false, workOnFoot: true));
     }
 
     [Fact]

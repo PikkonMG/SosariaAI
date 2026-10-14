@@ -243,7 +243,9 @@ leash, nearest first. Those sites include the six nearest woods, rock faces and
 shores the nav build found on the map itself, so a shard's own map says where
 the work is. A shore comes into the nav files at the next nav build
 (`[SosariaRebuildNav`). When every site is bare, it does no harvest until the
-engine's banks refill.
+engine's banks refill. The engine will not mine or fish from the saddle, so a
+rider gets off at its first swing and gets back on when the job ends. A
+woodcutter may cut from the saddle.
 
 ## Tamers
 

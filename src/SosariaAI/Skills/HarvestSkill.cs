@@ -35,6 +35,7 @@ public abstract class HarvestSkill : Skill
     private const string TripTooLongWhy = "the walk to the work patch took too long";
     private const string NoToolWhy = "no tool";
     private const string ToolBrokeWhy = "the tool broke";
+    private const string MountedWhy = "could not get off its mount";
 
     private static readonly HashSet<Point2D> NoExclusions = [];
 
@@ -96,6 +97,19 @@ public abstract class HarvestSkill : Skill
     /// <summary>What this trip added: the pack's count past its start, and what went onto a pack beast.</summary>
     public int Gained => ResourceCount + _loadedOnBeast - _countAtStart;
 
+    /// <summary>The swings this trip asked the engine for; a swing still running turns the next ask away.</summary>
+    public int SwingTries { get; private set; }
+
+    /// <summary>The worker's skill in this harvest now.</summary>
+    public double WorkSkill => _character?.Skills[Definition.Skill].Value ?? 0;
+
+    /// <summary>
+    /// True when the engine refuses this harvest from the saddle: "You can't mine while riding",
+    /// "You can't fish while riding!". Riders swung all trip and came home with nothing; mining
+    /// failed 81 of 88 trips in a run where many workers arrived on horses.
+    /// </summary>
+    public virtual bool RidingBlocksWork => false;
+
     /// <summary>
     /// The resource worked from <paramref name="tile"/> when it has stock left in the engine's
     /// harvest bank, with the tile to stand on nearest <paramref name="from"/>, or false.
@@ -129,6 +143,7 @@ public abstract class HarvestSkill : Skill
         _lastCarried = CarryLoad.Carried(character);
         _swingStones = 0;
         _patchMoves = 0;
+        SwingTries = 0;
         _ownStock = GathersOwnStock(character);
         _area = _routineArea;
 
@@ -421,9 +436,15 @@ public abstract class HarvestSkill : Skill
             return Fail(ToolBrokeWhy);
         }
 
+        if (RidingBlocksWork && _character.Mounted && !OwnedMounts.StepDown(_character))
+        {
+            return Fail(MountedWhy);
+        }
+
         GearEquip.EquipTool(_character, tool);
         _character.Direction = _character.GetDirectionTo(_spot.Resource);
         System.StartHarvesting(_character, tool, CreateTarget(_character.Map, _spot));
+        SwingTries++;
 
         return ContinueAfterObserve(harvesting: !CanSwing());
     }

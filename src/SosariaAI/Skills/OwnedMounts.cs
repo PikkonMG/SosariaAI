@@ -68,6 +68,21 @@ public static class OwnedMounts
         return rider.Mounted;
     }
 
+    /// <summary>
+    /// Gets off the mount; it stands where the rider stood. The engine will not mine or fish
+    /// from the saddle (<see cref="HarvestSkill.RidingBlocksWork"/>). False when the rider is
+    /// still seated.
+    /// </summary>
+    public static bool StepDown(SosariaCharacter rider)
+    {
+        if (rider?.Mount is { } mount)
+        {
+            mount.Rider = null;
+        }
+
+        return rider is { Mounted: false };
+    }
+
     /// <summary>Climbs onto a mount already within arm's reach. Used right after a purchase.</summary>
     public static bool ClimbNearest(SosariaCharacter rider) =>
         Climb(rider, Nearest(rider, MountRules.ReachTiles));

@@ -13,6 +13,7 @@ public class HarvestTripTests
     private const string Fixture = "connor";
     private const int Leash = 400;
     private const int WalkMinutes = 5;
+    private const double HarvestFill = 0.9;
 
     private static readonly DateTime Start = new(2026, 9, 27, 21, 26, 40, DateTimeKind.Utc);
     private static readonly Point3D BritainBank = WorkSites.BritainTown;
@@ -110,5 +111,14 @@ public class HarvestTripTests
         Assert.True(site.Harvest.Contains(new Point2D(NearPlace.X - radius, NearPlace.Y - radius)));
         Assert.True(site.Harvest.Contains(new Point2D(NearPlace.X + radius - 1, NearPlace.Y + radius - 1)));
         Assert.Equal(4, WorkSites.PatchCount(site.Harvest));
+    }
+
+    [Fact]
+    public void RidingBlocksWork_MiningAndFishingOnly_AsTheEngineRules()
+    {
+        // The engine: "You can't mine while riding", "You can't fish while riding!"; a woodcutter may ride.
+        Assert.True(new MineSkill(Authored, HarvestFill).RidingBlocksWork);
+        Assert.True(new FishSkill(Authored, HarvestFill).RidingBlocksWork);
+        Assert.False(new LumberjackSkill(Authored, HarvestFill).RidingBlocksWork);
     }
 }

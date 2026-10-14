@@ -41,10 +41,12 @@ public static class MountRules
 
     /// <summary>
     /// A person on foot gets on its own mount in passing: alive, not hidden (a mounted body
-    /// cannot stealth) and not in a fight, the same as <see cref="RemountsFirst"/>.
+    /// cannot stealth), not in a fight, the same as <see cref="RemountsFirst"/>, and not in a
+    /// job the engine refuses from the saddle. A miner got off to dig and was put back on its
+    /// horse three seconds later, so it never dug.
     /// </summary>
-    public static bool LooksInPassing(bool mounted, bool ghost, bool hidden, bool inFight) =>
-        !mounted && !ghost && !hidden && !inFight;
+    public static bool LooksInPassing(bool mounted, bool ghost, bool hidden, bool inFight, bool workOnFoot) =>
+        !mounted && !ghost && !hidden && !inFight && !workOnFoot;
 
     /// <summary>The rider must close the gap before it can climb on.</summary>
     public static bool NeedsWalk(int chebyshev) => chebyshev > ReachTiles;

@@ -40,6 +40,8 @@ public sealed class FishSkill : HarvestSkill
 
     public override string Name => SkillKinds.Fish;
 
+    public override bool RidingBlocksWork => true;
+
     public override string HaulNoun => FishNoun;
 
     protected override string ResourceRole => ResourceKind.Fish;

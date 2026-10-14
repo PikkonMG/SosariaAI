@@ -18,6 +18,8 @@ public sealed class MineSkill : HarvestSkill
 
     public override string Name => SkillKinds.Mine;
 
+    public override bool RidingBlocksWork => true;
+
     public override string HaulNoun => OreNoun;
 
     protected override string ResourceRole => ResourceKind.Mine;
