@@ -148,9 +148,13 @@ A fight that matters asks the provider on its fight use for a stance: press or
 go back in, kite, step back and heal, paralyze then kite, protect, flee, or
 hold. A fight matters when it is against a person, against a foe clearly
 stronger than the character dares alone, or when the character is below half
-its hits. The request carries only a few lines of words (how hurt, how near,
-whether the trade of blows is being won, light damage, cornered, how often a
-spell broke). It asks at most once every five seconds per character and six
+its hits. The model is asked only when a real player is part of the fight: the
+foe is a player, a player hits or was hit by either side, a player is in a party
+with either side, or the character can see a player on screen. A hidden GM does
+not count. A fight between characters alone, or against monsters with no player
+near, uses the rules and makes no call. The request carries only a few lines
+of words (how hurt, how near, whether the trade of blows is being won, light
+damage, cornered, how often a spell broke). It asks at most once every five seconds per character and six
 times a fight, and only when those words changed. Keeping an answer for the
 same words counts as one of the six asks. Words that got an unsure answer are
 not asked again in that fight. In a fight against a monster, kite is offered

@@ -123,6 +123,19 @@ public class StanceRulesTests
     }
 
     [Fact]
+    public void PlayerInvolved_NoPlayerInOrNearTheFight_LeavesItToTheRules() =>
+        Assert.False(StanceRules.PlayerInvolved(foeIsHuman: false, humanTradesBlows: false, humanInParty: false, humanSees: false));
+
+    [Fact]
+    public void PlayerInvolved_APlayerFoeFighterPartyMemberOrWatcher_Asks()
+    {
+        Assert.True(StanceRules.PlayerInvolved(foeIsHuman: true, humanTradesBlows: false, humanInParty: false, humanSees: false));
+        Assert.True(StanceRules.PlayerInvolved(foeIsHuman: false, humanTradesBlows: true, humanInParty: false, humanSees: false));
+        Assert.True(StanceRules.PlayerInvolved(foeIsHuman: false, humanTradesBlows: false, humanInParty: true, humanSees: false));
+        Assert.True(StanceRules.PlayerInvolved(foeIsHuman: false, humanTradesBlows: false, humanInParty: false, humanSees: true));
+    }
+
+    [Fact]
     public void OffersKite_APersonOrWhenTheRulesWouldKite()
     {
         var monsterFight = Mage() with { FoeIsPerson = false };

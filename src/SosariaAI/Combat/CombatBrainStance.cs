@@ -1,6 +1,7 @@
 using Server;
 using Server.Items;
 using Server.Mobiles;
+using SosariaAI.Behaviour;
 using SosariaAI.Common;
 using SosariaAI.Configuration;
 using SosariaAI.Deliberation;
@@ -10,9 +11,9 @@ namespace SosariaAI.Combat;
 
 /// <summary>
 /// The stance for this tick: the one Jev set while it stands, else the stance rules. Jev is
-/// asked about a fight that matters when the words that describe it change, never more often
-/// than its ask gap nor more than its asks per fight, and only when the decision route is a
-/// System One provider.
+/// asked about a fight that matters, with a real player in it, when the words that describe it
+/// change, never more often than its ask gap nor more than its asks per fight, and only when
+/// the decision route is a System One provider.
 /// </summary>
 public static partial class CombatBrain
 {
@@ -147,10 +148,14 @@ public static partial class CombatBrain
         memory.StanceAsks++;
     }
 
-    /// <summary>A fight the rules already settle (a blue winning on a red presses) is not put to Jev.</summary>
+    /// <summary>
+    /// A fight is put to Jev only with a real player in it (<see cref="StanceRules.PlayerInvolved"/>)
+    /// and only when it matters (<see cref="StanceRules.WorthAsking"/>). A fight the rules already
+    /// settle (a blue winning on a red presses) is not put to Jev.
+    /// </summary>
     private static bool WorthAsking(SosariaCharacter character, Memory memory, Mobile foe, StanceSituation situation)
     {
-        if (StanceRules.PressesRed(situation))
+        if (StanceRules.PressesRed(situation) || !PlayerInvolved(character, foe))
         {
             return false;
         }
@@ -160,6 +165,42 @@ public static partial class CombatBrain
         var dare = NerveRules.DarePower(CharacterPower.For(character), NerveOf(character, memory), AlliesOn(memory, foe));
 
         return StanceRules.WorthAsking(situation.FoeIsPerson, threat, dare, situation.HitsFraction);
+    }
+
+    /// <summary>
+    /// The facts of <see cref="StanceRules.PlayerInvolved"/>: a real player is the foe, hits or
+    /// was hit by either side, is in a party with either side, or stands on screen where the
+    /// character sees it (<see cref="PresenceFocus.PlayerNearby"/>). A hidden GM does not count:
+    /// nothing a character does may count on one.
+    /// </summary>
+    private static bool PlayerInvolved(SosariaCharacter character, Mobile foe) =>
+        StanceRules.PlayerInvolved(
+            People.IsHuman(foe),
+            TradesBlowsWithHuman(character) || TradesBlowsWithHuman(foe),
+            GameParty.InPlayerParty(character) || GameParty.InPlayerParty(foe),
+            PresenceFocus.PlayerNearby(character)
+        );
+
+    /// <summary>A real player is in the engine's aggression lists of <paramref name="mobile"/>: it hit the mobile, or the mobile hit it.</summary>
+    private static bool TradesBlowsWithHuman(Mobile mobile)
+    {
+        foreach (var info in mobile.Aggressors)
+        {
+            if (People.IsHuman(info.Attacker))
+            {
+                return true;
+            }
+        }
+
+        foreach (var info in mobile.Aggressed)
+        {
+            if (People.IsHuman(info.Defender))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

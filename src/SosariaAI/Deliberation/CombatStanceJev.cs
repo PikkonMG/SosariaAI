@@ -31,7 +31,8 @@ public enum StanceAskStep
 /// One models (Von, Laya) judge one yes/no far better than a pick among seven: on a seven-way
 /// choice they spread their answer thin and lean on shared words. A yes below its risk floor,
 /// or one that does not clearly beat the next, is no answer, and the stance rules pick. Asked
-/// only for a fight that matters (<see cref="StanceRules.WorthAsking"/>), only when the words
+/// only for a fight that matters (<see cref="StanceRules.WorthAsking"/>) with a real player in
+/// it (<see cref="StanceRules.PlayerInvolved"/>), only when the words
 /// changed and were not answered unsure before in the fight, at most once per
 /// <see cref="AskGapMs"/> per character and <see cref="MaxAsksPerFight"/> times a fight,
 /// extensions of a standing stance counted (<see cref="NextAsk"/>).
