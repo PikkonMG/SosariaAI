@@ -28,7 +28,9 @@ namespace SosariaAI.Skills;
 /// while smiths waited at five banks. A smith who mined smelts its ore the same
 /// way, keeps the ingots its own forge burns and offers only the surplus to other smiths. A
 /// counter that takes nothing more sends the rest to the next buyer, and the trip ends when none
-/// is left.
+/// is left. The ore is walked onto a tile that stands in a forge's smelting reach, and smelted
+/// only when the seller's Mining gives the smelt a chance; the haul no forge or counter took goes
+/// into the bank box before the trip ends (<see cref="SmeltOrBank"/>).
 /// </summary>
 public sealed class VendorSellSkill : Skill
 {
@@ -38,7 +40,8 @@ public sealed class VendorSellSkill : Skill
         Smelt,
         WalkVendor,
         Sell,
-        Bank
+        Bank,
+        BankHaul
     }
 
     private const int MaxSmeltAttempts = 8;
@@ -55,6 +58,9 @@ public sealed class VendorSellSkill : Skill
     private const string OreStuckWhy = "the ore would not smelt";
     private const string NoForgeWalkWhy = "no walk to the forge";
     private const string NoOreTripWhy = "no forge or shop in reach for the ore";
+    private const string LowMiningWhy = "its Mining is too low to smelt the ore";
+    private const string ForgeWalkFailedWhy = "the walk to the forge failed";
+    private const string ShopWalkFailedWhy = "the walk to the shop failed";
 
     private static readonly ILogger logger = SosariaLog.For(typeof(VendorSellSkill));
 
@@ -73,6 +79,9 @@ public sealed class VendorSellSkill : Skill
     private bool _bankTried;
     private int _soldAtBank;
     private int _smelted;
+    private BankDepositSkill _haulDeposit;
+    private bool _haulBankTried;
+    private int _haulBanked;
     private readonly HashSet<Point3D> _forgesWalkedTo = [];
 
     public VendorSellSkill(string destination = null) =>
@@ -104,6 +113,9 @@ public sealed class VendorSellSkill : Skill
         _bankTried = false;
         _soldAtBank = 0;
         _smelted = 0;
+        _haulDeposit = null;
+        _haulBankTried = false;
+        _haulBanked = 0;
         _forgesWalkedTo.Clear();
 
         if (character?.Backpack == null || !People.InWorld(character))
@@ -136,12 +148,17 @@ public sealed class VendorSellSkill : Skill
             return BeginWalkToVendor() || CannotStart(NoBuyerWhy);
         }
 
-        if (goods.Ore)
+        if (goods.Ore && SmeltOrBank.MaySmelt(Mining))
         {
-            return BeginWalkToForge() || CannotStart(NoOreTripWhy);
+            return BeginWalkToForge() || BeginBankHaul(NoOreTripWhy) || CannotStart(NoOreTripWhy);
         }
 
-        return BeginWalkToVendor() || CannotStart(NoBuyerWhy);
+        if (goods is { Ore: true, Counter: false })
+        {
+            return BeginBankHaul(LowMiningWhy) || CannotStart(LowMiningWhy);
+        }
+
+        return BeginWalkToVendor() || BeginBankHaul(NoBuyerWhy) || CannotStart(NoBuyerWhy);
     }
 
     public override SkillStatus Tick()
@@ -154,6 +171,11 @@ public sealed class VendorSellSkill : Skill
         if (_phase == Phase.Bank)
         {
             return TickBank();
+        }
+
+        if (_phase == Phase.BankHaul)
+        {
+            return TickBankHaul();
         }
 
         if (_phase is Phase.WalkForge or Phase.WalkVendor)
@@ -172,7 +194,7 @@ public sealed class VendorSellSkill : Skill
                 // A buyer the walk could not reach is not the last buyer in reach.
                 return _phase == Phase.WalkVendor && BeginWalkToVendor()
                     ? SkillStatus.Running
-                    : Finish(_phase == Phase.WalkForge ? "the walk to the forge failed" : "the walk to the shop failed");
+                    : BankHaulOrFinish(_phase == Phase.WalkForge ? ForgeWalkFailedWhy : ShopWalkFailedWhy);
             }
 
             if (_phase == Phase.WalkForge)
@@ -181,12 +203,12 @@ public sealed class VendorSellSkill : Skill
 
                 if (forge == Point3D.Zero)
                 {
-                    return BeginWalkToVendor() ? SkillStatus.Running : Finish(NoBuyerWhy);
+                    return BeginWalkToVendor() ? SkillStatus.Running : BankHaulOrFinish(NoBuyerWhy);
                 }
 
                 if (!TryApproachForge(forge))
                 {
-                    return Finish(NoForgeWalkWhy);
+                    return BankHaulOrFinish(NoForgeWalkWhy);
                 }
 
                 if (_phase == Phase.WalkForge)
@@ -209,6 +231,8 @@ public sealed class VendorSellSkill : Skill
         _walk = null;
         _bankSale?.Abort();
         _bankSale = null;
+        _haulDeposit?.Abort();
+        _haulDeposit = null;
         _vendor = null;
     }
 
@@ -216,6 +240,7 @@ public sealed class VendorSellSkill : Skill
     {
         _walk?.Resume(held);
         _bankSale?.Resume(held);
+        _haulDeposit?.Resume(held);
     }
 
     /// <summary>
@@ -247,10 +272,10 @@ public sealed class VendorSellSkill : Skill
         var soldBefore = ItemsSold;
         PackAnimals.Unload(_character);
 
-        // Raw ore alone has nothing for the counter yet: the forge comes first.
-        if (Goods() is { Ore: true, Counter: false } && _smeltAttempts < MaxSmeltAttempts)
+        // Raw ore alone has nothing for the counter yet: the forge comes first, or the bank.
+        if (Goods() is { Ore: true, Counter: false })
         {
-            return TickSmelt();
+            return SmeltsOre() ? TickSmelt() : BankHaulOrFinish(OreLeftWhy());
         }
 
         // Stock a crafter waits for at the bank goes there before anyone else gets it, a mining
@@ -274,14 +299,14 @@ public sealed class VendorSellSkill : Skill
 
         if (_missingVendor)
         {
-            return ApproachVendorAgain() || BeginWalkToVendor() ? SkillStatus.Running : Finish(NoBuyerWhy);
+            return ApproachVendorAgain() || BeginWalkToVendor() ? SkillStatus.Running : BankHaulOrFinish(NoBuyerWhy);
         }
 
         // The pack beast's load comes into the pack a pack at a time and sells in turn.
         PackAnimals.Unload(_character);
         var goods = Goods();
 
-        if (goods.Ore && _smeltAttempts < MaxSmeltAttempts)
+        if (goods.Ore && SmeltsOre())
         {
             return TickSmelt();
         }
@@ -291,17 +316,94 @@ public sealed class VendorSellSkill : Skill
         return VendorSellRules.AfterCounter(sold, goods.Counter) switch
         {
             CounterNext.KeepSelling => SkillStatus.Running,
-            CounterNext.NextShop => BeginWalkToVendor() ? SkillStatus.Running : Finish(RefusedWhy),
-            _ => Finish(goods.Ore ? OreStuckWhy : NoGoodsLeftWhy)
+            CounterNext.NextShop => BeginWalkToVendor() ? SkillStatus.Running : BankHaulOrFinish(RefusedWhy),
+            _ => goods.Ore ? BankHaulOrFinish(OreLeftWhy()) : Finish(NoGoodsLeftWhy)
         };
     }
 
     /// <summary>
-    /// A trip that sold anything, or smelted ore a smith keeps for its own forge, is done; one that
-    /// did neither fails for <paramref name="why"/>.
+    /// A trip that sold anything, smelted ore a smith keeps for its own forge, or banked haul, is
+    /// done, and the seller may harvest again (<see cref="HarvestPatches.NoteUnloaded"/>); one that
+    /// did none of these fails for <paramref name="why"/>.
     /// </summary>
-    private SkillStatus Finish(string why) =>
-        ItemsSold > 0 || _soldToCrafters > 0 || _soldAtBank > 0 || _smelted > 0 ? SkillStatus.Done : Fail(why);
+    private SkillStatus Finish(string why)
+    {
+        if (ItemsSold + _soldToCrafters + _soldAtBank + _smelted + _haulBanked == 0)
+        {
+            return Fail(why);
+        }
+
+        HarvestPatches.NoteUnloaded(_character.Serial.Value);
+        return SkillStatus.Done;
+    }
+
+    /// <summary>The trip ends for <paramref name="why"/>, unless the haul still carried goes to the bank first.</summary>
+    private SkillStatus BankHaulOrFinish(string why) => BeginBankHaul(why) ? SkillStatus.Running : Finish(why);
+
+    /// <summary>
+    /// Walks the haul no forge or counter of this trip took to the seller's bank, once a trip:
+    /// for a while the box takes it, the plain harvest a shop in reach would buy included
+    /// (<see cref="HarvestPatches.NoteNoOutlet"/>). False when no haul is carried or no bank
+    /// walk starts.
+    /// </summary>
+    private bool BeginBankHaul(string why)
+    {
+        if (_haulBankTried || !Goods().Harvest)
+        {
+            return false;
+        }
+
+        _haulBankTried = true;
+        HarvestPatches.NoteNoOutlet(_character.Serial.Value, Core.Now + HarvestPatches.NoOutletRest);
+        var deposit = new BankDepositSkill(_character.HomeSpot);
+
+        if (!deposit.Begin(_character))
+        {
+            return false;
+        }
+
+        _haulDeposit = deposit;
+        _walk = null;
+        _phase = Phase.BankHaul;
+
+        if (SosariaSettings.LogActivity)
+        {
+            logger.Information("{Name} takes its haul to the bank: {Why}", _character.Name, why);
+        }
+
+        return true;
+    }
+
+    // Back from the bank with the haul: what is left for a counter goes to the next shop.
+    private SkillStatus TickBankHaul()
+    {
+        var status = _haulDeposit.Tick();
+
+        if (status == SkillStatus.Running)
+        {
+            return SkillStatus.Running;
+        }
+
+        _haulBanked += _haulDeposit.ItemsDeposited;
+        var why = _haulDeposit.FailReason ?? NoGoodsLeftWhy;
+        _haulDeposit = null;
+
+        if (SosariaSettings.LogActivity)
+        {
+            logger.Information("{Name} banked {Count} items of its haul", _character.Name, _haulBanked);
+        }
+
+        return Goods().Counter && BeginWalkToVendor() ? SkillStatus.Running : Finish(why);
+    }
+
+    /// <summary>Why ore is left after the forge: the seller's Mining, or a smelt that would not take.</summary>
+    private string OreLeftWhy() => SmeltOrBank.MaySmelt(Mining) ? OreStuckWhy : LowMiningWhy;
+
+    /// <summary>The ore goes to the forge: the seller's Mining gives the smelt a chance and tries are left.</summary>
+    private bool SmeltsOre() => SmeltOrBank.MaySmelt(Mining) && _smeltAttempts < MaxSmeltAttempts;
+
+    /// <summary>The seller's Mining, which the smelt rolls.</summary>
+    private double Mining => _character.Skills[SkillName.Mining]?.Value ?? 0;
 
     /// <summary>
     /// Walks the load to the bank where a crafter in reach waits for it, once a trip: the board
@@ -361,7 +463,7 @@ public sealed class VendorSellSkill : Skill
 
         _triedVendors.Clear();
         _shopTries = 0;
-        return BeginWalkToVendor() ? SkillStatus.Running : Finish(NoBuyerWhy);
+        return BeginWalkToVendor() ? SkillStatus.Running : BankHaulOrFinish(NoBuyerWhy);
     }
 
     private string Destination()
@@ -415,7 +517,7 @@ public sealed class VendorSellSkill : Skill
             return;
         }
 
-        var mining = _character.Skills[SkillName.Mining]?.Value ?? 0;
+        var mining = Mining;
         var moving = new List<BaseOre>();
 
         foreach (var item in pack.Items)
@@ -502,12 +604,12 @@ public sealed class VendorSellSkill : Skill
 
         if (forge == Point3D.Zero)
         {
-            return BeginWalkToVendor() ? SkillStatus.Running : Finish(NoBuyerWhy);
+            return BeginWalkToVendor() ? SkillStatus.Running : BankHaulOrFinish(NoBuyerWhy);
         }
 
         if (!TryApproachForge(forge))
         {
-            return Finish(NoForgeWalkWhy);
+            return BankHaulOrFinish(NoForgeWalkWhy);
         }
 
         if (_phase == Phase.WalkForge)
@@ -536,7 +638,6 @@ public sealed class VendorSellSkill : Skill
             return TryApproachForge(forge);
         }
 
-        _phase = Phase.WalkForge;
         var forges = SmeltRules.ForgeSpots(
             _character.Location,
             SmeltRules.ForgesNear(_character.Map, _character.Location, VendorSellRules.TownVendorScanRange),
@@ -545,11 +646,8 @@ public sealed class VendorSellSkill : Skill
 
         for (var i = 0; i < forges.Count; i++)
         {
-            _walk = new TravelSkill(forges[i], SmeltRules.ForgeRange);
-
-            if (_walk.Begin(_character))
+            if (TryApproachForge(forges[i]))
             {
-                _forgesWalkedTo.Add(forges[i]);
                 return true;
             }
         }
@@ -559,10 +657,12 @@ public sealed class VendorSellSkill : Skill
     }
 
     /// <summary>
-    /// Stands in smelting reach of the forge, or starts the one walk to it this trip. A walk
-    /// that ended and left the seller out of reach of the forge it went to cannot close on it
-    /// (a counter or a wall between them), and false ends the smelting: walking to it again
-    /// ended at once every tick, and three Minoc sellers stood at the smithy for ten minutes.
+    /// Stands in smelting reach of the forge, or starts the one walk to it this trip: onto a tile
+    /// that stands in the forge's reach (<see cref="SmeltOrBank.TryForgeStand"/>), and no tile
+    /// short of it. A walk that ended and left the seller out of reach of the forge it went to
+    /// cannot close on it (a counter or a wall between them), and false ends the smelting:
+    /// walking to it again ended at once every tick, and three Minoc sellers stood at the smithy
+    /// for ten minutes.
     /// </summary>
     private bool TryApproachForge(Point3D forge)
     {
@@ -579,8 +679,14 @@ public sealed class VendorSellSkill : Skill
         }
 
         _forgesWalkedTo.Add(forge);
+
+        if (!SmeltOrBank.TryForgeStand(_character.Map, forge, _character.Location, out var stand))
+        {
+            return false;
+        }
+
         _phase = Phase.WalkForge;
-        _walk = new TravelSkill(forge, SmeltRules.ForgeRange);
+        _walk = new TravelSkill(stand, HarvestStand.OnTheTile, arrivalFloor: true, exactTarget: true);
         return _walk.Begin(_character);
     }
 
@@ -854,6 +960,9 @@ public sealed class VendorSellSkill : Skill
 
         /// <summary>Goods a counter takes as they are: everything but raw ore.</summary>
         public readonly bool Counter => Ingots || Logs || Fish || Loot;
+
+        /// <summary>The plain harvest a shop buys: ore, ingots, logs or fish.</summary>
+        public readonly bool Harvest => Ore || Ingots || Logs || Fish;
 
         public readonly bool Any => Counter || Ore;
     }

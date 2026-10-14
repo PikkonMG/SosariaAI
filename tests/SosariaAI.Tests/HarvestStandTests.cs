@@ -1,4 +1,5 @@
 using Server;
+using SosariaAI.Navigation;
 using SosariaAI.Skills;
 using Xunit;
 
@@ -75,6 +76,42 @@ public class HarvestStandTests
 
         Assert.True(HarvestStand.TryBeside(Resource, candidates, from, out var standAt));
         Assert.Equal(east, standAt);
+    }
+
+    [Fact]
+    public void WalkRange_TheWalkStopsWhereTheResourceIsStillInTheEnginesReach()
+    {
+        // Woodcutting and mining reach two tiles; a walk that stopped two short of the stand
+        // tile beside the tree stood three off, and the engine refused every swing.
+        const int harvestReach = 2;
+        var besideTree = new Point3D(ResourceX, ResourceY - HarvestStand.Step, ResourceZ);
+
+        Assert.Equal(HarvestStand.Step, HarvestStand.WalkRange(harvestReach, harvestReach, besideTree, Resource));
+        Assert.True(
+            NavMetric.Chebyshev(besideTree, Resource) +
+            HarvestStand.WalkRange(harvestReach, harvestReach, besideTree, Resource) <= harvestReach
+        );
+    }
+
+    [Fact]
+    public void WalkRange_NeverPastTheWalkersOwnRange()
+    {
+        // A fisher reaches the water at four tiles but stands on the shore beside it.
+        const int fishReach = 4;
+        var shore = new Point3D(ResourceX - HarvestStand.Step, ResourceY, ResourceZ);
+
+        Assert.Equal(FishSkill.ShoreWalkRange, HarvestStand.WalkRange(FishSkill.ShoreWalkRange, fishReach, shore, Resource));
+    }
+
+    [Fact]
+    public void WalkRange_AStandTileAtTheEdgeOfReachIsWalkedOnto()
+    {
+        const int reach = 2;
+        var edge = new Point3D(ResourceX + reach, ResourceY, ResourceZ);
+        var past = new Point3D(ResourceX + reach + HarvestStand.Step, ResourceY, ResourceZ);
+
+        Assert.Equal(HarvestStand.OnTheTile, HarvestStand.WalkRange(reach, reach, edge, Resource));
+        Assert.Equal(HarvestStand.OnTheTile, HarvestStand.WalkRange(reach, reach, past, Resource));
     }
 
     [Fact]

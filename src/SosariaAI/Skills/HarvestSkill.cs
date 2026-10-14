@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Server;
 using Server.Engines.Harvest;
 using Server.Items;
@@ -29,7 +30,7 @@ public abstract class HarvestSkill : Skill
     private const string NoPatchWhy = "no patch of the site has anything to work";
     private const string NoPatchWalkWhy = "no walk to the work patch";
     private const string EmptyPatchWhy = "nothing to work at the patch";
-    private const string PatchWalkFailedWhy = "the walk to the work patch failed";
+    public const string PatchWalkFailedWhy = "the walk to the work patch failed";
     private const string LoadedWhy = "carries a full load";
     private const string EmptyWorkWhy = "the patch gave nothing";
     private const string TripTooLongWhy = "the walk to the work patch took too long";
@@ -38,6 +39,21 @@ public abstract class HarvestSkill : Skill
     private const string MountedWhy = "could not get off its mount";
 
     private static readonly HashSet<Point2D> NoExclusions = [];
+
+    /// <summary>The refusal the engine names in no message of its own: a tool check or a body check of the harvest.</summary>
+    public static readonly TextDefinition HarvestCheckRefusal = TextDefinition.Of("the harvest's tool or body check");
+
+    /// <summary>The refusal of a target that is no tile of the harvest.</summary>
+    public static readonly TextDefinition BadTargetRefusal = TextDefinition.Of("no tile of the harvest");
+
+    /// <summary>The refusal of a resource out of the harvest's reach, for a harvest that names no message for it.</summary>
+    public static readonly TextDefinition OutOfReachRefusal = TextDefinition.Of("out of the harvest's reach");
+
+    /// <summary>The refusal of a resource with nothing left, for a harvest that names no message for it.</summary>
+    public static readonly TextDefinition NoStockRefusal = TextDefinition.Of("nothing left to harvest");
+
+    /// <summary>The refusal of a swing while the harvest's own lock is still held.</summary>
+    public static readonly TextDefinition SwingRunningRefusal = TextDefinition.Of("a swing still running");
 
     private readonly Rectangle2D _routineArea;
     private Rectangle2D _area;
@@ -57,6 +73,11 @@ public abstract class HarvestSkill : Skill
     private int _loadedOnBeast;
     private int _lastCarried;
     private int _swingStones;
+    private object _swingLock;
+    private bool _swingRunning;
+    private Item _swingTool;
+    private object _swingTarget;
+    private int _gainBeforeSwing;
 
     /// <summary>The work at the patch lasts this long, counted from the arrival there.</summary>
     public const int DefaultHarvestMinutes = 8;
@@ -97,8 +118,21 @@ public abstract class HarvestSkill : Skill
     /// <summary>What this trip added: the pack's count past its start, and what went onto a pack beast.</summary>
     public int Gained => ResourceCount + _loadedOnBeast - _countAtStart;
 
-    /// <summary>The swings this trip asked the engine for; a swing still running turns the next ask away.</summary>
+    /// <summary>
+    /// The swings the engine took this trip: a start that took the harvest's lock
+    /// (<see cref="HarvestSystem.GetLock"/>). A start the engine turned away is no swing. The
+    /// count once grew every tick the skill asked: woodcutters logged 100 and more "swing
+    /// tries" on trips whose every ask the engine refused.
+    /// </summary>
     public int SwingTries { get; private set; }
+
+    /// <summary>
+    /// The message the engine sent the worker on the last swing that gave nothing: refused at
+    /// its start, or ended with no haul. A worker has no client, so the engine's message goes
+    /// nowhere and is read back from the harvest's own checks (<see cref="RefusalOf"/>). Null
+    /// while no swing has failed this trip.
+    /// </summary>
+    public TextDefinition EngineMessage { get; private set; }
 
     /// <summary>The worker's skill in this harvest now.</summary>
     public double WorkSkill => _character?.Skills[Definition.Skill].Value ?? 0;
@@ -123,6 +157,10 @@ public abstract class HarvestSkill : Skill
         out HarvestSpot spot
     );
 
+    /// <summary>
+    /// The most a walk to a stand tile stops short of it. The walk stops shorter still when the
+    /// resource would fall out of the engine's reach (<see cref="HarvestStand.WalkRange"/>).
+    /// </summary>
     protected virtual int WalkRange => Definition.MaxRange;
 
     protected virtual int AreaWidenings => HarvestArea.MaxWidenings;
@@ -142,8 +180,13 @@ public abstract class HarvestSkill : Skill
         _loadedOnBeast = 0;
         _lastCarried = CarryLoad.Carried(character);
         _swingStones = 0;
+        _swingRunning = false;
+        _swingTool = null;
+        _swingTarget = null;
+        _gainBeforeSwing = 0;
         _patchMoves = 0;
         SwingTries = 0;
+        EngineMessage = null;
         _ownStock = GathersOwnStock(character);
         _area = _routineArea;
 
@@ -158,6 +201,7 @@ public abstract class HarvestSkill : Skill
 
         if (IsLoaded())
         {
+            HarvestPatches.NoteLoaded(character.Serial.Value, Core.Now + HarvestPatches.LoadedRest);
             LogCannotStart(character, "carries too much to start");
             return CannotStart(LoadedWhy);
         }
@@ -222,6 +266,14 @@ public abstract class HarvestSkill : Skill
             }
         }
     }
+
+    /// <summary>
+    /// Why the walk to the work patch failed, with the walk's own reason when it gave one: 60
+    /// mining trips of one night ended "the walk to the work patch failed" and only a line of the
+    /// walk, apart from the end, told "no route" in the Cove mine. Pure.
+    /// </summary>
+    public static string PatchWalkFailed(string walkWhy) =>
+        string.IsNullOrWhiteSpace(walkWhy) ? PatchWalkFailedWhy : $"{PatchWalkFailedWhy}: {walkWhy}";
 
     /// <summary>The work clock starts where the work starts: at the patch, not at the door.</summary>
     private void StartWorkClock()
@@ -369,6 +421,7 @@ public abstract class HarvestSkill : Skill
 
         ResourceCount = CountResource(_character.Backpack);
         NoteSwing();
+        NoteSwingEnd();
         LoadBeastWhenLoaded();
 
         if (TimeUp(_started, _workStarted, Core.Now) || IsLoaded())
@@ -388,7 +441,7 @@ public abstract class HarvestSkill : Skill
             return outcome;
         }
 
-        if (!CanSwing())
+        if (SwingRunning())
         {
             return ContinueAfterObserve(harvesting: true);
         }
@@ -402,6 +455,7 @@ public abstract class HarvestSkill : Skill
                 return SkillStatus.Running;
             }
 
+            var walkWhy = _walk.FailReason;
             _walk.Abort();
             _walk = null;
 
@@ -411,7 +465,7 @@ public abstract class HarvestSkill : Skill
 
                 if (walkStatus != SkillStatus.Done)
                 {
-                    return Finish(PatchWalkFailedWhy);
+                    return Finish(PatchWalkFailed(walkWhy));
                 }
 
                 StartWorkClock();
@@ -443,11 +497,111 @@ public abstract class HarvestSkill : Skill
 
         GearEquip.EquipTool(_character, tool);
         _character.Direction = _character.GetDirectionTo(_spot.Resource);
-        System.StartHarvesting(_character, tool, CreateTarget(_character.Map, _spot));
-        SwingTries++;
-
-        return ContinueAfterObserve(harvesting: !CanSwing());
+        return Swing(tool, CreateTarget(_character.Map, _spot));
     }
+
+    /// <summary>
+    /// Asks the engine for one swing. The engine takes it when its start takes the harvest's
+    /// lock, the lock <see cref="HarvestSystem.GetLock"/> names for this system, and holds the
+    /// lock until the swing ends (HarvestSystem.StartHarvesting, FinishHarvesting). A lock
+    /// already held is a swing still running, and no new one is asked for.
+    /// </summary>
+    private SkillStatus Swing(Item tool, object target)
+    {
+        _swingLock = System.GetLock(_character, tool, Definition, target);
+
+        if (!_character.CanBeginAction(_swingLock))
+        {
+            return ContinueAfterObserve(harvesting: true);
+        }
+
+        System.StartHarvesting(_character, tool, target);
+        _swingRunning = !_character.CanBeginAction(_swingLock);
+
+        if (_swingRunning)
+        {
+            SwingTries++;
+            _swingTool = tool;
+            _swingTarget = target;
+            _gainBeforeSwing = Gained;
+        }
+        else
+        {
+            EngineMessage = RefusalOf(tool, target, timed: false);
+        }
+
+        return ContinueAfterObserve(harvesting: _swingRunning);
+    }
+
+    /// <summary>A swing the engine took ended with no haul: its message is noted.</summary>
+    private void NoteSwingEnd()
+    {
+        if (!_swingRunning || SwingRunning())
+        {
+            return;
+        }
+
+        _swingRunning = false;
+
+        if (Gained <= _gainBeforeSwing)
+        {
+            EngineMessage = RefusalOf(_swingTool, _swingTarget, timed: true);
+        }
+    }
+
+    /// <summary>
+    /// The message the engine sends for the check that turns a swing away, asked of the
+    /// harvest's own checks in the order the engine runs them: at the start of a swing
+    /// (HarvestSystem.StartHarvesting) or, <paramref name="timed"/>, at its end
+    /// (FinishHarvesting). A swing that passes every check at its end failed its skill roll,
+    /// and the engine sends the definition's fail message. A check that sends a message of its
+    /// own system, a tool or a body check, is named in words.
+    /// </summary>
+    private TextDefinition RefusalOf(Item tool, object target, bool timed)
+    {
+        if (tool?.Deleted != false)
+        {
+            return Definition.ToolBrokeMessage;
+        }
+
+        if (!System.CheckHarvest(_character, tool))
+        {
+            return HarvestCheckRefusal;
+        }
+
+        if (!System.GetHarvestDetails(_character, tool, target, out var tileId, out var map, out var location, out var isLand) ||
+            System.GetDefinition(tileId, isLand) is not { } definition)
+        {
+            return BadTargetRefusal;
+        }
+
+        if (!System.CheckRange(_character, tool, definition, map, location, timed))
+        {
+            return Named(timed ? definition.TimedOutOfRangeMessage : definition.OutOfRangeMessage, OutOfReachRefusal);
+        }
+
+        if (!System.CheckResources(_character, tool, definition, map, location, timed))
+        {
+            return Named(timed ? definition.DoubleHarvestMessage : definition.NoResourcesMessage, NoStockRefusal);
+        }
+
+        if (!System.CheckHarvest(_character, tool, definition, target))
+        {
+            return HarvestCheckRefusal;
+        }
+
+        return timed ? definition.FailMessage : SwingRunningRefusal;
+    }
+
+    /// <summary>The engine's own message, or <paramref name="words"/> where the definition names none.</summary>
+    private static TextDefinition Named(TextDefinition message, TextDefinition words) =>
+        message is { IsEmpty: false } ? message : words;
+
+    /// <summary>The message as the log writes it: the cliloc number, or the plain text. Pure.</summary>
+    public static string MessageText(TextDefinition message) =>
+        message is not { IsEmpty: false } ? null
+        : message.Number > 0 ? message.Number.ToString(CultureInfo.InvariantCulture)
+        : message.String;
 
     public override void Abort()
     {
@@ -536,7 +690,7 @@ public abstract class HarvestSkill : Skill
         }
 
         _progress.Reset();
-        _walk = new GoToSkill(_spot.StandAt, WalkRange);
+        _walk = new GoToSkill(_spot.StandAt, HarvestStand.WalkRange(WalkRange, Definition.MaxRange, _spot.StandAt, _spot.Resource));
         return _walk.Begin(_character);
     }
 
@@ -638,7 +792,8 @@ public abstract class HarvestSkill : Skill
     private bool IsLoaded() =>
         CarryRules.StopsWork(CarryLoad.Carried(_character), CarryLoad.Limit(_character), _fillFraction, _swingStones);
 
-    private bool CanSwing() => _character.CanBeginAction(System);
+    /// <summary>A swing the engine took holds its lock until it ends.</summary>
+    private bool SwingRunning() => _swingLock != null && !_character.CanBeginAction(_swingLock);
 
     private static object CreateTarget(Map map, HarvestSpot spot) =>
         spot.IsLand

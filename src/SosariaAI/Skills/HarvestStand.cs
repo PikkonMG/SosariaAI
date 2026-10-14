@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Server;
 using SosariaAI.Navigation;
@@ -16,6 +17,9 @@ public static class HarvestStand
 
     public const int NoStep = 0;
     public const int Step = 1;
+
+    /// <summary>A walk range that ends on the stand tile itself.</summary>
+    public const int OnTheTile = 0;
 
     private const int NotANeighbour = -1;
 
@@ -43,6 +47,18 @@ public static class HarvestStand
 
         return points;
     }
+
+    /// <summary>
+    /// How far short of <paramref name="standAt"/> the walk there may stop and still leave
+    /// <paramref name="resource"/> inside the engine's harvest reach (<paramref name="reach"/>,
+    /// the definition's MaxRange), never more than <paramref name="walkRange"/>. The walk once
+    /// stopped the whole reach short of the stand tile, one tile beside the tree, so it ended up
+    /// to three tiles from a tree the engine reaches at two: it refused every swing "That is too
+    /// far away" (500446), and 163 woodcutting and 50 mining trips of one night ended with
+    /// 100 and more swings and nothing cut, at skills 66 to 99 that never rose. Pure.
+    /// </summary>
+    public static int WalkRange(int walkRange, int reach, Point3D standAt, Point3D resource) =>
+        Math.Max(OnTheTile, Math.Min(walkRange, reach - NavMetric.Chebyshev(standAt, resource)));
 
     public static bool TryBeside(
         Point3D resource,

@@ -103,4 +103,53 @@ public class HarvestPatchesTests
         Assert.False(HarvestPatches.IsDry(Estrid, SkillKinds.Mine, Now));
         Assert.False(HarvestPatches.IsDry(Estrid, SkillKinds.Lumberjack, Now + Rest));
     }
+
+    [Fact]
+    public void Loaded_AWorkerThatCameLoadedLeavesEveryHarvestUntilTheRestEnds()
+    {
+        // Tilda Hallow came to her mine with 27 ore three times in one night and failed
+        // "carries a full load" each time.
+        const uint Tilda = 0x7B0002;
+
+        HarvestPatches.NoteLoaded(Tilda, Now + HarvestPatches.LoadedRest);
+
+        Assert.True(HarvestPatches.IsDry(Tilda, SkillKinds.Mine, Now));
+        Assert.True(HarvestPatches.IsDry(Tilda, SkillKinds.Lumberjack, Now));
+        Assert.False(HarvestPatches.IsDry(Tilda, SkillKinds.Mine, Now + HarvestPatches.LoadedRest));
+    }
+
+    [Fact]
+    public void Loaded_AnUnloadTripEndsTheRestAtOnce()
+    {
+        const uint Kestra = 0x7B0003;
+
+        HarvestPatches.NoteLoaded(Kestra, Now + HarvestPatches.LoadedRest);
+        HarvestPatches.NoteUnloaded(Kestra);
+
+        Assert.False(HarvestPatches.IsDry(Kestra, SkillKinds.Lumberjack, Now));
+    }
+
+    [Fact]
+    public void Loaded_UnloadingDoesNotRefillABareSite()
+    {
+        const uint Fleur = 0x7B0004;
+
+        HarvestPatches.NoteDry(Fleur, SkillKinds.Lumberjack, Now + Rest);
+        HarvestPatches.NoteUnloaded(Fleur);
+
+        Assert.True(HarvestPatches.IsDry(Fleur, SkillKinds.Lumberjack, Now));
+    }
+
+    [Fact]
+    public void NoOutlet_AHaulNoForgeOrCounterTookIsBankedForAWhile()
+    {
+        const uint Olaf = 0x7B0005;
+
+        Assert.False(HarvestPatches.HasNoOutlet(Olaf, Now));
+
+        HarvestPatches.NoteNoOutlet(Olaf, Now + HarvestPatches.NoOutletRest);
+
+        Assert.True(HarvestPatches.HasNoOutlet(Olaf, Now));
+        Assert.False(HarvestPatches.HasNoOutlet(Olaf, Now + HarvestPatches.NoOutletRest));
+    }
 }

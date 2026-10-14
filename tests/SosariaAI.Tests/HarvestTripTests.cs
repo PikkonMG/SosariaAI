@@ -39,6 +39,16 @@ public class HarvestTripTests
     }
 
     [Fact]
+    public void PatchWalkFailed_TellsTheWalksOwnReason()
+    {
+        Assert.Equal(
+            $"{HarvestSkill.PatchWalkFailedWhy}: {TravelSkill.NoRouteWhy}",
+            HarvestSkill.PatchWalkFailed(TravelSkill.NoRouteWhy)
+        );
+        Assert.Equal(HarvestSkill.PatchWalkFailedWhy, HarvestSkill.PatchWalkFailed(null));
+    }
+
+    [Fact]
     public void TimeUp_AWalkThatNeverArrivesEndsWithTheTrip()
     {
         Assert.False(HarvestSkill.TimeUp(Start, default, Start + HarvestSkill.WorkTime));

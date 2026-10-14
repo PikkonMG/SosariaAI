@@ -1,5 +1,7 @@
 using Server;
 using SosariaAI.Economy;
+using SosariaAI.Navigation;
+using SosariaAI.Skills;
 using Xunit;
 
 namespace SosariaAI.Tests.RealMap;
@@ -26,6 +28,36 @@ public class RealMapForgeTests
 
         Assert.Contains(MaginciaForge, StaticForges.Near(map, MaginciaSmithy, SmeltRules.ForgeSearchRange));
         Assert.Equal(MaginciaForge, SmeltRules.FindNearestForge(map, MaginciaSmithy));
+    }
+
+    /// <summary>The Skara Brae smithy's forge, drawn into the map under the smithy's roof.</summary>
+    private static readonly Point3D SkaraForge = new(636, 2193, 0);
+
+    /// <summary>Where a Skara Brae seller's walk to that forge ended: three tiles off, out of its reach.</summary>
+    private static readonly Point3D SkaraSeller = new(633, 2192, 0);
+
+    private const int OneStep = 1;
+
+    [RealMapFact]
+    public void SkaraSmithy_TheForgeHasATileInReachBesideWhereTheSellerStopped()
+    {
+        // "no walk to the forge" ended 147 sale trips of one night; this seller stood three
+        // tiles from the forge with a free tile in its reach one step away.
+        var map = RealMapWorld.Felucca;
+
+        Assert.Contains(SkaraForge, StaticForges.Near(map, SkaraSeller, SmeltRules.ForgeSearchRange));
+        Assert.True(SmeltOrBank.TryForgeStand(map, SkaraForge, SkaraSeller, out var stand));
+        Assert.True(NavMetric.Chebyshev(stand, SkaraForge) <= SmeltRules.ForgeRange, $"stand {stand}");
+        Assert.Equal(OneStep, NavMetric.Chebyshev(stand, SkaraSeller));
+    }
+
+    [RealMapFact]
+    public void MaginciaSmithy_TheForgeHasATileInReach()
+    {
+        var map = RealMapWorld.Felucca;
+
+        Assert.True(SmeltOrBank.TryForgeStand(map, MaginciaForge, MaginciaSmithy, out var stand));
+        Assert.True(NavMetric.Chebyshev(stand, MaginciaForge) <= SmeltRules.ForgeRange, $"stand {stand}");
     }
 
     [RealMapFact]

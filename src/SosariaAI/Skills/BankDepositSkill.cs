@@ -266,15 +266,24 @@ public sealed class BankDepositSkill : Skill
         }
 
         var moving = BankablePieces(_character);
+        var haulBanked = false;
 
         // The box takes what fits under its item cap, stacked onto what it holds; the rest
         // stays in the pack.
         foreach (var item in moving)
         {
+            var haul = HarvestPack.IsHarvest(item);
+
             if (bank.TryDropItem(_character, item, false))
             {
                 ItemsDeposited++;
+                haulBanked |= haul;
             }
+        }
+
+        if (haulBanked)
+        {
+            HarvestPatches.NoteUnloaded(_character.Serial.Value);
         }
 
         var kept = moving.Count - ItemsDeposited;
@@ -445,9 +454,14 @@ public sealed class BankDepositSkill : Skill
         var buyerInReach = SaleGoods.BuyerInReach(character);
         var trade = CraftMarket.TradeOf(character);
 
+        // The haul a shop in reach buys goes in all the same when the worker cannot smelt it, or
+        // its trip found no forge or counter for it (SmeltOrBank): Tilda Hallow's 27 ore waited
+        // in her pack for a smith whose forge she never reached: "deposited 0 items".
+        bool ShopTakes(Item item) => buyerInReach(item) && !SmeltOrBank.BanksHaul(character, item);
+
         foreach (var item in pack.Items)
         {
-            if (IsBankable(character, item, buyerInReach, trade))
+            if (IsBankable(character, item, ShopTakes, trade))
             {
                 pieces.Add(item);
             }

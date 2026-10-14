@@ -96,6 +96,7 @@ public static class ActivityLog
                 harvest.WorkSkill,
                 harvest.ResourceCount
             );
+            LogEngineMessage(character, harvest);
         }
         else if (skill is BankDepositSkill bank)
         {
@@ -105,6 +106,28 @@ public static class ActivityLog
                 bank.ItemsDeposited
             );
         }
+    }
+
+    /// <summary>
+    /// A trip that gathered nothing says what the engine told the worker last, the cliloc
+    /// number or the plain text (<see cref="HarvestSkill.EngineMessage"/>). Woodcutters ended
+    /// 163 trips of one night with nothing cut and no word of why: their walks stopped a tile
+    /// past the engine's reach, where it refuses a swing "That is too far away" (500446), and a
+    /// worker has no client to read that.
+    /// </summary>
+    private static void LogEngineMessage(SosariaCharacter character, HarvestSkill harvest)
+    {
+        if (harvest.Gained > 0 || HarvestSkill.MessageText(harvest.EngineMessage) is not { } message)
+        {
+            return;
+        }
+
+        logger.Information(
+            "{Name} gathered nothing on {Skill}; last engine message: {Message}",
+            character.Name,
+            harvest.Name,
+            message
+        );
     }
 
     // A step that fails over and over writes three lines per cycle: the start, the failure
