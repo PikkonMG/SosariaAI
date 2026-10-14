@@ -94,11 +94,24 @@ public class JevDecisionRulesTests
     public void Moment_EachBigMomentIsNamed()
     {
         Assert.Equal("back from death", JevDecisionRules.Moment(Routine with { DiedRecently = true }));
+        Assert.Equal("back from a dungeon run", JevDecisionRules.Moment(Routine with { BackFromDungeon = true }));
         Assert.Equal("a player stands near", JevDecisionRules.Moment(Routine with { PlayerNear = true }));
         Assert.Equal(
             JevKind.BigMoment,
             JevDecisionRules.JobKind(scopeAll: false, JevDecisionRules.Moment(Routine with { DiedRecently = true }))
         );
+    }
+
+    [Fact]
+    public void Moment_TheEndOfADungeonRunIsAskedHereNotAsItsOwnEvent()
+    {
+        // A dungeon-ended event decision raced this pick and replaced it about 150 ms later.
+        var back = Routine with { BackFromDungeon = true };
+
+        Assert.Equal(JevKind.BigMoment, JevDecisionRules.JobKind(scopeAll: false, JevDecisionRules.Moment(back)));
+        Assert.Equal(JevDecisionRules.BackFromDeathMoment, JevDecisionRules.Moment(back with { DiedRecently = true }));
+        Assert.Equal(JevDecisionRules.BackFromDungeonMoment, JevDecisionRules.Moment(back with { PlayerNear = true }));
+        Assert.False(System.Enum.IsDefined(typeof(BrainEventKind), "DungeonEnded"));
     }
 
     [Fact]
@@ -115,7 +128,7 @@ public class JevDecisionRulesTests
     public void ScopeSource_IsNotAFallback() =>
         Assert.False(JevDecisionRules.ScopeSource.StartsWith(GoalLoop.FallbackSource, System.StringComparison.Ordinal));
 
-    private static readonly MomentFacts Routine = new(DiedRecently: false, PlayerNear: false);
+    private static readonly MomentFacts Routine = new(DiedRecently: false, BackFromDungeon: false, PlayerNear: false);
 
     [Fact]
     public void IsForced_PartyFollowIsNotPutToJev()

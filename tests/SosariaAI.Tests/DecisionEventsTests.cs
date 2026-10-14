@@ -10,7 +10,6 @@ public class DecisionEventsTests
     public void Qualifies_NamedEventsOnly()
     {
         Assert.True(DecisionEvents.Qualifies(BrainEventKind.Plan, speakerIsPlayer: false));
-        Assert.True(DecisionEvents.Qualifies(BrainEventKind.DungeonEnded, speakerIsPlayer: false));
         Assert.True(DecisionEvents.Qualifies(BrainEventKind.PlayerNoticed, speakerIsPlayer: true));
         Assert.True(DecisionEvents.Qualifies(BrainEventKind.Attacked, speakerIsPlayer: true));
     }
@@ -48,7 +47,6 @@ public class DecisionEventsTests
         Assert.True(DecisionEvents.MayReplaceJob(BrainEventKind.PlayerNoticed, SkillKinds.IdleWander));
         Assert.True(DecisionEvents.MayReplaceJob(BrainEventKind.PlayerNoticed, SkillKinds.Loiter));
         Assert.True(DecisionEvents.MayReplaceJob(BrainEventKind.PlayerNoticed, null));
-        Assert.True(DecisionEvents.MayReplaceJob(BrainEventKind.DungeonEnded, SkillKinds.Dungeon));
         Assert.True(DecisionEvents.MayReplaceJob(BrainEventKind.Attacked, SkillKinds.GoTo));
         Assert.True(DecisionEvents.MayReplaceJob(BrainEventKind.Plan, SkillKinds.Hunt));
         Assert.True(DecisionEvents.MayReplaceJob(BrainEventKind.Plan, SkillKinds.Mine));
@@ -102,6 +100,32 @@ public class DecisionEventsTests
         Assert.True(DecisionEvents.ActKeptChoice(null, null));
         Assert.False(DecisionEvents.ActKeptChoice("travel:GoTo:minoc", "hunt:Hunt:graveyard"));
         Assert.False(DecisionEvents.ActKeptChoice(null, "hunt:Hunt:graveyard"));
+    }
+
+    [Theory]
+    [InlineData(SkillKinds.Dungeon)]
+    [InlineData(SkillKinds.Hunt)]
+    [InlineData(SkillKinds.Smith)]
+    [InlineData(SkillKinds.Conflict)]
+    public void WorthAsking_ANoticeThatCanNeitherMoveNorGreetIsNotSent(string busyWith)
+    {
+        // 223 of 334 player-noticed calls to Jev in one live run changed nothing and said nothing.
+        Assert.False(DecisionEvents.WorthAsking(BrainEventKind.PlayerNoticed, busyWith, mayGreet: false));
+        Assert.True(DecisionEvents.WorthAsking(BrainEventKind.PlayerNoticed, busyWith, mayGreet: true));
+    }
+
+    [Theory]
+    [InlineData(SkillKinds.IdleWander)]
+    [InlineData(SkillKinds.Loiter)]
+    [InlineData(null)]
+    public void WorthAsking_ANoticeThatMayLeaveIdleIsSent(string idle) =>
+        Assert.True(DecisionEvents.WorthAsking(BrainEventKind.PlayerNoticed, idle, mayGreet: false));
+
+    [Fact]
+    public void WorthAsking_OtherEventsAreAlwaysAsked()
+    {
+        Assert.True(DecisionEvents.WorthAsking(BrainEventKind.Attacked, SkillKinds.Dungeon, mayGreet: false));
+        Assert.True(DecisionEvents.WorthAsking(BrainEventKind.Plan, SkillKinds.Hunt, mayGreet: false));
     }
 
     [Fact]

@@ -300,8 +300,6 @@ public static class PromptBuilder
                 $"A {kind} named {speaker} attacks you.",
             BrainEventKind.Plan =>
                 "Form a goal and a short plan of real actions. Game code will carry out each step.",
-            BrainEventKind.DungeonEnded =>
-                $"You finished a dungeon. Pick the next thing to do. Routines:\n{evt.Text}",
             BrainEventKind.Musing =>
                 "Something just happened: '"
                 + (string.IsNullOrWhiteSpace(evt.Text) ? "nothing" : evt.Text)
@@ -316,7 +314,7 @@ public static class PromptBuilder
     }
 
     internal static bool UsesDecideShape(BrainEventKind? kind) =>
-        kind is BrainEventKind.Attacked or BrainEventKind.DungeonEnded or BrainEventKind.PlayerNoticed;
+        kind is BrainEventKind.Attacked or BrainEventKind.PlayerNoticed;
 
     internal static bool UsesPlanShape(BrainEventKind? kind) => kind == BrainEventKind.Plan;
 

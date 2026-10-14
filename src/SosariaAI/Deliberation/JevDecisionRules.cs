@@ -10,17 +10,19 @@ namespace SosariaAI.Deliberation;
 public readonly record struct JevVerdict(string ActionId, string Source, bool Greet);
 
 /// <summary>The facts that make a next-job pick a big moment, read on the world thread.</summary>
-public readonly record struct MomentFacts(bool DiedRecently, bool PlayerNear);
+public readonly record struct MomentFacts(bool DiedRecently, bool BackFromDungeon, bool PlayerNear);
 
 /// <summary>
 /// When a next-job pick goes to Jev, and how its answer is read. Pure. The code keeps
 /// control: Jev only picks between jobs the rules already allow, and every doubt, error,
 /// or limit hands the pick back to the scorer. With jevScope "combat-and-big" only a big
-/// moment is put to Jev: back from a death, or a real player near. Routine jobs stay with the
-/// scorer. A hunt's end, low gold or supplies, a party forming and a fight on offer were big
-/// moments once; with 1,600 people online they came every few seconds, and Jev was asked
-/// three times more often than it could answer. Each outcome has a log source so the activity log can count Jev picks against
-/// scorer picks.
+/// moment is put to Jev: back from a death, back out of a dungeon run, or a real player near.
+/// Routine jobs stay with the scorer. A hunt's end, low gold or supplies, a party forming and
+/// a fight on offer were big moments once; with 1,600 people online they came every few
+/// seconds, and Jev was asked three times more often than it could answer. A dungeon run's
+/// end is rare (298 in a 2h20m run of 800 people) and was already asked of Jev as its own
+/// event, which raced this pick; it is asked here instead, once, while the character waits.
+/// Each outcome has a log source so the activity log can count Jev picks against scorer picks.
 /// </summary>
 public static class JevDecisionRules
 {
@@ -97,15 +99,24 @@ public static class JevDecisionRules
         return rateAllows ? null : RateSource;
     }
 
+    public const string BackFromDeathMoment = "back from death";
+    public const string BackFromDungeonMoment = "back from a dungeon run";
+    public const string PlayerNearMoment = "a player stands near";
+
     /// <summary>The big moment behind this next-job pick, in a few words, or null for a routine one.</summary>
     public static string Moment(MomentFacts facts)
     {
         if (facts.DiedRecently)
         {
-            return "back from death";
+            return BackFromDeathMoment;
         }
 
-        return facts.PlayerNear ? "a player stands near" : null;
+        if (facts.BackFromDungeon)
+        {
+            return BackFromDungeonMoment;
+        }
+
+        return facts.PlayerNear ? PlayerNearMoment : null;
     }
 
     /// <summary>Why the rules picked a job the routed model is not trusted with.</summary>

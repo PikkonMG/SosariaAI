@@ -314,7 +314,7 @@ public static partial class Brain
             if (DecisionEvents.Qualifies(result.Kind, speakerIsPlayer: true) &&
                 World.FindMobile(result.CharacterSerial) is SosariaCharacter failed)
             {
-                ApplyNeeds(failed);
+                FallBackToRules(failed, result.Kind);
             }
 
             return;
@@ -345,7 +345,7 @@ public static partial class Brain
 
         if (DecisionEvents.Qualifies(result.Kind, speakerIsPlayer: true))
         {
-            LogSpokenOutcome(result, character, speaker: null, discarded: false, distance: 0);
+            LogDecisionOutcome(result, character);
             ApplyDecide(character, result);
             return;
         }
@@ -624,6 +624,34 @@ public static partial class Brain
         character?.Conversation.HeardReply(Core.Now, AttentionWindow);
     }
 
+    /// <summary>
+    /// An event decision's answer as it came back: the routine and act it picked, then any line.
+    /// A typed (System One) answer never carries a line, so a log of the line alone read as
+    /// hundreds of empty replies while the picks it made went unseen.
+    /// </summary>
+    private static void LogDecisionOutcome(BrainResult result, SosariaCharacter character)
+    {
+        if (!SosariaSettings.LogActivity)
+        {
+            return;
+        }
+
+        logger.Information(
+            "{Name} {Kind} latency {Latency} ms{Cost} pick: {Choose} act: {Act} reply: {Say}",
+            character.Name,
+            result.Kind,
+            result.LatencyMilliseconds,
+            CostText(result),
+            result.Choose ?? string.Empty,
+            result.Act ?? string.Empty,
+            result.Say ?? string.Empty
+        );
+    }
+
+    /// <summary>" (650 tok)" when the provider reported its input tokens, else nothing.</summary>
+    private static string CostText(BrainResult result) =>
+        result.InputTokens > 0 ? $" ({result.InputTokens} tok)" : string.Empty;
+
     private static void LogSpokenOutcome(
         BrainResult result,
         SosariaCharacter character,
@@ -647,7 +675,7 @@ public static partial class Brain
                 name,
                 result.Kind,
                 result.LatencyMilliseconds,
-                result.InputTokens > 0 ? $" ({result.InputTokens} tok)" : string.Empty,
+                CostText(result),
                 say
             );
             return;
@@ -873,13 +901,32 @@ public static partial class Brain
 
         var player = FindIdlePlayer(character);
 
-        if (player == null)
+        // A notice whose answer can neither move the character nor let it greet is not asked;
+        // the next scan asks once the job may be left or a greet is due.
+        if (player == null ||
+            !DecisionEvents.WorthAsking(BrainEventKind.PlayerNoticed, CurrentSkillKind(character), MayGreet(character, now)))
         {
             return;
         }
 
         _noticeCooldown.Mark(character.Serial, now);
         Consider(Create(BrainEventKind.PlayerNoticed, character, player, ChoicesText(character)));
+    }
+
+    private static string CurrentSkillKind(SosariaCharacter character) => ActionId.SkillKindOf(character.ActiveActionId);
+
+    /// <summary>
+    /// The rules' answer when an event decision got no model answer: a fresh pick, but only when
+    /// the event may replace the running job (<see cref="DecisionEvents.MayReplaceJob"/>). A
+    /// fresh pick drops the running job, so a noticed player whose call could not go out, or
+    /// failed, would pull a dungeon crawler off its run that the answer itself could not.
+    /// </summary>
+    private static void FallBackToRules(SosariaCharacter character, BrainEventKind kind)
+    {
+        if (DecisionEvents.MayReplaceJob(kind, CurrentSkillKind(character)))
+        {
+            ApplyNeeds(character);
+        }
     }
 
     private static void TryDecision(BrainEvent evt)
@@ -909,7 +956,7 @@ public static partial class Brain
 
         if (TryEnqueue(evt, BrainProviders.DecisionKind, now) <= 0)
         {
-            ApplyNeeds(character);
+            FallBackToRules(character, evt.Kind);
         }
     }
 
@@ -1550,11 +1597,10 @@ public static partial class Brain
 
         if (skill.Name == SkillKinds.Dungeon)
         {
-            // A trip refused at the door is not a dungeon ending: no "finished a
-            // dungeon" event and no paid model call for it.
+            // A trip refused at the door is not a dungeon run ending, and no big moment.
             if (skill is DungeonTripSkill { ReachedInside: true })
             {
-                Consider(Create(BrainEventKind.DungeonEnded, character, speaker: null, text: ChoicesText(character)));
+                NoteBackFromDungeon(character);
             }
 
             return;
@@ -2052,8 +2098,7 @@ public static partial class Brain
         }
 
         var previous = character.ActiveActionId;
-        var currentSkill = ActionId.SkillKindOf(previous);
-        var mayReplace = DecisionEvents.MayReplaceJob(result.Kind, currentSkill);
+        var mayReplace = DecisionEvents.MayReplaceJob(result.Kind, CurrentSkillKind(character));
         var chosen = fromModel
                      ?? NeedsBrain.Pick(choices, snap, Seed(character), Utility.Random, catalog);
 

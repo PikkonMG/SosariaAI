@@ -6,6 +6,12 @@ namespace SosariaAI.Deliberation;
 
 /// <summary>
 /// Model decision calls are allowed only for these events. Monster combat never qualifies.
+/// The end of a dungeon run is no event of its own: the goal loop picks the next job the
+/// moment the dungeon skill ends, and asks Jev then (<see cref="JevDecisionRules.Moment"/>).
+/// A separate dungeon-ended decision came back about 150 ms later and replaced that pick: in
+/// a 2h20m live run 213 of 298 such calls came back after the goal loop had already picked
+/// the next job, 89 replies replaced the job with an older needs pick, and no reply carried a
+/// line, since a typed answer has none.
 /// </summary>
 public static class DecisionEvents
 {
@@ -15,11 +21,21 @@ public static class DecisionEvents
         {
             BrainEventKind.Plan => true,
             BrainEventKind.Attacked => speakerIsPlayer,
-            BrainEventKind.DungeonEnded => true,
             BrainEventKind.PlayerNoticed => true,
             _ => false
         };
     }
+
+    /// <summary>
+    /// An event decision goes to a model only when its answer can change something: the job
+    /// it picks may replace the running one, or the character may greet the person now. A
+    /// noticed player while the character runs a dungeon, a hunt or any work it keeps
+    /// (<see cref="MayReplaceJob"/>) leaves only the greet; with no greet allowed nothing can
+    /// come of the answer. In a 2h20m live run 223 of 334 player-noticed calls to Jev changed
+    /// nothing and said nothing, about 650 input tokens each.
+    /// </summary>
+    public static bool WorthAsking(BrainEventKind kind, string currentSkillKind, bool mayGreet) =>
+        kind != BrainEventKind.PlayerNoticed || mayGreet || MayReplaceJob(kind, currentSkillKind);
 
     public static bool IsChat(BrainEventKind kind) =>
         kind is BrainEventKind.Spoken or BrainEventKind.Musing;
@@ -57,7 +73,7 @@ public static class DecisionEvents
     /// </summary>
     public static bool MayReplaceJob(BrainEventKind kind, string currentSkillKind)
     {
-        if (kind is BrainEventKind.Attacked or BrainEventKind.DungeonEnded)
+        if (kind == BrainEventKind.Attacked)
         {
             return true;
         }

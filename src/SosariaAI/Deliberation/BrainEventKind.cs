@@ -8,7 +8,6 @@ public enum BrainEventKind
     GoalEnded,
     Decide,
     Plan,
-    DungeonEnded,
     PlayerNoticed,
 
     /// <summary>

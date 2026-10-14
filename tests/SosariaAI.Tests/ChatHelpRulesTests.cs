@@ -7,7 +7,6 @@ namespace SosariaAI.Tests;
 public class ChatHelpRulesTests
 {
     [Theory]
-    [InlineData(BrainEventKind.DungeonEnded)]
     [InlineData(BrainEventKind.Attacked)]
     [InlineData(BrainEventKind.PlayerNoticed)]
     public void ChatMayHelp_ADecisionEvent(BrainEventKind kind) =>

@@ -56,7 +56,7 @@ public class JevPromptTests
         Assert.Equal("You are a veteran warrior.", state["who"]);
         Assert.Equal("greedy", state["temper"]);
         Assert.StartsWith("Britain, in town", (string)state["place"]);
-        Assert.Equal("You finished a dungeon. Pick the next thing to do.", state["event"]);
+        Assert.Equal("A player named Bran attacks you.", state["event"]);
 
         var next = decision.Questions[JevPrompt.NextQuestion];
         Assert.Equal(JevPrompt.Instructions, next.Instructions);
@@ -248,17 +248,12 @@ public class JevPromptTests
     [Fact]
     public void Build_DescribesTheEventWithoutRoutineText()
     {
-        var attacked = DecideEvent() with
-        {
-            Kind = BrainEventKind.Attacked,
-            SpeakerName = "Bran",
-            SpeakerIsPlayer = true
-        };
+        var noticed = DecideEvent() with { Kind = BrainEventKind.PlayerNoticed, SpeakerName = "Hope" };
 
-        var decision = JevPrompt.Build(Situation(), attacked, Choices());
+        var decision = JevPrompt.Build(Situation(), noticed, Choices());
         var state = (Dictionary<string, object>)decision.State;
 
-        Assert.Equal("A player named Bran attacks you.", state["event"]);
+        Assert.Equal("A player named Hope is nearby and idle. You may speak or pick the next thing to do.", state["event"]);
     }
 
     [Fact]
@@ -278,12 +273,12 @@ public class JevPromptTests
 
     private static BrainEvent DecideEvent() =>
         new(
-            BrainEventKind.DungeonEnded,
+            BrainEventKind.Attacked,
             (Serial)1u,
             "Connor",
-            null,
-            Serial.Zero,
-            false,
+            "Bran",
+            (Serial)2u,
+            true,
             "Hits 90 percent. Gold in bank 10, carried 5. Pack 30 percent. Time 10:00.\n- work: cut wood\n- loiter: rest",
             null,
             "Britain",

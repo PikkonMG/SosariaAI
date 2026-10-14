@@ -23,6 +23,7 @@ public static partial class Brain
     private static readonly TimeSpan JevUsageCheck = TimeSpan.FromMinutes(1);
     private static readonly JevJobDesk _jobDesk = new();
     private static readonly Dictionary<Serial, DateTime> _lastBankAt = new();
+    private static readonly HashSet<Serial> _backFromDungeon = new();
     private static readonly HashSet<long> _jevRequests = new();
     private static JevUsage _jevUsage;
     private static JevRateLimiter _jevLimiter;
@@ -117,6 +118,9 @@ public static partial class Brain
             return false;
         }
 
+        // The first pick after a dungeon run is that moment, whatever becomes of the ask.
+        var backFromDungeon = _backFromDungeon.Remove(character.Serial);
+
         if (_jobDesk.TakeExpired(character.Serial))
         {
             source = JevDecisionRules.SlowSource;
@@ -124,7 +128,7 @@ public static partial class Brain
         }
 
         var options = JevJobOptions.From(scored);
-        var moment = JevDecisionRules.Moment(new MomentFacts(situation.DiedRecently, PlayerNear(character)));
+        var moment = JevDecisionRules.Moment(new MomentFacts(situation.DiedRecently, backFromDungeon, PlayerNear(character)));
         moment = _jobDesk.NewMoment(character.Serial, moment) ? moment : null;
 
         if (JevDecisionRules.JobKind(_settings.JevScope == BrainConfiguration.JevScopeAll, moment) is not { } kind)
@@ -305,6 +309,15 @@ public static partial class Brain
         NearbyName(character) != null && _botTalk.SpeakerMayGreet(character.Serial, now, MeetingRules.SpeakerQuiet);
 
     private static void NoteBankVisit(SosariaCharacter character) => _lastBankAt[character.Serial] = Core.Now;
+
+    /// <summary>A dungeon run that got inside ended: the next job pick is a big moment (<see cref="AskJobChoice"/>).</summary>
+    private static void NoteBackFromDungeon(SosariaCharacter character)
+    {
+        if (IsEnabled)
+        {
+            _backFromDungeon.Add(character.Serial);
+        }
+    }
 
     /// <summary>
     /// The log source of an event decision's routine: "jev" when the decision route is a System

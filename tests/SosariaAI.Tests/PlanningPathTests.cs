@@ -196,10 +196,10 @@ public class PlanningPathTests
         Assert.True(DecisionEvents.IsChat(BrainEventKind.Spoken));
         Assert.True(DecisionEvents.IsChat(BrainEventKind.Musing));
         Assert.False(DecisionEvents.IsChat(BrainEventKind.Plan));
-        Assert.False(DecisionEvents.IsChat(BrainEventKind.DungeonEnded));
+        Assert.False(DecisionEvents.IsChat(BrainEventKind.PlayerNoticed));
         Assert.Equal(PromptBuilder.JsonShape, PromptBuilder.ShapeFor(BrainEventKind.Spoken));
         Assert.Equal(PromptBuilder.PlanJsonShape, PromptBuilder.ShapeFor(BrainEventKind.Plan));
-        Assert.Equal(PromptBuilder.DecideJsonShape, PromptBuilder.ShapeFor(BrainEventKind.DungeonEnded));
+        Assert.Equal(PromptBuilder.DecideJsonShape, PromptBuilder.ShapeFor(BrainEventKind.PlayerNoticed));
     }
 
     [Fact]

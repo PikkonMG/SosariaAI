@@ -161,7 +161,7 @@ public class PromptBuilderTests
 
     [Theory]
     [InlineData(BrainEventKind.PlayerNoticed, true)]
-    [InlineData(BrainEventKind.DungeonEnded, true)]
+    [InlineData(BrainEventKind.Attacked, true)]
     [InlineData(BrainEventKind.Spoken, false)]
     public void BuildSystem_DecideShape_TiesTheLineToTheChoice(BrainEventKind kind, bool expected)
     {
@@ -185,15 +185,15 @@ public class PromptBuilderTests
     }
 
     [Fact]
-    public void DescribeEvent_DungeonEnded_ListsTheRoutines()
+    public void DescribeEvent_PlayerNoticed_ListsTheRoutines()
     {
         var evt = new BrainEvent(
-            BrainEventKind.DungeonEnded,
+            BrainEventKind.PlayerNoticed,
             (Serial)1u,
             "Connor",
-            null,
-            (Serial)0u,
-            false,
+            "Hope",
+            (Serial)2u,
+            true,
             "tavern, work, loiter",
             "idle",
             "Britain, Felucca",

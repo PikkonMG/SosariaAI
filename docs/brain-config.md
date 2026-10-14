@@ -89,15 +89,16 @@ When the rules keep the speech gate, the line gets a chat reply, the same as
 `"speechGate": false`. When the rules keep player intent, the player gets a
 chat reply.
 
-When Von or Laya leaves a big-moment decision to the rules, the chat provider
-on `route.chat` can decide it instead. A big moment is, for example, an attack
-by a player, the end of a dungeon run, or a player standing near. The chat
+When Von or Laya leaves an event decision to the rules, the chat provider on
+`route.chat` can decide it instead. The event decisions are an attack by a
+player and a player standing near (see [Big moments](#big-moments)). The chat
 provider helps only while its replies come back within `chatHelpMaxSeconds` on
 average (5 by default). A slower provider, a paused one, or one over its paid
 budget does not help, and the rules decide. Some picks always stay with the
 rules: the next-job pick at the end of each job (the character stands still
-until that answer comes), multi-step plans, and the red moments. Set
-`"chatHelpMaxSeconds": 0` to turn this help off.
+until that answer comes; the end of a dungeon run is one of these), multi-step
+plans, and the red moments. Set `"chatHelpMaxSeconds": 0` to turn this help
+off.
 
 A `family` key on the provider names the model. Without one, a `baseUrl` on
 `typesafe.ai`, or a model or provider name that starts with `jev`, is Jev. A
@@ -114,12 +115,24 @@ With a System One provider on the decision route, `jevScope` sets what it
 decides. `"combat-and-big"` uses it for fights that matter and big moments.
 `"all"` also sends every routine next job to it.
 
-A big moment is a next job soon after the character comes back from death, or
-while a real player stands within 12 tiles. Each counts once: a character
-stays in the same moment until it ends. The attacked, dungeon-ended, and
-player-noticed events and a player's own words (intent, haggle) count too.
-Every other next job (work, hunt, bank, go home, cook, idle, walk) stays with
-the scorer and is logged as `(scorer: routine job, ...)`.
+A big moment is a next job soon after the character comes back from death,
+the first next job after a dungeon run that got inside, or a next job while a
+real player stands within 12 tiles. Each counts once: a character stays in the
+same moment until it ends. The attacked and player-noticed events and a
+player's own words (intent, haggle) count too. Every other next job (work,
+hunt, bank, go home, cook, idle, walk) stays with the scorer and is logged as
+`(scorer: routine job, ...)`.
+
+The end of a dungeon run is not an event decision of its own. The next-job
+pick at the end of the run asks the provider once, and the character waits for
+that answer. An earlier event for the dungeon's end came back after that pick
+and replaced the job the character had just started.
+
+A player-noticed event goes to the provider only when its answer can do
+something: the character may leave its job (it idles or loiters), or it may
+greet now. A character in a dungeon, a hunt, or other work it keeps, with no
+greet due, does not ask. A System One provider answers with a pick and an act,
+never a line, so these events speak only through the greet act.
 
 At a big moment the scorer ranks the jobs the rules allow, and the provider
 chooses among the best five from a short, word-only state (hits, mana, purse,
@@ -138,7 +151,10 @@ stronger than the character dares alone, or when the character is below half
 its hits. The request carries only a few lines of words (how hurt, how near,
 whether the trade of blows is being won, light damage, cornered, how often a
 spell broke). It asks at most once every five seconds per character and six
-times a fight, and only when those words changed. The combat rules carry the
+times a fight, and only when those words changed. Keeping an answer for the
+same words counts as one of the six asks. Words that got an unsure answer are
+not asked again in that fight. In a fight against a monster, kite is offered
+only when spells keep breaking or mana is low. The combat rules carry the
 stance out. A blue fighting a red presses while it wins the trade (the model is
 not asked then) and kites only when it is losing.
 
@@ -191,7 +207,7 @@ not ask for its next job: the rules send it home first.
 | `pauseAfterFailuresSeconds` | `60` | How long a failing provider pauses. Other providers keep working. |
 | `attentionWindowSeconds` | `30` | How long a character keeps listening to a speaker after it is spoken to. |
 | `decideCooldownMinutes` | `2` | The shortest time between two plan asks for one character. |
-| `nearbyPlayerNoticeMinutes` | `3` | How often one character may notice an idle player near it. |
+| `nearbyPlayerNoticeMinutes` | `3` | How often one character may notice an idle player near it. A notice is asked only when the character may leave its job or greet now. |
 | `speechGate` | `true` | Character-to-character speech asks the `speechGate` provider before a chat reply is paid for. Player speech never goes through the gate. |
 | `speechGateThreshold` | `0.5` | 0 to 1. A gate answer at or over this value gets a reply. A failed gate lets the line through. |
 | `personaWriter` | `true` | `false` turns the persona writer off and ignores `personas-generated/`. Every copy then uses only the part library. |
@@ -449,4 +465,6 @@ System One calls are paced to 1200 a minute and back off after a 429 or 529.
   requests and input tokens by kind (decision, big moment, stance against a
   person, stance against a monster, trade, speech gate).
 - With `logActivity` on in `characters.json`, `activity.log` names the
-  provider for each pick, or the fallback reason.
+  provider for each pick, or the fallback reason. An event decision logs
+  `<name> PlayerNoticed latency <n> ms (<t> tok) pick: <routine> act: <act> reply: <line>`.
+  A System One answer has a pick and an act but no reply.

@@ -72,7 +72,7 @@ public static class JevPrompt
             [ImmediateActs.GoTown] = "head back to town now"
         };
 
-    /// <summary>An event decision (attacked, a dungeon ended, a player idles nearby): pick a routine.</summary>
+    /// <summary>An event decision (attacked, a player idles nearby): pick a routine.</summary>
     public static JevDecision Build(
         JevSituation situation,
         BrainEvent evt,
@@ -291,7 +291,6 @@ public static class JevPrompt
         return evt.Kind switch
         {
             BrainEventKind.Attacked => $"A {kind} named {speaker} attacks you.",
-            BrainEventKind.DungeonEnded => "You finished a dungeon. Pick the next thing to do.",
             _ => $"A {kind} named {speaker} is nearby and idle. You may speak or pick the next thing to do."
         };
     }
