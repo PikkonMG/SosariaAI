@@ -54,14 +54,6 @@ public class StanceRulesTests
     }
 
     [Fact]
-    public void Pick_TankMageWithBrokenWords_SwingsInsteadOfAWardItCannotCast()
-    {
-        var tank = Mage() with { TankMage = true, Style = CombatStyle.Melee, RecentInterrupts = StanceRules.WardAfterInterrupts };
-
-        Assert.Equal(CombatStance.Press, StanceRules.Pick(tank));
-    }
-
-    [Fact]
     public void KeepsBreaking_AtTheWardCount()
     {
         Assert.False(StanceRules.KeepsBreaking(StanceRules.WardAfterInterrupts - 1));
@@ -99,7 +91,6 @@ public class StanceRulesTests
         Assert.Equal(CombatStance.Press, StanceRules.Pick(Mage()));
         Assert.Equal(CombatStance.Press, StanceRules.Pick(Mage() with { AdjacentFoes = Adjacent }));
         Assert.Equal(CombatStance.Press, StanceRules.Pick(Warrior() with { Style = CombatStyle.Archer }));
-        Assert.Equal(CombatStance.Press, StanceRules.Pick(Mage() with { TankMage = true, Style = CombatStyle.Melee, Sticky = true }));
     }
 
     [Fact]
@@ -200,7 +191,6 @@ public class StanceRulesTests
         new(
             CombatStyle.Mage,
             Caster: true,
-            TankMage: false,
             Healthy,
             FullMana,
             Poisoned: false,

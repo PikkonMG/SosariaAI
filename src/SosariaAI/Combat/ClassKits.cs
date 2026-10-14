@@ -6,10 +6,9 @@ namespace SosariaAI.Combat;
 
 /// <summary>
 /// The worn and carried kit of a class at a tier. The body pieces come from the armor
-/// ladder (<see cref="GearLadder"/>): a novice dexxer wears leather, an apprentice studded
-/// leather, a journeyman ring mail, an expert chain and a veteran plate; archers and tank
-/// mages climb from leather to studded, and no tank mage wears bone; casters wear cloth
-/// (dressed by the look pass). No build is kitted above its ceiling (see
+/// ladder (<see cref="GearLadder"/>): a dexxer wears ring mail up to journeyman, chain at
+/// expert and plate above; archers climb from leather to studded; casters wear leather and
+/// carry no weapon. No build is kitted above its ceiling (see
 /// <see cref="GearLadder.Ceiling(ClassBuildTemplate)"/>).
 /// <see cref="KitFinish"/> makes most of it crafted work on the first day, some of it in
 /// coloured ore. A class of a later era carries its own book beside the kit.

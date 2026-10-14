@@ -27,7 +27,6 @@ public static class BuildPresets
     public const int ArcherIntelligence = 30;
     public const double NoviceTamingSkill = 60;
     public const double NoviceTamerSkill = 55;
-    public const string TamerCrook = "ShepherdsCrook";
     public const int MageStrength = 50;
     public const int MageDexterity = 50;
     public const int MageIntelligence = 85;
@@ -210,7 +209,7 @@ public static class BuildPresets
     /// <summary>
     /// The authored tamer is a young mage-tamer: taming leads, lore and veterinary for its
     /// pets, magery, evaluate and meditation to heal itself and fight beside them. It carries
-    /// a crook, a spellbook with every reagent, and a rune.
+    /// a spellbook with every reagent, and a rune; a weapon in hand would go to the pack at its first cast.
     /// </summary>
     public static ResolvedBuild TamerNovice() => new()
     {
@@ -230,7 +229,7 @@ public static class BuildPresets
         Strength = MageStrength,
         Dexterity = MageDexterity,
         Intelligence = MageIntelligence,
-        Kit = [TamerCrook, "LeatherChest", "LeatherLegs", "LeatherGloves", "Boots", ClassKits.Spellbook, .. ClassKits.AllReagents, ClassKits.RecallRune],
+        Kit = ["LeatherChest", "LeatherLegs", "LeatherGloves", "Boots", ClassKits.Spellbook, .. ClassKits.AllReagents, ClassKits.RecallRune],
         CanHeal = false,
         HealInterval = SosariaCombat.DefaultHealIntervalSeconds
     };

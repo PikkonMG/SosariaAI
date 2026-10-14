@@ -23,9 +23,7 @@ public static class KitVariation
     public const string OneHandedFencing = "Kryss";
     public const string TwoHandedFencing = "Spear";
     public const string OneHandedMace = "Mace";
-    public const string TwoHandedMace = "WarHammer";
     public const string WorkerBlade = "Hatchet";
-    public const string HerdingStaff = "Club";
     public const string Longbow = "Bow";
     public const string Instrument = "Lute";
 
@@ -34,17 +32,14 @@ public static class KitVariation
     private static readonly Dictionary<string, string[]> Alternates = new(StringComparer.OrdinalIgnoreCase)
     {
         [OneHandedSword] = ["Katana", "Broadsword", "Longsword", "VikingSword", "Scimitar", "Cutlass"],
-        // Pole arms and great axes train Swordsmanship: the tank mage's halberd row.
+        // Pole arms and great axes train Swordsmanship: the two-handed swordsman's row.
         [TwoHandedSword] = ["Halberd", "Bardiche", "BattleAxe", "DoubleAxe", "LargeBattleAxe", "TwoHandedAxe", "ExecutionersAxe"],
         // The short spear is held in both hands: it rolls with the spears, never beside a shield.
         [OneHandedFencing] = ["Kryss", "WarFork"],
         [TwoHandedFencing] = ["Spear", "ShortSpear", "Pitchfork"],
         [OneHandedMace] = ["Mace", "WarMace", "Maul", "WarAxe", "HammerPick", "Club"],
-        [TwoHandedMace] = ["WarHammer", "QuarterStaff", "GnarledStaff", "BlackStaff"],
         // Worker tools, still swords class: axes and knives, not a soldier's blade.
         [WorkerBlade] = ["Hatchet", "Axe", "Pickaxe", "ButcherKnife", "SkinningKnife", "Cleaver"],
-        // Tamer has no weapon skill; the club was flavor. Crooks and staves fit better.
-        [HerdingStaff] = ["Club", "ShepherdsCrook", "QuarterStaff", "GnarledStaff", "Mace", "BlackStaff"],
         [Longbow] = ["Bow", "Crossbow", "HeavyCrossbow"],
         [Instrument] = ["Lute", "Harp", "Drums", "Tambourine"]
     };

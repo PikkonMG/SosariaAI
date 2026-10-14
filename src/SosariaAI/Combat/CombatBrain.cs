@@ -167,21 +167,11 @@ public static partial class CombatBrain
             }
             case CombatStyle.Archer:
             {
-                if (CastsBetweenBlows(caster, memory))
-                {
-                    TryCastAttack(character, memory, foe, distance, TankCastGapMs, safeCircle);
-                }
-
                 FightAsArcher(character, memory, foe, distance, stance);
                 break;
             }
             default:
             {
-                if (CastsBetweenBlows(caster, memory))
-                {
-                    TryCastAttack(character, memory, foe, distance, TankCastGapMs, safeCircle);
-                }
-
                 // Jev's "dip away, heal up, come back": a step out of reach while the bandage
                 // or the potion works, and back in when the stance says press again.
                 if (stance == CombatStance.Heal && JevHolds(memory, CombatStance.Heal) && memory.Threats.Adjacent > 0)
@@ -200,13 +190,6 @@ public static partial class CombatBrain
             }
         }
     }
-
-    /// <summary>
-    /// A fighter that also casts puts spells between its blows until the blows keep breaking
-    /// them; then it swings only, until the interrupt window clears.
-    /// </summary>
-    private static bool CastsBetweenBlows(bool caster, Memory memory) =>
-        caster && !StanceRules.KeepsBreaking(memory.Interrupts.Count(Core.TickCount));
 
     private enum Presence
     {
@@ -306,7 +289,7 @@ public static partial class CombatBrain
             return CombatStyle.Archer;
         }
 
-        return caster && HeldWeapon(character) == null ? CombatStyle.Mage : CombatStyle.Melee;
+        return caster ? CombatStyle.Mage : CombatStyle.Melee;
     }
 
     /// <summary>

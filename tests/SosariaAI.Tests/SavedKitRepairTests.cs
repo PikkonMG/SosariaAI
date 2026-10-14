@@ -77,7 +77,7 @@ public class SavedKitRepairTests
         mage.EnsureFightingForm();
 
         Assert.True(plate.IsChildOf(mage.Backpack));
-        Assert.False(GearEquip.WearsBodyArmor(mage));
+        Assert.IsNotType<PlateChest>(mage.FindItemOnLayer(Layer.InnerTorso));
     }
 
     [RealMapFact]
@@ -91,25 +91,22 @@ public class SavedKitRepairTests
         mage.EnsureFightingForm();
 
         Assert.True(plate.IsChildOf(mage.Backpack));
-        Assert.False(GearEquip.WearsBodyArmor(mage));
+        Assert.IsNotType<PlateChest>(mage.FindItemOnLayer(Layer.InnerTorso));
     }
 
     [RealMapFact]
-    public void TankMage_KeepsStudded_ButTakesOffAPlateHelm()
+    public void Mage_TakesOffStudded_ForLeather()
     {
-        var mage = FirstDressed(
-            "Felucca:tank#1",
-            KitWorld.Profile(PersonClass.Mage, SkillTier.Expert, PersonWealth.Modest, false),
-            character => character.FindItemOnLayer(Layer.TwoHanded) is BaseWeapon && character.FindItemOnLayer(Layer.InnerTorso) is StuddedChest
-        );
-        mage.FindItemOnLayer(Layer.Helm)?.Delete();
-        var helm = new PlateHelm();
-        mage.AddItem(helm);
+        // Studded halves meditation: a mage keeps leather at most.
+        var mage = PureMage();
+        mage.FindItemOnLayer(Layer.InnerTorso)?.Delete();
+        var studded = new StuddedChest();
+        mage.AddItem(studded);
 
         mage.EnsureFightingForm();
 
-        Assert.True(helm.IsChildOf(mage.Backpack));
-        Assert.IsType<StuddedChest>(mage.FindItemOnLayer(Layer.InnerTorso));
+        Assert.True(studded.IsChildOf(mage.Backpack));
+        Assert.Null(CombatBrain.HeldWeapon(mage));
     }
 
     [RealMapFact]

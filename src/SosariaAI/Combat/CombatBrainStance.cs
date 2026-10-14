@@ -53,7 +53,6 @@ public static partial class CombatBrain
         return new StanceSituation(
             style,
             caster,
-            TankMage: caster && style == CombatStyle.Melee,
             hits,
             ManaFraction(character),
             character.Poisoned,

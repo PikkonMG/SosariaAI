@@ -232,15 +232,12 @@ public static class GearLadder
         };
 
     /// <summary>
-    /// The heaviest armor a build keeps on. The Second Age had no mage armor: ring, chain,
-    /// plate and bone stopped meditation, and studded halved it. A pure caster who meditates
-    /// wears leather at most, a tank mage studded; a build that never meditates has no
-    /// such limit.
+    /// The heaviest armor a build keeps on. The engine lets leather meditate in full, halves
+    /// it in studded, and stops it in ring, chain, plate and bone, so a caster who meditates
+    /// wears leather at most; a build that never meditates has no such limit.
     /// </summary>
     public static GearMaterial MeditationCeiling(ClassBuildTemplate template) =>
-        !template.Meditates ? GearMaterial.Plate
-        : template.WeaponTrained ? GearMaterial.Studded
-        : GearMaterial.Leather;
+        template.Meditates ? GearMaterial.Leather : GearMaterial.Plate;
 
     /// <summary>The heaviest armor a build buys and puts on: its weight's ceiling, held under its meditation.</summary>
     public static GearMaterial Ceiling(ClassBuildTemplate template) =>
@@ -252,7 +249,7 @@ public static class GearLadder
     /// </summary>
     public static int KeepCeiling(ClassBuildTemplate template) => ScoreOf(MeditationCeiling(template));
 
-    /// <summary>Bone for the dexxer's and the archer's veterans. It stops meditation, so no tank mage wears it.</summary>
+    /// <summary>Bone for the dexxer's and the archer's veterans. It stops meditation, so no caster wears it.</summary>
     public static bool WearsBone(ClassBuildTemplate template) =>
         template.Armor is KitArmor.Heavy or KitArmor.Medium && !template.Meditates;
 
@@ -264,18 +261,16 @@ public static class GearLadder
         Math.Max(ScoreOf(Ceiling(template)), WearsBone(template) ? BoneScore : 0);
 
     /// <summary>
-    /// The rung a class wears on its first day: the dexxer climbs leather, studded, ring,
-    /// chain and plate with its tier; the archer and tank mage move from leather to studded
-    /// at expert; thieves, tamers and workers wear leather.
+    /// The rung a class wears on its first day: a melee fighter wears metal from the start,
+    /// ring mail up to journeyman, chain at expert, plate above; the archer moves from leather
+    /// to studded at expert; casters, thieves, tamers and workers wear leather.
     /// </summary>
     public static GearMaterial KitMaterial(KitArmor weight, SkillTier tier) =>
         weight switch
         {
             KitArmor.Heavy => tier switch
             {
-                SkillTier.Novice => GearMaterial.Leather,
-                SkillTier.Apprentice => GearMaterial.Studded,
-                SkillTier.Journeyman => GearMaterial.Ringmail,
+                <= SkillTier.Journeyman => GearMaterial.Ringmail,
                 SkillTier.Expert => GearMaterial.Chainmail,
                 _ => GearMaterial.Plate
             },

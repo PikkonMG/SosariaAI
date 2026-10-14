@@ -27,9 +27,6 @@ public static partial class CombatBrain
     /// <summary>A pure mage casts as often as the engine's recovery lets it.</summary>
     public const int MageCastGapMs = 1000;
 
-    /// <summary>A tank mage mostly swings; it casts between swings now and then.</summary>
-    public const int TankCastGapMs = 4000;
-
     /// <summary>
     /// A pure mage fights from range. It picks the spell it wants (what fits now while the foe
     /// stands in its band, see <see cref="FootworkRules.PlanCircle"/>), casts it when the words
@@ -347,45 +344,20 @@ public static partial class CombatBrain
         return true;
     }
 
-    /// <summary>Any character with Magery and a spellbook fights with spells as well.</summary>
+    /// <summary>
+    /// Only a caster build fights and heals with spells: a mage, healer, bard or tamer with the
+    /// magery and a spellbook. A fighter keeps magery to travel; its spells in a fight put its
+    /// weapon in the pack at every cast (the engine clears the hands), and dexxers of the period
+    /// fought with the weapon, bandages and potions.
+    /// </summary>
     private static bool IsSpellFighter(SosariaCharacter character) =>
+        character.Build?.Style == CombatStyle.Mage &&
         SpellBook.IsCaster(character.Skills.Magery.Value) && Spellbook.FindRegular(character) != null;
 
     /// <summary>The weapon in either hand, or null when the hands hold none.</summary>
     public static BaseWeapon HeldWeapon(Mobile mobile) =>
         mobile.FindItemOnLayer(Layer.OneHanded) as BaseWeapon ??
         mobile.FindItemOnLayer(Layer.TwoHanded) as BaseWeapon;
-
-    /// <summary>
-    /// A weapon fighter that also casts: a Paralyze or Poison by chance, else a pick among the
-    /// strongest attacks, all only from the circles whose words finish before the next blow. Toe
-    /// to toe a Magic Arrow costs a weapon swing for a few points, so it swings instead.
-    /// </summary>
-    private static bool TryCastAttack(
-        SosariaCharacter character,
-        Memory memory,
-        Mobile foe,
-        int distance,
-        int gapMs,
-        int safeCircle
-    )
-    {
-        if (!CastReady(character, memory) || distance > SpellBook.Reach ||
-            !character.InLOS(foe) || !character.CanBeHarmful(foe, false))
-        {
-            return false;
-        }
-
-        memory.NextCastAt = Core.TickCount + gapMs;
-
-        if (PlanSpell(character, foe, distance, safeCircle) is not { } picked ||
-            picked == SpellKind.MagicArrow && distance <= MeleeRange)
-        {
-            return false;
-        }
-
-        return BeginCast(character, memory, picked, foe);
-    }
 
     private static bool BeginCast(SosariaCharacter character, Memory memory, SpellKind kind, Mobile target)
     {
@@ -402,9 +374,6 @@ public static partial class CombatBrain
             return false;
         }
 
-        // Casting clears the hands; a tank mage takes its weapon back when the spell is done.
-        var weapon = HeldWeapon(character);
-
         if (!spell.Cast())
         {
             return false;
@@ -420,18 +389,12 @@ public static partial class CombatBrain
             CastTally.NoteBegun(SpellBook.EntryOf(kind).Circle);
         }
 
-        if (weapon != null)
-        {
-            memory.RearmWeapon = weapon;
-        }
-
         return true;
     }
 
     /// <summary>
     /// Answers the target cursor of a spell that finished its words, cancels it when the
-    /// target is gone, counts a spell that ended with no cursor as broken by a blow, and
-    /// re-arms a tank mage once the spell is over.
+    /// target is gone, and counts a spell that ended with no cursor as broken by a blow.
     /// </summary>
     private static void ResolvePendingCast(SosariaCharacter character, Memory memory)
     {
@@ -461,20 +424,6 @@ public static partial class CombatBrain
                     NoteInterrupt(character, memory);
                 }
             }
-        }
-
-        var weapon = memory.RearmWeapon;
-
-        if (weapon == null || character.Spell != null || memory.CastTarget != null)
-        {
-            return;
-        }
-
-        memory.RearmWeapon = null;
-
-        if (!weapon.Deleted && weapon.IsChildOf(character.Backpack) && HeldWeapon(character) == null)
-        {
-            GearEquip.EquipTool(character, weapon);
         }
     }
 

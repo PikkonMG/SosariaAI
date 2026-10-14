@@ -86,28 +86,46 @@ public class ClassBuildsTests
     }
 
     [Fact]
-    public void TankMages_SwingATwoHander_AndTrainTactics()
+    public void Mages_HoldOnlyTheirBook_AndWearLeather()
     {
-        var sawTank = false;
-
+        // A cast puts a held weapon in the pack, and only leather lets a mage meditate in full.
         for (var i = 0; i < 60; i++)
         {
-            var id = "Felucca:sela#" + i;
-            var template = ClassBuilds.TemplateFor(PersonClass.Mage, CharacterRole.Fighter, id);
+            var template = ClassBuilds.TemplateFor(PersonClass.Mage, CharacterRole.Fighter, "Felucca:sela#" + i);
 
-            if (template.Weapon == null)
-            {
-                Assert.Contains(SkillName.Inscribe, template.Secondary);
-                continue;
-            }
-
-            sawTank = true;
-            Assert.Contains(SkillName.Tactics, template.Secondary);
+            Assert.Null(template.Weapon);
             Assert.False(template.Shield);
+            Assert.Equal(KitArmor.Light, template.Armor);
             Assert.Equal(CombatStyle.Mage, template.Style);
+            Assert.Contains(SkillName.Meditation, template.Secondary);
+            Assert.Contains(SkillName.Inscribe, template.Secondary);
         }
+    }
 
-        Assert.True(sawTank);
+    [Theory]
+    [InlineData(PersonClass.Healer)]
+    [InlineData(PersonClass.Bard)]
+    [InlineData(PersonClass.Tamer)]
+    public void OtherCasters_CarryNoWeapon_AndWearLeather(PersonClass caster)
+    {
+        var template = ClassBuilds.TemplateFor(caster, CharacterRole.Fighter, "Felucca:cast#1");
+
+        Assert.Null(template.Weapon);
+        Assert.Equal(KitArmor.Light, template.Armor);
+        Assert.Equal(CombatStyle.Mage, template.Style);
+    }
+
+    [Theory]
+    [InlineData(PersonClass.Warrior)]
+    [InlineData(PersonClass.Fencer)]
+    [InlineData(PersonClass.Archer)]
+    public void Fighters_KeepMageryOnlyToTravel(PersonClass fighter)
+    {
+        var template = ClassBuilds.TemplateFor(fighter, CharacterRole.Fighter, "Felucca:dex#1");
+
+        Assert.False(template.Caster);
+        Assert.True(template.TravelMagic);
+        Assert.NotNull(template.Weapon);
     }
 
     [Fact]
@@ -198,13 +216,14 @@ public class ClassBuildsTests
     }
 
     [Fact]
-    public void HeavyArmor_ClimbsLeatherStuddedRingChainPlate()
+    public void HeavyArmor_WearsMetalFromTheFirstDay_RingChainPlate()
     {
+        // A melee fighter is never in leather: ring mail up to journeyman, chain, then plate.
         var gm = ClassBuilds.For(Profile(PersonClass.Fencer, SkillTier.Grandmaster), CharacterRole.Fighter, "Felucca:x#1", EraBand.T2A).Kit;
 
         Assert.True(gm.Contains("PlateLegs") || gm.Contains("BoneLegs"));
-        Assert.Contains("LeatherArms", HeavyKit(SkillTier.Novice));
-        Assert.Contains("StuddedLegs", HeavyKit(SkillTier.Apprentice));
+        Assert.Contains("RingmailLegs", HeavyKit(SkillTier.Novice));
+        Assert.Contains("RingmailLegs", HeavyKit(SkillTier.Apprentice));
         Assert.Contains("RingmailLegs", HeavyKit(SkillTier.Journeyman));
         Assert.Contains("ChainLegs", HeavyKit(SkillTier.Expert));
     }

@@ -11,7 +11,7 @@ public class UpgradeGearSkillTests
     public void KitWeapon_IsTheRolledPieceOfTheRow()
     {
         Assert.Equal("Scimitar", UpgradeGearSkill.KitWeapon(["Scimitar", "MetalShield", "PlateChest"], KitVariation.OneHandedSword));
-        Assert.Equal("ShepherdsCrook", UpgradeGearSkill.KitWeapon(["LeatherChest", "ShepherdsCrook"], KitVariation.HerdingStaff));
+        Assert.Equal("Spear", UpgradeGearSkill.KitWeapon(["LeatherChest", "Spear"], KitVariation.TwoHandedFencing));
     }
 
     [Fact]

@@ -61,8 +61,17 @@ the same person:
 - experience: veteran or green;
 - a name, face, clothes, home town, work patch, and ambition of their own.
 
-Armor follows the build. A mage who meditates wears cloth or leather, and a
-tank mage wears studded at most. Heavier armor goes into the pack.
+Armor follows the build, and so do weapons and spells. Mages, healers, bards,
+and tamers are casters: they hold only a spellbook, never a weapon, and wear
+leather, because the engine puts a held weapon in the pack at every cast and
+any armor heavier than leather cuts meditation. Only casters cast spells in a
+fight or to heal. Fighters (warriors, fencers, archers, rangers, thieves, and
+workers) fight with their weapon, bandages, and potions; their magery is only
+for travel. A melee fighter wears metal from its first day: ring mail up to
+journeyman, chain at expert, plate above, and bone for a few veterans. Heavier
+armor than a build may wear goes into the pack. Paladins, necromancers,
+samurai, and ninjas spawn only when the server's era (ModernUO's
+`expansion.json`) has their skills.
 
 ## Memory
 

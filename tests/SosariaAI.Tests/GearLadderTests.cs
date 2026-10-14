@@ -92,7 +92,7 @@ public class GearLadderTests
             }
         }
 
-        Assert.Equal(GearMaterial.Ringmail, GearLadder.Target(new ClassBuildTemplate { Armor = KitArmor.Heavy }, SkillTier.Novice, PersonWealth.Rich));
+        Assert.Equal(GearMaterial.Plate, GearLadder.Target(new ClassBuildTemplate { Armor = KitArmor.Heavy }, SkillTier.Novice, PersonWealth.Rich));
         Assert.Equal(GearMaterial.None, GearLadder.Target(new ClassBuildTemplate { Armor = KitArmor.None }, SkillTier.Grandmaster, PersonWealth.Rich));
     }
 
@@ -102,31 +102,27 @@ public class GearLadderTests
         Assert.Equal(GearLadder.BoneScore, GearLadder.WearCeiling(Template(PersonClass.Archer)));
         Assert.Equal(GearLadder.PlateScore, GearLadder.WearCeiling(Template(PersonClass.Warrior)));
         Assert.Equal(GearLadder.StuddedScore, GearLadder.WearCeiling(Template(PersonClass.Thief)));
-        Assert.Equal(0, GearLadder.WearCeiling(PureMage()));
+        Assert.Equal(GearLadder.LeatherScore, GearLadder.WearCeiling(PureMage()));
     }
 
     [Fact]
-    public void Meditation_HoldsPureCastersToLeather_AndTankMagesToStudded()
+    public void Meditation_HoldsCastersToLeather()
     {
-        // No mage armor in the Second Age: plate, chain, ring and bone stopped meditation.
+        // The engine stops meditation in ring, chain, plate and bone, and halves it in studded.
         Assert.Equal(GearMaterial.Leather, GearLadder.MeditationCeiling(PureMage()));
-        Assert.Equal(GearMaterial.Studded, GearLadder.MeditationCeiling(TankMage()));
         Assert.Equal(GearMaterial.Leather, GearLadder.MeditationCeiling(Template(PersonClass.Tamer)));
         Assert.Equal(GearMaterial.Plate, GearLadder.MeditationCeiling(Template(PersonClass.Warrior)));
         Assert.Equal(GearMaterial.Plate, GearLadder.MeditationCeiling(Template(PersonClass.Archer)));
 
-        Assert.Equal(GearMaterial.None, GearLadder.Ceiling(PureMage()));
-        Assert.Equal(GearMaterial.Studded, GearLadder.Ceiling(TankMage()));
+        Assert.Equal(GearMaterial.Leather, GearLadder.Ceiling(PureMage()));
         Assert.Equal(GearMaterial.Leather, GearLadder.Ceiling(Template(PersonClass.Tamer)));
         Assert.Equal(GearMaterial.Leather, GearLadder.Ceiling(Template(PersonClass.TreasureHunter)));
         Assert.Equal(GearMaterial.Plate, GearLadder.Ceiling(Template(PersonClass.Fencer)));
 
         Assert.Equal(GearLadder.LeatherScore, GearLadder.KeepCeiling(PureMage()));
-        Assert.Equal(GearLadder.StuddedScore, GearLadder.KeepCeiling(TankMage()));
         Assert.Equal(GearLadder.PlateScore, GearLadder.KeepCeiling(Template(PersonClass.Warrior)));
-        Assert.Equal(GearLadder.StuddedScore, GearLadder.WearCeiling(TankMage()));
         Assert.Equal(GearLadder.LeatherScore, GearLadder.WearCeiling(Template(PersonClass.Tamer)));
-        Assert.False(GearLadder.WearsBone(TankMage()));
+        Assert.False(GearLadder.WearsBone(PureMage()));
         Assert.True(GearLadder.WearsBone(Template(PersonClass.Archer)));
     }
 
@@ -216,22 +212,7 @@ public class GearLadderTests
     private static ClassBuildTemplate Template(PersonClass personClass) =>
         ClassBuilds.TemplateFor(personClass, CharacterRole.Fighter, "Felucca:ceiling#1");
 
-    private static ClassBuildTemplate PureMage() => MageWhere(template => template.Weapon == null);
-
-    private static ClassBuildTemplate TankMage() => MageWhere(template => template.Weapon != null);
-
-    private static ClassBuildTemplate MageWhere(Func<ClassBuildTemplate, bool> wanted)
-    {
-        for (var i = 0; ; i++)
-        {
-            var template = ClassBuilds.TemplateFor(PersonClass.Mage, CharacterRole.Fighter, $"Felucca:mage#{i}");
-
-            if (wanted(template))
-            {
-                return template;
-            }
-        }
-    }
+    private static ClassBuildTemplate PureMage() => Template(PersonClass.Mage);
 
     private static BaseArmor Build(string typeName, uint serial)
     {

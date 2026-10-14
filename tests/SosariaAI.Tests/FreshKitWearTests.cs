@@ -25,10 +25,17 @@ public class FreshKitWearTests
     private const int PeoplePerClass = 8;
     private const int Suits = 60;
 
-    private static readonly PersonClass[] ArmoredClasses =
+    private static readonly PersonClass[] FightingClasses =
     [
-        PersonClass.Warrior, PersonClass.Fencer, PersonClass.Archer, PersonClass.Ranger, PersonClass.Tamer, PersonClass.Thief
+        PersonClass.Warrior, PersonClass.Fencer, PersonClass.Archer, PersonClass.Ranger, PersonClass.Thief
     ];
+
+    private static readonly PersonClass[] CasterClasses =
+    [
+        PersonClass.Mage, PersonClass.Healer, PersonClass.Bard, PersonClass.Tamer
+    ];
+
+    private static readonly PersonClass[] ArmoredClasses = [.. FightingClasses, .. CasterClasses];
 
     public FreshKitWearTests()
     {
@@ -68,7 +75,7 @@ public class FreshKitWearTests
     [RealMapFact]
     public void WornKit_IsEquipped_NotPacked()
     {
-        foreach (var (character, personClass, tier) in People(ArmoredClasses))
+        foreach (var (character, personClass, tier) in People(FightingClasses))
         {
             Assert.False(
                 character.Backpack.Items.Any(item => item is BaseArmor),
@@ -106,19 +113,18 @@ public class FreshKitWearTests
     }
 
     [RealMapFact]
-    public void Casters_CarryTheirBook_AndPureMagesWearCloth()
+    public void Casters_HoldTheirBook_NoWeapon_AndWearLeather()
     {
-        foreach (var (character, _, tier) in People([PersonClass.Mage]))
+        // A cast puts a held weapon in the pack, and only leather lets a caster meditate in full.
+        foreach (var (character, personClass, tier) in People(CasterClasses))
         {
-            var book = character.FindItemOnLayer(Layer.OneHanded) as Spellbook ?? character.Backpack.FindItemByType<Spellbook>();
+            var book = character.FindItemOnLayer(Layer.OneHanded) as Spellbook;
             Assert.NotNull(book);
-
-            if (Weapon(character) == null)
-            {
-                // A pure mage: the book in hand and no armor under its cloth.
-                Assert.Same(book, character.FindItemOnLayer(Layer.OneHanded));
-                Assert.False(GearEquip.WearsBodyArmor(character), $"{tier}: {Paperdoll(character)}");
-            }
+            Assert.Null(Weapon(character));
+            Assert.True(
+                character.FindItemOnLayer(Layer.InnerTorso) is LeatherChest or FemaleLeatherChest,
+                $"{personClass} {tier}: {Paperdoll(character)}"
+            );
         }
     }
 

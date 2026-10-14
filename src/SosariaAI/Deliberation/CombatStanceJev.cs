@@ -246,7 +246,7 @@ public static class CombatStanceJev
     /// <summary>"mage, badly hurt, mana half, poisoned".</summary>
     public static string YouWords(StanceSituation s)
     {
-        var words = $"{StyleWord(s.Style, s.Caster, s.TankMage)}, {HealthWord(s.HitsFraction)}";
+        var words = $"{StyleWord(s.Style)}, {HealthWord(s.HitsFraction)}";
 
         if (s.Caster)
         {
@@ -328,12 +328,12 @@ public static class CombatStanceJev
         return means.Count == 0 ? null : string.Join(ListSeparator, means);
     }
 
-    private static string StyleWord(CombatStyle style, bool caster, bool tankMage) =>
+    private static string StyleWord(CombatStyle style) =>
         style switch
         {
             CombatStyle.Mage => "mage",
-            CombatStyle.Archer => caster ? "archer who casts" : "archer",
-            _ => tankMage ? "warrior who casts" : "warrior"
+            CombatStyle.Archer => "archer",
+            _ => "warrior"
         };
 
     private static string FoeStyleWord(CombatStyle style) =>

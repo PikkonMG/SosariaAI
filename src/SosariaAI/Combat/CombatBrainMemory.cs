@@ -110,7 +110,6 @@ public static partial class CombatBrain
         public FightOutlook Outlook;
         public Mobile CastTarget;
         public SpellKind CastKind;
-        public Item RearmWeapon;
         public long NextCastAt;
         public long NextSpellCareAt;
         public long NextPotionAt;

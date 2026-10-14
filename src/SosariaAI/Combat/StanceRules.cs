@@ -34,7 +34,6 @@ public enum CombatStance
 public readonly record struct StanceSituation(
     CombatStyle Style,
     bool Caster,
-    bool TankMage,
     double HitsFraction,
     double ManaFraction,
     bool Poisoned,
@@ -65,7 +64,7 @@ public readonly record struct StanceSituation(
 /// The stance a character takes on its own, every tick, when Jev has not set one: heal when
 /// badly hurt, ward after the words keep breaking and kite when they break through the ward,
 /// freeze a melee foe that the kite cannot shake, kite while the mana comes back, else press.
-/// A tank mage presses and swings while its words keep breaking. Pressing still steps clear for a spell
+/// Pressing still steps clear for a spell
 /// or a shot that needs the room, and acts where it stands once the steps cannot buy it. A
 /// cornered fighter does not kite into the wall: it presses where it stands. A blue on a red
 /// presses while the trade goes its way and kites only when it is losing. Also the gate on
@@ -78,7 +77,7 @@ public static class StanceRules
 
     /// <summary>
     /// This many broken casts inside the interrupt window call for the ward, then for more
-    /// room, and stop a tank mage's casting.
+    /// room.
     /// </summary>
     public const int WardAfterInterrupts = 2;
 
@@ -111,13 +110,6 @@ public static class StanceRules
             return CombatStance.Press;
         }
 
-        // A tank mage casts from the melee path, which has no ward: its answer to broken
-        // words is the weapon (see KeepsBreaking), not a stance it cannot carry out.
-        if (s.TankMage)
-        {
-            return CombatStance.Press;
-        }
-
         if (KeepsBreaking(s.RecentInterrupts) && Feasible(CombatStance.Protect, s))
         {
             return CombatStance.Protect;
@@ -142,8 +134,7 @@ public static class StanceRules
     }
 
     /// <summary>
-    /// The words broke this often inside the interrupt window: a mage wards, then backs off;
-    /// a tank mage stops casting and swings until the window clears.
+    /// The words broke this often inside the interrupt window: a mage wards, then backs off.
     /// </summary>
     public static bool KeepsBreaking(int recentInterrupts) => recentInterrupts >= WardAfterInterrupts;
 

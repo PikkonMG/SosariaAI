@@ -9,8 +9,10 @@ namespace SosariaAI.Combat;
 
 /// <summary>
 /// Era templates for every class, fitted to the caps of the era and scaled by skill
-/// tier. The dexxer, the hally mage, the provoking bard and the fighting smith are
-/// the templates players of the period ran. Worker classes carry the swords,
+/// tier. The dexxer, the pure mage, the provoking bard and the fighting smith are
+/// the templates players of the period ran. Fighters fight with weapons and keep magery
+/// only to travel; casters hold a spellbook, no weapon, and wear leather so they can
+/// meditate. Worker classes carry the swords,
 /// tactics, anatomy, healing and resist a worker keeps for the road, so their seven
 /// skills stay inside the 700 cap. Rolled from the id, so a reboot rebuilds the
 /// same template.
@@ -28,9 +30,6 @@ public static class ClassBuilds
     public const int MaceShare = 25;
     public const int KryssShare = 70;
     public const int SpearShare = 30;
-    public const int HallyMageShare = 45;
-    public const int MaceMageShare = 15;
-    public const int PureMageShare = 40;
 
     public const string ThiefDagger = "Dagger";
     public const string MinerPick = "Pickaxe";
@@ -44,7 +43,6 @@ public static class ClassBuilds
 
     // Full stat lines at 225, the era's stat cap, each stat at most 100.
     public static readonly (int Strength, int Dexterity, int Intelligence) DexxerStats = (100, 100, 25);
-    public static readonly (int Strength, int Dexterity, int Intelligence) TankMageStats = (100, 25, 100);
     public static readonly (int Strength, int Dexterity, int Intelligence) CasterStats = (70, 55, 100);
     public static readonly (int Strength, int Dexterity, int Intelligence) ScholarStats = (80, 45, 100);
     public static readonly (int Strength, int Dexterity, int Intelligence) BardStats = (75, 50, 100);
@@ -121,7 +119,7 @@ public static class ClassBuilds
         {
             PersonClass.Warrior => Warrior(role, uniqueId),
             PersonClass.Fencer => Fencer(uniqueId),
-            PersonClass.Mage => Mage(uniqueId),
+            PersonClass.Mage => Mage(),
             PersonClass.Archer => new ClassBuildTemplate
             {
                 Primary = SkillName.Archery,
@@ -147,7 +145,7 @@ public static class ClassBuilds
                 Secondary = [SkillName.Anatomy, SkillName.SpiritSpeak, SkillName.Magery, SkillName.EvalInt, SkillName.Meditation, SkillName.MagicResist],
                 Stats = ScholarStats,
                 Style = CombatStyle.Mage,
-                Armor = KitArmor.None
+                Armor = KitArmor.Light
             },
             PersonClass.Bard => new ClassBuildTemplate
             {
@@ -155,7 +153,7 @@ public static class ClassBuilds
                 Secondary = [SkillName.Provocation, SkillName.Peacemaking, SkillName.Discordance, SkillName.Magery, SkillName.Meditation, SkillName.MagicResist],
                 Stats = BardStats,
                 Style = CombatStyle.Mage,
-                Armor = KitArmor.None,
+                Armor = KitArmor.Light,
                 ClassPieces = [KitVariation.Instrument]
             },
             PersonClass.Tamer => new ClassBuildTemplate
@@ -164,7 +162,6 @@ public static class ClassBuilds
                 Secondary = TamerCore,
                 Stats = CasterStats,
                 Style = CombatStyle.Mage,
-                Weapon = KitVariation.HerdingStaff,
                 Armor = KitArmor.Light
             },
             PersonClass.Thief => new ClassBuildTemplate
@@ -280,35 +277,20 @@ public static class ClassBuilds
     }
 
     /// <summary>
-    /// The hally mage was the king of the period: GM magery with a halberd and tactics.
-    /// Some tank mages swung maces; the rest were pure mages who scribed and brewed.
+    /// A mage is a mage: magery, evaluate, meditation, resist and wrestling, and the scribe's
+    /// and brewer's crafts beside them. It holds its spellbook, never a weapon (the engine puts
+    /// a weapon in the pack at every cast), and wears leather, the only armor that lets it
+    /// meditate in full.
     /// </summary>
-    private static ClassBuildTemplate Mage(string uniqueId)
-    {
-        var variant = PersonDice.Weighted(uniqueId, VariantSalt, HallyMageShare, MaceMageShare, PureMageShare);
-
-        if (variant == 2)
-        {
-            return new ClassBuildTemplate
-            {
-                Primary = SkillName.Magery,
-                Secondary = [.. MageCore, SkillName.Inscribe, SkillName.Alchemy],
-                Stats = CasterStats,
-                Style = CombatStyle.Mage,
-                Armor = KitArmor.None
-            };
-        }
-
-        return new ClassBuildTemplate
+    private static ClassBuildTemplate Mage() =>
+        new()
         {
             Primary = SkillName.Magery,
-            Secondary = [.. MageCore, variant == 0 ? SkillName.Swords : SkillName.Macing, SkillName.Tactics],
-            Stats = TankMageStats,
+            Secondary = [.. MageCore, SkillName.Inscribe, SkillName.Alchemy],
+            Stats = CasterStats,
             Style = CombatStyle.Mage,
-            Weapon = variant == 0 ? KitVariation.TwoHandedSword : KitVariation.TwoHandedMace,
-            Armor = KitArmor.Medium
+            Armor = KitArmor.Light
         };
-    }
 
     private static ClassBuildTemplate Worker(
         SkillName craft,

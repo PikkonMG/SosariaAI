@@ -195,7 +195,7 @@ public static partial class CombatBrain
             Vitals.HitsFraction(character),
             inFight,
             safeCircle,
-            spellsAllowed && (ignoreCooldowns ||
+            spellsAllowed && IsSpellFighter(character) && (ignoreCooldowns ||
                               character.Spell == null && memory.CastTarget == null && now - memory.NextSpellCareAt >= 0),
             character.Skills.Magery.Value,
             character.Mana,

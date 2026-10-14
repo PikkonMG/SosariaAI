@@ -100,7 +100,7 @@ public class KitVariationTests
     {
         Assert.True(KitVariation.InRow(KitVariation.OneHandedSword, "Scimitar"));
         Assert.True(KitVariation.InRow(KitVariation.OneHandedSword, KitVariation.OneHandedSword));
-        Assert.True(KitVariation.InRow(KitVariation.HerdingStaff, "ShepherdsCrook"));
+        Assert.True(KitVariation.InRow(KitVariation.TwoHandedFencing, "Pitchfork"));
         Assert.False(KitVariation.InRow(KitVariation.OneHandedSword, "Kryss"));
         Assert.False(KitVariation.InRow(null, "Kryss"));
         Assert.False(KitVariation.InRow(KitVariation.OneHandedSword, null));

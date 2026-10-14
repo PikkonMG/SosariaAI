@@ -9,12 +9,12 @@ public enum KitArmor
     /// <summary>Gloves and a few leather pieces over work clothes.</summary>
     Work,
 
-    /// <summary>A partial leather suit: thieves and tamers who move light.</summary>
+    /// <summary>A partial leather suit: casters who meditate, and thieves who move light.</summary>
     Light,
 
-    /// <summary>Leather, then studded at higher tiers, bone for a few veterans: archers, rangers, tank mages.</summary>
+    /// <summary>Leather, then studded at higher tiers, bone for a few veterans: archers and rangers.</summary>
     Medium,
 
-    /// <summary>Studded, ring, chain, then plate: the dexxer's climb.</summary>
+    /// <summary>Ring, chain, then plate: the dexxer's climb.</summary>
     Heavy
 }
