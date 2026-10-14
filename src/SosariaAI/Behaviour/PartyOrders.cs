@@ -217,7 +217,7 @@ public static class PartyOrders
         {
             case PartyOrderKind.GoTo:
             {
-                if (ResolvePlace(member, remainder) is not { } place)
+                if (PlaceLookup.Resolve(NavWorld.DestinationsFor(member.HomeFacet ?? member.Map?.Name), remainder, member.Location) is not { } place)
                 {
                     Chat(member, TalkCategory.OrderUnknownPlace);
                     return;
@@ -694,26 +694,6 @@ public static class PartyOrders
         WorldPlay.StartWork(healer, new HealMateSkill(patient.Serial));
         Log(() => $"{healer.Name} goes to heal {patient.Name}");
         return true;
-    }
-
-    private static Destination ResolvePlace(SosariaCharacter member, string remainder)
-    {
-        var catalog = NavWorld.DestinationsFor(member.HomeFacet ?? member.Map?.Name);
-
-        if (catalog == null)
-        {
-            return null;
-        }
-
-        foreach (var token in PartyOrderRules.PlaceTokens(remainder))
-        {
-            if (catalog.Resolve(token, member.Location) is { } found)
-            {
-                return found;
-            }
-        }
-
-        return null;
     }
 
     /// <summary>The leader's own foe first; else the named creature in sight; else the nearest one.</summary>

@@ -14,10 +14,10 @@ namespace SosariaAI.Behaviour;
 /// handler, group calls go to the party board, a line aimed at the character goes to the
 /// model when one can answer, and everything else gets the free speech floor: turn and
 /// answer a name (once, not to every repeat of it), greet back a room (or not: nobody
-/// answering is also 1999), say bye, shrug off questions, brush off insults, and "hm?" at a
-/// line said right beside it that it did not follow, as a person ignored in their face would:
-/// never when a player stands as near, whom the line was for, and to one speaker once a
-/// minute at most.
+/// answering is also 1999), say bye, tell the way to a place it knows (<see cref="Directions"/>),
+/// shrug off other questions, brush off insults, and "hm?" at a line said right beside it that
+/// it did not follow, as a person ignored in their face would: never when a player stands as
+/// near, whom the line was for, and to one speaker once a minute at most.
 /// </summary>
 public static class SpeechResponder
 {
@@ -74,16 +74,25 @@ public static class SpeechResponder
         var intent = SpeechIntent.Classify(text, character.Name);
         var named = AttentionGate.MentionsName(text, character.Name);
 
-        // Trade talk has its own handler too.
+        // Trade talk has its own handler too. The way to a place is told from the map, never by
+        // the model (AsksTheWay).
         if (LeftToTrade(intent, named) ||
             (intent is SpeechIntentKind.Party or SpeechIntentKind.Join && LfgBoard.HearPlayer(character, speaker, text)) ||
-            Brain.TakesPlayerLine(character, speaker, text, intent))
+            (!AsksTheWay(intent, text) && Brain.TakesPlayerLine(character, speaker, text, intent)))
         {
             return;
         }
 
         Answer(character, speaker, text, intent, named);
     }
+
+    /// <summary>
+    /// True when the line asks the way to a place. Such a line is answered from the nav data
+    /// before any model sees it: the answer is the same with or without a chat model, a call is
+    /// saved, and a model with no map would invent the way. Unknown places get a shrug.
+    /// </summary>
+    public static bool AsksTheWay(SpeechIntentKind intent, string text) =>
+        intent == SpeechIntentKind.Question && SpeechIntent.AskedPlace(text) != null;
 
     /// <summary>
     /// True when a trade line is the trade handler's alone: one said to the room. A trade line
@@ -129,6 +138,15 @@ public static class SpeechResponder
                 {
                     line = named || friendly || TakeRoomTurn(speaker, text, now, roll, RoomGoodbyeReplyPercent)
                         ? Talk.Line(TalkCategory.RespondGoodbye, seed, Named(speaker))
+                        : null;
+                    break;
+                }
+            case SpeechIntentKind.Question when SpeechIntent.AskedPlace(text) is { } asked:
+                {
+                    line = named || TalksWith(character, speaker, now) ||
+                           TakeRoomTurn(speaker, text, now, roll, RoomQuestionReplyPercent)
+                        ? Directions.LineFor(character, asked, seed) ??
+                          Talk.Line(TalkCategory.RespondShrug, seed, default)
                         : null;
                     break;
                 }
@@ -219,6 +237,10 @@ public static class SpeechResponder
     }
 
     private static TalkSlots Named(Mobile person) => new() { Name = person.Name };
+
+    /// <summary>The character is in a conversation with this speaker: an unnamed follow-up is still meant for it.</summary>
+    private static bool TalksWith(SosariaCharacter character, Mobile speaker, DateTime now) =>
+        character.Conversation.IsActive(now) && character.Conversation.Partner == speaker.Serial;
 
     /// <summary>A friend (warm bond) or someone in the same guild.</summary>
     public static bool KnowsWell(SosariaCharacter character, Mobile other) =>

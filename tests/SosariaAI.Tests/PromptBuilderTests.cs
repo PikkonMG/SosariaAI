@@ -262,6 +262,19 @@ public class PromptBuilderTests
         Assert.Equal(expected, system.Contains(PromptBuilder.StayOnTaskRule, System.StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData(BrainEventKind.Spoken, true)]
+    [InlineData(BrainEventKind.Musing, true)]
+    [InlineData(BrainEventKind.PlayerNoticed, false)]
+    [InlineData(BrainEventKind.Plan, false)]
+    public void BuildSystem_ChatNeverGuessesTheWay(BrainEventKind kind, bool expected)
+    {
+        // The prompt holds no map: any direction a model gives is invented.
+        var system = PromptBuilder.BuildSystem(PersonasFile.CreateDefaultConnor(), LeanderEvent(kind), 160, null);
+
+        Assert.Equal(expected, system.Contains(PromptBuilder.NoWayRule, System.StringComparison.Ordinal));
+    }
+
     [Fact]
     public void BuildSystem_WantReadsAsALaterGoalNotAPlan()
     {

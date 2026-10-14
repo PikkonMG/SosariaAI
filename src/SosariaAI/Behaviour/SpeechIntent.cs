@@ -90,6 +90,35 @@ public static class SpeechIntent
         "what are you guys doing"
     ];
 
+    /// <summary>
+    /// The words a player asks the way with, longest first: the place follows them, as in
+    /// "how do i get to the britain bank" or "anyone know where trinsic is".
+    /// </summary>
+    private static readonly string[] WayLeads =
+    [
+        "how do i get to", "how do u get to", "how do you get to", "how can i get to", "how would i get to",
+        "how to get to", "how i get to", "how get to", "which way to", "which way is", "what way to",
+        "which direction is", "what direction is", "how far is", "how far to", "where can i find",
+        "where do i find", "where would i find", "anyone know where", "you know where", "u know where",
+        "ya know where", "where is", "where's", "wheres"
+    ];
+
+    /// <summary>
+    /// Way words that ask only in a question: "whats the way to yew?" asks, "on the way to yew"
+    /// does not.
+    /// </summary>
+    private static readonly string[] WayLeadsInQuestion = ["the way to", "directions to", "direction to"];
+
+    /// <summary>
+    /// A way lead followed by one of these words asks after a person or a thing, not a place:
+    /// "where is he", "where is my horse". The answer is never a direction.
+    /// </summary>
+    private static readonly string[] NotPlaceWords =
+    [
+        "he", "she", "it", "they", "you", "u", "ya", "ur", "your", "my", "his", "her", "their", "our",
+        "this", "that", "everyone", "everybody", "everyone's", "every1"
+    ];
+
     public static SpeechIntentKind Classify(string text, string listenerName)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -122,6 +151,12 @@ public static class SpeechIntent
             return SpeechIntentKind.Insult;
         }
 
+        // "hi bob, where is trinsic" asks the way; the greeting is the smaller part.
+        if (AskedPlace(text) != null)
+        {
+            return SpeechIntentKind.Question;
+        }
+
         if (ContainsPhrase(text, GoodbyeWords))
         {
             return SpeechIntentKind.Goodbye;
@@ -132,7 +167,7 @@ public static class SpeechIntent
             return SpeechIntentKind.Greeting;
         }
 
-        if (text.TrimEnd().EndsWith('?') || ContainsPhrase(text, QuestionWords))
+        if (AsksSomething(text))
         {
             return SpeechIntentKind.Question;
         }
@@ -140,8 +175,53 @@ public static class SpeechIntent
         return SpeechIntentKind.Other;
     }
 
+    /// <summary>The line is a question: it ends in "?" or holds a question word.</summary>
+    public static bool AsksSomething(string text) =>
+        !string.IsNullOrWhiteSpace(text) && (text.TrimEnd().EndsWith('?') || ContainsPhrase(text, QuestionWords));
+
     /// <summary>"what are you doing" and its kin: answered from what the listener really does.</summary>
     public static bool AsksWhatDoing(string text) => ContainsPhrase(text, DoingWords);
+
+    /// <summary>
+    /// The words naming the place a line asks the way to, or null when it asks no way: "where is
+    /// trinsic?" gives "trinsic", "how do i get to the britain bank" gives "the britain bank".
+    /// "where is everyone" asks what people do, and "where is he" asks after a person.
+    /// </summary>
+    public static string AskedPlace(string text)
+    {
+        var after = After(text, WayLeads) ?? (AsksSomething(text) ? After(text, WayLeadsInQuestion) : null);
+
+        if (AsksWhatDoing(text) || after is not { Length: > 0 } place)
+        {
+            return null;
+        }
+
+        var space = place.IndexOf(WordGap, StringComparison.Ordinal);
+        var first = space < 0 ? place : place[..space];
+        return Array.IndexOf(NotPlaceWords, first) >= 0 ? null : place;
+    }
+
+    /// <summary>
+    /// The spoken words after the first of <paramref name="phrases"/> the line holds, in list
+    /// order, or null when it holds none. Whole words only, lower case.
+    /// </summary>
+    public static string After(string text, string[] phrases)
+    {
+        var spoken = Spoken(text);
+
+        foreach (var phrase in phrases)
+        {
+            var key = WordGap + phrase + WordGap;
+            var at = spoken.IndexOf(key, StringComparison.Ordinal);
+
+            if (at >= 0)
+            {
+                return spoken[(at + key.Length)..].Trim();
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>A short yes that answers a group call.</summary>
     public static bool IsJoin(string text) =>

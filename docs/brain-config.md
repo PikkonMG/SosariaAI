@@ -50,6 +50,14 @@ Every call is one of two kinds, and `route` names the provider for each kind.
 | `trade` | A player's haggle line that fits no trade rule. |
 | `speechGate` | One character hears another: is the line worth a reply? |
 
+A player who asks the way to a place ("where is the bank?", "how do I get to
+the healer?") gets the answer from the nav data of the map the character
+stands on, before any model sees the line: a compass direction, a rough
+distance, and "take the moongate" when a far place is much nearer through the
+public moongates. A place the character's map does not hold, or one too far to
+tell, gets "dunno". No chat call is made for these lines, and the chat prompt
+tells the model never to give directions.
+
 The speech gate, player intent, fight stances, trade reads, and red moments
 need a System One provider. When their use routes to a chat provider, the
 rules decide.

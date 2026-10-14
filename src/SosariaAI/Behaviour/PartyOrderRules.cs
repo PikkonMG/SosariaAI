@@ -93,7 +93,7 @@ public static class PartyOrderRules
             return PartyOrderKind.None;
         }
 
-        if (After(text, GoToLeads) is { } place)
+        if (SpeechIntent.After(text, GoToLeads) is { } place)
         {
             remainder = place;
             return PartyOrderKind.GoTo;
@@ -109,7 +109,7 @@ public static class PartyOrderRules
             return PartyOrderKind.Back;
         }
 
-        if (After(text, AttackWords) is { } target)
+        if (SpeechIntent.After(text, AttackWords) is { } target)
         {
             remainder = target;
             return PartyOrderKind.Attack;
@@ -247,23 +247,4 @@ public static class PartyOrderRules
     /// <summary>A walk to a place pauses while the leader is far behind on the same map.</summary>
     public static bool PausesWalk(bool leaderPresent, bool sameMap, int distance) =>
         leaderPresent && LagsBehind(sameMap, distance);
-
-    /// <summary>The words after the first of the phrases found in the line, or null when none is in it.</summary>
-    private static string After(string text, string[] phrases)
-    {
-        var spoken = SpeechIntent.Spoken(text);
-
-        foreach (var phrase in phrases)
-        {
-            var key = SpeechIntent.WordGap + phrase + SpeechIntent.WordGap;
-            var at = spoken.IndexOf(key, StringComparison.Ordinal);
-
-            if (at >= 0)
-            {
-                return spoken[(at + key.Length)..].Trim();
-            }
-        }
-
-        return null;
-    }
 }

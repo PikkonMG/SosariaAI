@@ -67,6 +67,14 @@ public static class PromptBuilder
     public const string StayOnTaskRule =
         "Stay on what you are doing right now. You may say what you are doing and that you are here. Never say you are heading somewhere else: you will not go.";
 
+    /// <summary>
+    /// For chat only: the prompt holds no map, so a direction or a distance from the model is a
+    /// guess. A line that asks the way in plain words is answered from the nav data before any
+    /// model sees it (<see cref="Behaviour.SpeechResponder.AsksTheWay"/>); this covers the rest.
+    /// </summary>
+    public const string NoWayRule =
+        "Never give directions, distances, or the way to any place: you do not have a map here. If asked, say you are not sure of the way.";
+
     /// <summary>For the plan shape: its say is spoken as the plan starts, so it may only speak of the plan's own steps.</summary>
     public const string PlanSayRule =
         "Your say must match your steps: speak only about the steps you plan, or leave it empty. Never name a place, a person, or a plan your steps do not hold.";
@@ -242,6 +250,7 @@ public static class PromptBuilder
             if (!UsesDecideShape(evt?.Kind))
             {
                 builder.AppendLine(StayOnTaskRule);
+                builder.AppendLine(NoWayRule);
             }
 
             builder.AppendLine(EraChatRule);
