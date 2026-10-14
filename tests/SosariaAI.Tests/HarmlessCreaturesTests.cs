@@ -25,4 +25,13 @@ public class HarmlessCreaturesTests
         Assert.False(HarmlessCreatures.LooksNamed("RatmanArcher"));
         Assert.False(HarmlessCreatures.LooksNamed("Pirate"));
     }
+
+    [Fact]
+    public void LooksNamed_OnlyTheHouseCatIsACat()
+    {
+        // A HellCat and a PredatorHellCat breathe fire; the last word alone took them for a cat.
+        Assert.True(HarmlessCreatures.LooksNamed("Cat"));
+        Assert.False(HarmlessCreatures.LooksNamed("HellCat"));
+        Assert.False(HarmlessCreatures.LooksNamed("PredatorHellCat"));
+    }
 }

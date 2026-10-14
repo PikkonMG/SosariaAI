@@ -22,7 +22,10 @@ public static partial class CombatBrain
 {
     /// <summary>
     /// Reads, from the last scan's foes plus the target, when the soonest blow on this
-    /// character can land, how many foes stand in reach, and where the close ones gather.
+    /// character can land, how many foes stand in reach, where the close ones gather, and where
+    /// the hostiles not on it yet stand (<see cref="ReadIdleFoes"/>). A harmless creature counts
+    /// once it is hitting this character: its blows break a spell like any other, and left out
+    /// they broke casts the read said were safe.
     /// </summary>
     private static void ReadThreats(SosariaCharacter character, Memory memory, Mobile foe)
     {
@@ -36,7 +39,7 @@ public static partial class CombatBrain
         {
             var sighting = memory.Foes[i];
 
-            if (sighting.Harmless)
+            if (sighting.Harmless && sighting.Mobile.Combatant != character)
             {
                 continue;
             }
@@ -58,6 +61,33 @@ public static partial class CombatBrain
 
         memory.AdjacentSince = read.Adjacent == 0 ? 0 : memory.AdjacentSince == 0 ? now : memory.AdjacentSince;
         memory.Threats = read;
+        ReadIdleFoes(character, memory, foe);
+    }
+
+    /// <summary>
+    /// Where the hostiles of the last scan stand that rate as a threat and are not on this
+    /// character yet, <paramref name="target"/> aside: the back-off steps and the run legs keep
+    /// off them (<see cref="EscapeRules.IdleFoeTiles"/>). A step scored on the ground alone
+    /// backed a fighter into the next monster and pulled it into the fight.
+    /// </summary>
+    private static void ReadIdleFoes(SosariaCharacter character, Memory memory, Mobile target)
+    {
+        var idle = memory.IdleFoes;
+        idle.Clear();
+
+        for (var i = 0; i < memory.Foes.Count; i++)
+        {
+            var sighting = memory.Foes[i];
+            var mobile = sighting.Mobile;
+
+            if (sighting.Harmless || mobile == target || mobile?.Deleted != false || !mobile.Alive ||
+                mobile.Map != character.Map || mobile.Combatant == character)
+            {
+                continue;
+            }
+
+            idle.Add(mobile.Location);
+        }
     }
 
     private static void ReadOne(
@@ -127,8 +157,9 @@ public static partial class CombatBrain
 
     /// <summary>
     /// Steps clear: away from the middle of a crowd, or from the target alone, two steps when
-    /// something is right there. The steps go on the move clock, so this is the run pace of a
-    /// player, not a burst. Marks the break-away start and whether the body was pinned.
+    /// something is right there, and not toward a hostile that is not on it yet. The steps go
+    /// on the move clock, so this is the run pace of a player, not a burst. Marks the
+    /// break-away start and whether the body was pinned.
     /// </summary>
     private static void OpenGap(SosariaCharacter character, Memory memory, Mobile foe, int steps)
     {
@@ -147,7 +178,44 @@ public static partial class CombatBrain
             memory.KitingSince = Core.TickCount;
         }
 
-        memory.Pinned = !character.Motor.BackAway(from, steps);
+        memory.Pinned = !character.Motor.BackAway(from, steps, memory.IdleFoes);
+    }
+
+    /// <summary>Steps clear of the blows: two steps when a foe is right there, else one (<see cref="FootworkRules.RetreatSteps"/>).</summary>
+    private static void StepOut(SosariaCharacter character, Memory memory, Mobile foe) =>
+        OpenGap(character, memory, foe, FootworkRules.RetreatSteps(memory.Threats.NearestDistance));
+
+    /// <summary>The footwork call for this tick (<see cref="FootworkRules.Next"/>), once a spent break-away is dropped.</summary>
+    private static Footwork FootworkNow(Memory memory, bool holds, CombatStance stance)
+    {
+        ExpireBreakAway(memory);
+        return FootworkRules.Next(holds, KitingMs(memory), memory.Pinned, stance);
+    }
+
+    /// <summary>
+    /// Reads the bow's swing clock: an arrow that left since the last read ends the break-away
+    /// that bought it (<see cref="FootworkRules.Fired"/>). A shot where the archer stands keeps
+    /// the clock, so the stand ends and the steps resume, as a cast where it stands does. Ended
+    /// on every step that gained a tile instead, the grace restarted before the bow had stood
+    /// still long enough, and the archer never committed and never shot.
+    /// </summary>
+    private static void NoteShot(SosariaCharacter character, Memory memory, Mobile foe)
+    {
+        var clock = character.NextCombatTime;
+        var fired = FootworkRules.Fired(memory.SwingClock, clock, Core.TickCount);
+        memory.SwingClock = clock;
+
+        if (!fired || memory.Committed)
+        {
+            return;
+        }
+
+        if (memory.KitingSince != 0 && LogsOnce(character, StepClearLine, foe))
+        {
+            logger.Information("{Name} stepped clear of {Foe} to shoot", character.Name, foe.Name);
+        }
+
+        EndKite(memory);
     }
 
     private static long KitingMs(Memory memory) =>

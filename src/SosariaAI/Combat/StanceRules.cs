@@ -161,6 +161,22 @@ public static class StanceRules
         };
 
     /// <summary>
+    /// Jev is offered a stance the character can carry out (<see cref="Feasible"/>), and the
+    /// Kite stance only where <see cref="OffersKite"/> says it is worth weighing.
+    /// </summary>
+    public static bool Askable(CombatStance stance, StanceSituation s) =>
+        Feasible(stance, s) && (stance != CombatStance.Kite || OffersKite(s));
+
+    /// <summary>
+    /// The Kite stance is put to Jev against a person, or for a caster whose words keep breaking
+    /// or whose mana runs low: the tests <see cref="Pick"/> kites on. Its rubric says yes to any
+    /// archer or mage with a foe that fights up close, which is nearly every monster fight, so
+    /// it was asked where the rules never kite and the yes only sent the fighter running.
+    /// </summary>
+    public static bool OffersKite(StanceSituation s) =>
+        s.FoeIsPerson || s.Caster && (KeepsBreaking(s.RecentInterrupts) || s.ManaFraction < KiteManaFraction);
+
+    /// <summary>
     /// A blue winning the trade against a red presses: no kite, no hold, no run. One anti-PK
     /// backed off from reds 173 times in an hour while its blows were landing.
     /// </summary>

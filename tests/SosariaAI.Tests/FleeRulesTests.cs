@@ -47,6 +47,20 @@ public class FleeRulesTests
     }
 
     [Fact]
+    public void FighterRunsFromHit_AtAJobOnlyAboveTheThreatFloor()
+    {
+        var weak = ThreatRating.MinThreatToFlee - 1;
+        var real = ThreatRating.MinThreatToFlee;
+
+        // A hurt fighter at a job ran from a mongbat: a threat under the floor is fought.
+        Assert.False(FleeRules.FighterRunsFromHit(hunting: false, overwhelmed: false, wouldFight: false, weak));
+        Assert.True(FleeRules.FighterRunsFromHit(hunting: false, overwhelmed: false, wouldFight: false, real));
+        Assert.False(FleeRules.FighterRunsFromHit(hunting: false, overwhelmed: true, wouldFight: true, real));
+        Assert.True(FleeRules.FighterRunsFromHit(hunting: true, overwhelmed: true, wouldFight: true, weak));
+        Assert.False(FleeRules.FighterRunsFromHit(hunting: true, overwhelmed: false, wouldFight: false, real));
+    }
+
+    [Fact]
     public void MustRun_WorkerRunsFromAnyRealThreat()
     {
         Assert.False(FleeRules.MustRun(false, CharacterRole.Worker, 10, intolerable: false));

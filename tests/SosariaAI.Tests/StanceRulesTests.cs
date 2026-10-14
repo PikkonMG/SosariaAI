@@ -132,6 +132,29 @@ public class StanceRulesTests
     }
 
     [Fact]
+    public void OffersKite_APersonOrWhenTheRulesWouldKite()
+    {
+        var monsterFight = Mage() with { FoeIsPerson = false };
+
+        Assert.True(StanceRules.OffersKite(Mage()));
+        Assert.False(StanceRules.OffersKite(monsterFight));
+        Assert.True(StanceRules.OffersKite(monsterFight with { RecentInterrupts = StanceRules.WardAfterInterrupts }));
+        Assert.True(StanceRules.OffersKite(monsterFight with { ManaFraction = NoMana }));
+        Assert.False(StanceRules.OffersKite(Warrior() with { Style = CombatStyle.Archer, FoeIsPerson = false, ManaFraction = NoMana }));
+    }
+
+    [Fact]
+    public void Askable_FeasibleAndKiteOnlyWhereOffered()
+    {
+        var monsterFight = Mage() with { FoeIsPerson = false };
+
+        Assert.False(StanceRules.Askable(CombatStance.Kite, monsterFight));
+        Assert.True(StanceRules.Askable(CombatStance.Press, monsterFight));
+        Assert.True(StanceRules.Askable(CombatStance.Kite, Mage()));
+        Assert.False(StanceRules.Askable(CombatStance.Kite, Mage() with { Cornered = true }));
+    }
+
+    [Fact]
     public void Cornered_NoKiteIntoTheWall()
     {
         var cornered = Mage() with { ManaFraction = NoMana, Cornered = true };

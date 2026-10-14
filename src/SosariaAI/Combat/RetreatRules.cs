@@ -73,7 +73,11 @@ public static class RetreatRules
     public static double StartLine(double baseLine, double nerve, int foes) =>
         Math.Min(MaxLine, Line(baseLine, nerve, foes) + StartMargin);
 
-    /// <summary>Two or more already swinging and a room far beyond the dare: leave on the numbers.</summary>
+    /// <summary>
+    /// Two or more already swinging and those on it far beyond the dare: leave on the numbers.
+    /// The fight passes the attackers' threat (<see cref="RoomPicture.AttackerThreat"/>); a
+    /// monster in sight that is not on the character does not make it outnumbered.
+    /// </summary>
     public static bool IsOutnumbered(int attackers, int roomThreat, int darePower, double threatMultiple) =>
         attackers >= OutnumberedAttackers && roomThreat > darePower * threatMultiple * OutnumberedMultiple;
 
@@ -194,6 +198,8 @@ public static class RetreatRules
     /// Clear when the nearest of the pack and the thing the run started from are both at
     /// <see cref="ClearAt"/> or beyond (<see cref="RoomSurvey.NoDistance"/> for none or gone).
     /// Testing the pack alone let a runner from a red go clear on its first step and be hit again.
+    /// The pack is the attackers on the runner (<see cref="RoomPicture.AttackerNearest"/>): read
+    /// on every hostile in sight, an idle monster standing by kept the run going.
     /// </summary>
     public static bool IsClear(int packNearest, int sourceDistance, bool hunted) =>
         packNearest >= ClearAt(hunted) && sourceDistance >= ClearAt(hunted);

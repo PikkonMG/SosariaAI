@@ -381,19 +381,23 @@ public static class RoutineDriver
         }
 
         // A hunt chose its fights by its dare, so it answers an attacker unless the attacker
-        // is far past that dare; any other job runs from what it would not fight back.
+        // is far past that dare; any other job runs from what it would not fight back, above
+        // the same threat floor a worker has.
         if (!pvp &&
             mayFlee && character.Build?.Role != CharacterRole.Worker &&
-            (character.Routine?.CurrentSkill is IHuntingSkill
-                ? CombatBrain.Overwhelms(character, aggressor)
-                : !DangerRules.ShouldFight(
+            FleeRules.FighterRunsFromHit(
+                character.Routine?.CurrentSkill is IHuntingSkill,
+                CombatBrain.Overwhelms(character, aggressor),
+                DangerRules.ShouldFight(
                     CharacterPower.For(character),
                     threat,
                     Vitals.HitsFraction(character),
                     hasHealing: character.Build?.CanHeal == true,
                     Party.AlliesPower(character),
                     SosariaSettings.Characters?.Career?.ThreatMultiple ?? ThreatRating.DefaultThreatMultiple
-                )))
+                ),
+                threat
+            ))
         {
             character.Combatant = aggressor;
             CombatBrain.RunFrom(character, aggressor);

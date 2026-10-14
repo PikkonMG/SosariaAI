@@ -30,14 +30,16 @@ public static class EscapeRoute
     /// <summary>
     /// The goal of the next leg away from <paramref name="threat"/>, or null when no place
     /// gains ground. <paramref name="safety"/> (a bank or a healer) pulls the choice its way.
-    /// Goals near one in <paramref name="stalled"/> are skipped.
+    /// Goals near one in <paramref name="stalled"/> are skipped, and goals beside one of
+    /// <paramref name="idleFoes"/> (hostiles not on the runner yet) score far lower.
     /// </summary>
     public static Point3D? PickGoal(
         SosariaCharacter character,
         Point3D threat,
         int legTiles,
         Point3D? safety,
-        IReadOnlyList<Point3D> stalled
+        IReadOnlyList<Point3D> stalled,
+        IReadOnlyList<Point3D> idleFoes
     )
     {
         var map = character?.Map;
@@ -88,7 +90,7 @@ public static class EscapeRoute
             }
         }
 
-        var best = EscapeRules.PickGoal(options, from, threat.X, threat.Y, safety);
+        var best = EscapeRules.PickGoal(options, from, threat.X, threat.Y, safety, idleFoes);
         return best == EscapeRules.NoChoice ? null : options[best].At;
     }
 

@@ -20,7 +20,8 @@ public enum Footwork
 /// kited. Casting and shooting both root the body, so a fighter that answers every adjacent
 /// foe at once never leaves melee. It walks first, and acts once the gap holds. It gives up
 /// the walk only for a reason: pinned, or still caught after <see cref="KiteGraceMs"/>. Steps
-/// go at the lawful run pace on the move clock; two of them when the foe is right there.
+/// go at the lawful run pace on the move clock; two of them when the foe is right there. The
+/// break-away ends when a shot or a cast it bought goes off, not when a step gains a tile.
 /// </summary>
 public static class FootworkRules
 {
@@ -56,7 +57,10 @@ public static class FootworkRules
 
     /// <summary>
     /// The call for this tick. The act holds: act. Holding ground: act where it stands. Pinned:
-    /// no step is possible, act. Kiting: keep walking. Otherwise walk until the grace runs out.
+    /// no step is possible, act. Otherwise walk until the grace runs out, in the Kite stance as
+    /// well. A kite that never committed never acted: bots step every 200 ms and outrun nearly
+    /// every monster, so the gap opened and closed again before a pre-AOS bow had its second of
+    /// stillness, and live archers ran their whole fight without a shot.
     /// </summary>
     public static Footwork Next(bool holds, long kitingMs, bool pinned, CombatStance stance)
     {
@@ -70,7 +74,7 @@ public static class FootworkRules
             return Footwork.Commit;
         }
 
-        return stance != CombatStance.Kite && kitingMs >= KiteGraceMs ? Footwork.Commit : Footwork.OpenGap;
+        return kitingMs >= KiteGraceMs ? Footwork.Commit : Footwork.OpenGap;
     }
 
     /// <summary>The break-away and the stand after it are both over: start a fresh break-away.</summary>
@@ -94,6 +98,30 @@ public static class FootworkRules
             CombatStance.ParalyzeThenKite when foeHeld => KiteBandTiles,
             _ => KeepBandTiles
         };
+
+    /// <summary>
+    /// A bow that has not stood still long enough swings at nothing and tries again this soon,
+    /// in every era (BaseRanged.OnSwing); a shot that left sets the swing clock a full weapon delay on.
+    /// </summary>
+    public const int HeldShotRetryMs = 250;
+
+    /// <summary>
+    /// True when an arrow left since the swing clock was last read: the clock moved and now runs
+    /// past the retry of a bow that could not fire. Read this way, the break-away ends on the
+    /// shot it bought, not on the first step that gained a tile.
+    /// </summary>
+    public static bool Fired(long swingClockSeen, long swingClockNow, long now) =>
+        swingClockNow != swingClockSeen && swingClockNow - now > HeldShotRetryMs;
+
+    /// <summary>
+    /// The highest circle a mage plans its next spell at: what fits now (<paramref name="safeCircle"/>)
+    /// while the foe stands in the band the mage holds, from <paramref name="bandMin"/> out to
+    /// <paramref name="keepMax"/>; the top circle nearer or farther, where the steps or the walk
+    /// in change the room before the cast. A plan made at the top circle and kept until cast
+    /// waited for six to nine tiles of room for an Energy Bolt, and the mage ran between casts.
+    /// </summary>
+    public static int PlanCircle(int distance, int bandMin, int keepMax, int safeCircle) =>
+        distance >= bandMin && distance <= keepMax ? safeCircle : CastTiming.TopCircle;
 
     public const int SeBowStillMs = 250;
     public const int AosBowStillMs = 500;

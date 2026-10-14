@@ -31,10 +31,11 @@ public static partial class CombatBrain
     public const int TankCastGapMs = 4000;
 
     /// <summary>
-    /// A pure mage fights from range. It picks the spell it wants for open ground, casts it when
-    /// the words finish before the next blow, takes a strong spell that fits in a window (the
-    /// foe just swung, or is still closing), and otherwise steps clear. When the steps cannot buy
-    /// the room it casts what fits where it stands. Between casts it keeps its band of distance.
+    /// A pure mage fights from range. It picks the spell it wants (what fits now while the foe
+    /// stands in its band, see <see cref="FootworkRules.PlanCircle"/>), casts it when the words
+    /// finish before the next blow, takes a strong spell that fits in a window (the foe just
+    /// swung, or is still closing), and otherwise steps clear. When the steps cannot buy the
+    /// room it casts what fits where it stands. Between casts it keeps its band of distance.
     /// </summary>
     private static void FightAsMage(
         SosariaCharacter character,
@@ -64,16 +65,13 @@ public static partial class CombatBrain
             return;
         }
 
-        if (Wish(character, memory, foe, distance, stance) is not { } wish)
+        if (Wish(character, memory, foe, distance, stance, safeCircle) is not { } wish)
         {
             KeepBand(character, memory, foe, distance, stance, careWantsRoom);
             return;
         }
 
-        var fits = SpellBook.Fits(SpellBook.EntryOf(wish), safeCircle);
-        ExpireBreakAway(memory);
-
-        switch (FootworkRules.Next(fits, KitingMs(memory), memory.Pinned, stance))
+        switch (FootworkNow(memory, SpellBook.Fits(SpellBook.EntryOf(wish), safeCircle), stance))
         {
             case Footwork.Act:
             {
@@ -87,7 +85,7 @@ public static partial class CombatBrain
                     !FootworkRules.TakesWindow(SpellBook.EntryOf(window).Circle) ||
                     !CastAt(character, memory, foe, window, committed: false))
                 {
-                    OpenGap(character, memory, foe, FootworkRules.RetreatSteps(memory.Threats.NearestDistance));
+                    StepOut(character, memory, foe);
                 }
 
                 break;
@@ -105,11 +103,21 @@ public static partial class CombatBrain
     }
 
     /// <summary>
-    /// The spell this mage wants next, given open ground: the ward in the Protect stance,
-    /// Paralyze on a free foe in the ParalyzeThenKite stance, nothing while it heals or walks off
-    /// a held foe, else the planned attack. The plan stands until it is cast or cannot be.
+    /// The spell this mage wants next: the ward in the Protect stance, Paralyze on a free foe in
+    /// the ParalyzeThenKite stance, nothing while it heals or walks off a held foe, else the
+    /// planned attack, picked up to the circle <see cref="FootworkRules.PlanCircle"/> gives. A
+    /// foe in the band with nothing that fits now gets a plan for open ground, so the footwork
+    /// steps for the room. The plan stands until it is cast, cannot be, or no longer fits the
+    /// plan circle.
     /// </summary>
-    private static SpellKind? Wish(SosariaCharacter character, Memory memory, Mobile foe, int distance, CombatStance stance)
+    private static SpellKind? Wish(
+        SosariaCharacter character,
+        Memory memory,
+        Mobile foe,
+        int distance,
+        CombatStance stance,
+        int safeCircle
+    )
     {
         if (!CastReady(character, memory))
         {
@@ -153,23 +161,39 @@ public static partial class CombatBrain
             }
         }
 
-        if (memory.Planned is { } planned && StillWorthCasting(planned, magery, mana, held, foe.Poisoned))
+        var planCircle = FootworkRules.PlanCircle(distance, FootworkRules.BandMin(stance, held), MageKeepMax, safeCircle);
+
+        if (memory.Planned is { } planned && StillWorthCasting(planned, magery, mana, held, foe.Poisoned) &&
+            SpellBook.Fits(SpellBook.EntryOf(planned), planCircle))
         {
             return planned;
         }
 
-        memory.Planned = SpellBook.PickUtility(
-                             magery,
-                             mana,
-                             distance,
-                             CastTiming.TopCircle,
-                             held,
-                             foe.Poisoned,
-                             Utility.RandomDouble(),
-                             Utility.RandomDouble()
-                         ) ??
-                         SpellBook.PickAttack(magery, mana, distance, CastTiming.TopCircle, Utility.RandomDouble());
+        memory.Planned = PlanSpell(character, foe, distance, planCircle) ??
+                         PlanSpell(character, foe, distance, CastTiming.TopCircle);
         return memory.Planned;
+    }
+
+    /// <summary>
+    /// A spell at or under <paramref name="circle"/>: Paralyze or Poison by chance, else a pick
+    /// among the strongest attacks (<see cref="SpellBook"/>). Null when nothing can be cast.
+    /// </summary>
+    private static SpellKind? PlanSpell(SosariaCharacter character, Mobile foe, int distance, int circle)
+    {
+        var magery = character.Skills.Magery.Value;
+        var mana = character.Mana;
+
+        return SpellBook.PickUtility(
+                   magery,
+                   mana,
+                   distance,
+                   circle,
+                   foe.Paralyzed || foe.Frozen,
+                   foe.Poisoned,
+                   Utility.RandomDouble(),
+                   Utility.RandomDouble()
+               ) ??
+               SpellBook.PickAttack(magery, mana, distance, circle, Utility.RandomDouble());
     }
 
     private static bool StillWorthCasting(SpellKind kind, double magery, int mana, bool foeHeld, bool foePoisoned) =>
@@ -183,7 +207,11 @@ public static partial class CombatBrain
 
     /// <summary>
     /// Nothing to cast this tick: hold the band for the stance. Too near, or a heal that needs
-    /// more room, steps clear; too far walks in; inside the band it stands.
+    /// more room, steps clear by the footwork rules, so once the grace runs out it stands where
+    /// it is for the commit window; too far walks in; inside the band it stands. Only a cast
+    /// ends the break-away (<see cref="CastAt"/>). Stepping out on its own clock, and ending
+    /// the break-away whenever the band held for a moment, restarted the grace between every
+    /// two casts, and mages ran the whole fight.
     /// </summary>
     private static void KeepBand(
         SosariaCharacter character,
@@ -196,7 +224,6 @@ public static partial class CombatBrain
     {
         if (stance == CombatStance.Hold)
         {
-            EndKite(memory);
             return;
         }
 
@@ -204,11 +231,17 @@ public static partial class CombatBrain
 
         if (distance < FootworkRules.BandMin(stance, held) || stance == CombatStance.Heal && careWantsRoom)
         {
-            OpenGap(character, memory, foe, FootworkRules.RetreatSteps(memory.Threats.NearestDistance));
+            if (FootworkNow(memory, holds: false, stance) == Footwork.OpenGap)
+            {
+                StepOut(character, memory, foe);
+            }
+            else
+            {
+                character.Motor.Stop();
+            }
+
             return;
         }
-
-        EndKite(memory);
 
         if (distance > MageKeepMax)
         {
@@ -344,21 +377,9 @@ public static partial class CombatBrain
         }
 
         memory.NextCastAt = Core.TickCount + gapMs;
-        var magery = character.Skills.Magery.Value;
-        var mana = character.Mana;
-        var kind = SpellBook.PickUtility(
-                       magery,
-                       mana,
-                       distance,
-                       safeCircle,
-                       foe.Paralyzed || foe.Frozen,
-                       foe.Poisoned,
-                       Utility.RandomDouble(),
-                       Utility.RandomDouble()
-                   ) ??
-                   SpellBook.PickAttack(magery, mana, distance, safeCircle, Utility.RandomDouble());
 
-        if (kind is not { } picked || picked == SpellKind.MagicArrow && distance <= MeleeRange)
+        if (PlanSpell(character, foe, distance, safeCircle) is not { } picked ||
+            picked == SpellKind.MagicArrow && distance <= MeleeRange)
         {
             return false;
         }

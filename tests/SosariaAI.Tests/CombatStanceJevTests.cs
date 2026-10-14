@@ -43,6 +43,26 @@ public class CombatStanceJevTests
     }
 
     [Fact]
+    public void Build_KiteIsOfferedInAMonsterFightOnlyWhenTheRulesWouldKite()
+    {
+        var monsterFight = StanceRulesTests.Mage() with { FoeIsPerson = false };
+
+        Assert.DoesNotContain("kite", CombatStanceJev.Build(monsterFight).Questions.Keys);
+        Assert.Contains("kite", CombatStanceJev.Build(monsterFight with { RecentInterrupts = Several }).Questions.Keys);
+        Assert.Contains("kite", CombatStanceJev.Build(monsterFight with { ManaFraction = Empty }).Questions.Keys);
+        Assert.Null(CombatStanceJev.Read(Answers(("kite", Sure), ("press", Doubtful)), monsterFight).Stance);
+    }
+
+    [Fact]
+    public void NextAsk_SameWordsExtendOrSkip_UnsureWordsAreNotAskedAgain()
+    {
+        Assert.Equal(StanceAskStep.Extend, CombatStanceJev.NextAsk(sameWords: true, stanceStands: true, unsureBefore: false));
+        Assert.Equal(StanceAskStep.Skip, CombatStanceJev.NextAsk(sameWords: true, stanceStands: false, unsureBefore: true));
+        Assert.Equal(StanceAskStep.Skip, CombatStanceJev.NextAsk(sameWords: false, stanceStands: false, unsureBefore: true));
+        Assert.Equal(StanceAskStep.Ask, CombatStanceJev.NextAsk(sameWords: false, stanceStands: true, unsureBefore: false));
+    }
+
+    [Fact]
     public void Build_TheStateIsAFewLinesOfWords()
     {
         var decision = CombatStanceJev.Build(

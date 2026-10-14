@@ -93,7 +93,7 @@ public class EscapeRulesTests
     public void ChooseStep_OnTheCoast_TurnsAlongItInsteadOfIntoTheWater()
     {
         var from = new Point3D(3, 5, 0);
-        var direction = EscapeRules.ChooseStep(Coast.Step, from, 6, 5, Lookahead);
+        var direction = EscapeRules.ChooseStep(Coast.Step, from, 6, 5, Lookahead, EscapeRules.NoIdleFoes);
 
         Assert.True(direction is (int)Direction.North or (int)Direction.South, $"chose {(Direction)direction}");
     }
@@ -102,7 +102,7 @@ public class EscapeRulesTests
     public void ChooseStep_OnOpenGround_StepsAwayFromTheThreat()
     {
         var from = new Point3D(10, 7, 0);
-        var direction = EscapeRules.ChooseStep(Field.Step, from, 13, 7, Lookahead);
+        var direction = EscapeRules.ChooseStep(Field.Step, from, 13, 7, Lookahead, EscapeRules.NoIdleFoes);
 
         Assert.True(
             direction is (int)Direction.West or (int)Direction.Up or (int)Direction.Left,
@@ -114,9 +114,51 @@ public class EscapeRulesTests
     public void ChooseStep_LeavesByOpenGroundRatherThanIntoADeadEnd()
     {
         var from = new Point3D(4, 4, 0);
-        var direction = EscapeRules.ChooseStep(Pocket.Step, from, 8, 4, Lookahead);
+        var direction = EscapeRules.ChooseStep(Pocket.Step, from, 8, 4, Lookahead, EscapeRules.NoIdleFoes);
 
         Assert.True(direction is (int)Direction.North or (int)Direction.South, $"chose {(Direction)direction}");
+    }
+
+    [Fact]
+    public void ChooseStep_NotTowardAMonsterThatHasNotNoticedTheRunner()
+    {
+        // Straight away to the west stands a monster not on the runner yet: backing into it
+        // pulled it into the fight. The runner turns along the open ground instead.
+        var from = new Point3D(10, 7, 0);
+        var idle = new List<Point3D> { new(5, 7, 0) };
+        var direction = EscapeRules.ChooseStep(Field.Step, from, 13, 7, Lookahead, idle);
+
+        Assert.True(direction is (int)Direction.North or (int)Direction.South, $"chose {(Direction)direction}");
+    }
+
+    [Fact]
+    public void IdleFoesNear_CountsThoseWithinReach()
+    {
+        var at = new Point3D(10, 10, 0);
+        var idle = new List<Point3D>
+        {
+            new(10 + EscapeRules.IdleFoeTiles, 10, 0),
+            new(10, 10 - EscapeRules.IdleFoeTiles, 0),
+            new(10 + EscapeRules.IdleFoeTiles + 1, 10, 0)
+        };
+
+        Assert.Equal(2, EscapeRules.IdleFoesNear(idle, at));
+        Assert.Equal(0, EscapeRules.IdleFoesNear(EscapeRules.NoIdleFoes, at));
+    }
+
+    [Fact]
+    public void PickGoal_AGoalBesideAnIdleMonsterLosesToOneClearOfIt()
+    {
+        var from = new Point3D(10, 10, 0);
+        var options = new List<EscapeOption>
+        {
+            new(new Point3D(2, 4, 0), Exits: 8, Known: true),
+            new(new Point3D(2, 16, 0), Exits: 8, Known: true)
+        };
+        var idle = new List<Point3D> { new(1, 3, 0) };
+
+        Assert.Equal(0, EscapeRules.PickGoal(options, from, 13, 10, safety: null, EscapeRules.NoIdleFoes));
+        Assert.Equal(1, EscapeRules.PickGoal(options, from, 13, 10, safety: null, idle));
     }
 
     [Fact]
@@ -124,7 +166,7 @@ public class EscapeRulesTests
     {
         var from = new Point3D(2, 4, 0);
 
-        Assert.Equal(EscapeRules.NoChoice, EscapeRules.ChooseStep(Pocket.Step, from, 8, 4, Lookahead));
+        Assert.Equal(EscapeRules.NoChoice, EscapeRules.ChooseStep(Pocket.Step, from, 8, 4, Lookahead, EscapeRules.NoIdleFoes));
     }
 
     [Fact]
@@ -145,7 +187,7 @@ public class EscapeRulesTests
 
     [Fact]
     public void GoalScore_TooLittleGainIsNoOption() =>
-        Assert.Equal(int.MinValue, EscapeRules.GoalScore(EscapeRules.MinGainTiles - 1, 3, 8, known: true, towardSafety: true));
+        Assert.Equal(int.MinValue, EscapeRules.GoalScore(EscapeRules.MinGainTiles - 1, 3, 8, known: true, towardSafety: true, idleFoesNear: 0));
 
     [Fact]
     public void PickGoal_KnownGroundBeatsTheSameGainUnwalked()
@@ -157,7 +199,7 @@ public class EscapeRulesTests
             new(new Point3D(2, 12, 0), Exits: 8, Known: true)
         };
 
-        Assert.Equal(1, EscapeRules.PickGoal(options, from, 13, 10, safety: null));
+        Assert.Equal(1, EscapeRules.PickGoal(options, from, 13, 10, safety: null, EscapeRules.NoIdleFoes));
     }
 
     [Fact]
@@ -170,7 +212,7 @@ public class EscapeRulesTests
             new(new Point3D(2, 12, 0), Exits: 6, Known: true)
         };
 
-        Assert.Equal(1, EscapeRules.PickGoal(options, from, 13, 10, safety: null));
+        Assert.Equal(1, EscapeRules.PickGoal(options, from, 13, 10, safety: null, EscapeRules.NoIdleFoes));
     }
 
     [Fact]
@@ -183,7 +225,7 @@ public class EscapeRulesTests
             new(new Point3D(10, 18, 0), Exits: 8, Known: false)
         };
 
-        Assert.Equal(1, EscapeRules.PickGoal(options, from, 10, 10, safety: new Point3D(10, 40, 0)));
+        Assert.Equal(1, EscapeRules.PickGoal(options, from, 10, 10, safety: new Point3D(10, 40, 0), EscapeRules.NoIdleFoes));
     }
 
     [Fact]
@@ -192,7 +234,7 @@ public class EscapeRulesTests
         var from = new Point3D(10, 10, 0);
         var options = new List<EscapeOption> { new(new Point3D(12, 10, 0), Exits: 8, Known: true) };
 
-        Assert.Equal(EscapeRules.NoChoice, EscapeRules.PickGoal(options, from, 13, 10, safety: null));
+        Assert.Equal(EscapeRules.NoChoice, EscapeRules.PickGoal(options, from, 13, 10, safety: null, EscapeRules.NoIdleFoes));
     }
 
     [Fact]

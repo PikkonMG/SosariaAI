@@ -567,6 +567,26 @@ public sealed class HuntSkill : Skill, IHuntingSkill
         return strongest;
     }
 
+    /// <summary>
+    /// Where the rated hostiles in sight stand that are not on <paramref name="character"/> yet,
+    /// <paramref name="threat"/> left out. A runner keeps off them: a flee scored on the ground
+    /// alone ran into the next monster and brought it along.
+    /// </summary>
+    public static List<Point3D> IdleHostileSpots(SosariaCharacter character, Mobile threat)
+    {
+        var spots = new List<Point3D>();
+
+        foreach (var (mobile, _) in RatedHostiles(character, character?.Location ?? Point3D.Zero))
+        {
+            if (mobile != threat && mobile.Combatant != character)
+            {
+                spots.Add(mobile.Location);
+            }
+        }
+
+        return spots;
+    }
+
     private static List<(Mobile Mobile, HostileStats Stats)> RatedHostiles(
         SosariaCharacter character,
         Point3D origin

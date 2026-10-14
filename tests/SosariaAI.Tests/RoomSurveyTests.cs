@@ -32,8 +32,15 @@ public class RoomSurveyTests
     private const int RangedBeyondBand = 11;
     private const int PackEastX = 110;
     private const int LegTiles = 10;
+    private const int MongbatHits = 6;
+    private const int MongbatStrength = 15;
+    private const int MongbatAverageDamage = 3;
+    private const int Dare = 100;
+    private const double Multiple = 1.0;
+    private const bool NotHunted = false;
 
     private static readonly HostileStats Troll = new(TrollHits, TrollStrength, TrollAverageDamage);
+    private static readonly HostileStats Mongbat = new(MongbatHits, MongbatStrength, MongbatAverageDamage);
 
     [Fact]
     public void Finish_EmptyRoom_CentresOnOriginWithNoThreat()
@@ -45,6 +52,8 @@ public class RoomSurveyTests
         Assert.Equal(SelfX, picture.CenterX);
         Assert.Equal(SelfY, picture.CenterY);
         Assert.Equal(RoomSurvey.NoDistance, picture.NearestDistance);
+        Assert.Equal(NoneCount, picture.AttackerThreat);
+        Assert.Equal(RoomSurvey.NoDistance, picture.AttackerNearest);
     }
 
     [Fact]
@@ -64,6 +73,46 @@ public class RoomSurveyTests
         Assert.Equal(ExpectedCenterX, picture.CenterX);
         Assert.Equal(NearDistance, picture.NearestDistance);
         Assert.Equal(FarDistance, picture.SecondDistance);
+        Assert.Equal(OneTrollThreat, picture.AttackerThreat);
+        Assert.Equal(NearDistance, picture.AttackerNearest);
+    }
+
+    [Fact]
+    public void Finish_AnIdleTrollNear_IsNotPartOfTheAttackersRead()
+    {
+        var tally = new RoomTally();
+        tally.Add(NearX, SelfY, NearDistance, onSelf: false, Troll);
+        tally.Add(FarX, SelfY, FarDistance, onSelf: true, Troll);
+
+        var picture = tally.Finish(SelfX, SelfY);
+
+        Assert.Equal(TwoTrollThreat, picture.Threat);
+        Assert.Equal(NearDistance, picture.NearestDistance);
+        Assert.Equal(OneTrollThreat, picture.AttackerThreat);
+        Assert.Equal(FarDistance, picture.AttackerNearest);
+    }
+
+    [Fact]
+    public void AnIdleTrollBesideAMongbatFight_NeitherOutnumbersNorKeepsTheRunGoing()
+    {
+        // One idle monster in sight of a mongbat fight sent the fighter running, and the run
+        // pulled it in. The run tests read the attackers alone.
+        var tally = new RoomTally();
+        tally.Add(NearX, SelfY, NearDistance, onSelf: true, Mongbat);
+        tally.Add(NearX, SelfY + NearDistance, NearDistance, onSelf: true, Mongbat);
+        tally.Add(NearX + NearDistance, SelfY, NearDistance + NearDistance, onSelf: false, Troll);
+
+        var picture = tally.Finish(SelfX, SelfY);
+
+        Assert.True(RetreatRules.IsOutnumbered(picture.Attackers, picture.Threat, Dare, Multiple));
+        Assert.False(RetreatRules.IsOutnumbered(picture.Attackers, picture.AttackerThreat, Dare, Multiple));
+
+        var runnerTally = new RoomTally();
+        runnerTally.Add(NearX, SelfY, NearDistance, onSelf: false, Troll);
+        var runner = runnerTally.Finish(SelfX, SelfY);
+
+        Assert.False(RetreatRules.IsClear(runner.NearestDistance, RoomSurvey.NoDistance, NotHunted));
+        Assert.True(RetreatRules.IsClear(runner.AttackerNearest, RoomSurvey.NoDistance, NotHunted));
     }
 
     [Fact]

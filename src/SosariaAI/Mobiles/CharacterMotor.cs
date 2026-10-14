@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Server;
 using SosariaAI.Behaviour;
 using SosariaAI.Combat;
@@ -46,6 +47,7 @@ public sealed class CharacterMotor
     private int _intentRange;
     private long _intentExpiresAt;
     private Point3D _awayFrom;
+    private IReadOnlyList<Point3D> _awayIdleFoes = EscapeRules.NoIdleFoes;
     private int _awaySteps;
     private readonly ApproachProgress _approach = new();
     private Mobile _approachGoal;
@@ -316,13 +318,17 @@ public sealed class CharacterMotor
         return !_approachGaveUp && (_character.Location != at || !couldMove);
     }
 
+    /// <summary>One step back from a threat, with no idle hostile to keep off.</summary>
+    public bool StepAwayFrom(IPoint3D threat) => StepAwayFrom(threat, EscapeRules.NoIdleFoes);
+
     /// <summary>
     /// One step back from a threat, the way a player looks where it goes: never nearer the
-    /// threat, along a wall or a coast rather than into it, and toward open ground rather than
-    /// a corner or a dead end (<see cref="EscapeRules.ChooseStep"/>). False when no step is
-    /// possible now or the way back is shut.
+    /// threat, along a wall or a coast rather than into it, toward open ground rather than
+    /// a corner or a dead end, and not toward one of <paramref name="idleFoes"/>, the hostiles
+    /// not on it yet (<see cref="EscapeRules.ChooseStep"/>). False when no step is possible now
+    /// or the way back is shut.
     /// </summary>
-    public bool StepAwayFrom(IPoint3D threat)
+    public bool StepAwayFrom(IPoint3D threat, IReadOnlyList<Point3D> idleFoes)
     {
         if (threat == null || InBadState() || !CanMoveNow)
         {
@@ -334,19 +340,21 @@ public sealed class CharacterMotor
             _character.Location,
             threat.X,
             threat.Y,
-            EscapeRules.KiteLookahead
+            EscapeRules.KiteLookahead,
+            idleFoes
         );
 
         return direction != EscapeRules.NoChoice && DoMove((Direction)direction);
     }
 
     /// <summary>
-    /// Backs away from a threat for <paramref name="steps"/> steps: the first now when the move
-    /// clock allows, the rest on the move clock at the body's own pace, never two in one instant.
-    /// False when pinned: the step was due and every way back was shut, or the back-off has run
-    /// in place for <see cref="AwayStallMs"/> (a wall, a corner, a dead end).
+    /// Backs away from a threat for <paramref name="steps"/> steps, clear of the
+    /// <paramref name="idleFoes"/>: the first now when the move clock allows, the rest on the
+    /// move clock at the body's own pace, never two in one instant. False when pinned: the step
+    /// was due and every way back was shut, or the back-off has run in place for
+    /// <see cref="AwayStallMs"/> (a wall, a corner, a dead end).
     /// </summary>
-    public bool BackAway(IPoint3D threat, int steps)
+    public bool BackAway(IPoint3D threat, int steps, IReadOnlyList<Point3D> idleFoes)
     {
         if (threat == null || steps <= 0 || InBadState(ignoreClock: true))
         {
@@ -356,6 +364,7 @@ public sealed class CharacterMotor
         _path = null;
         RenewIntent(null, null, 0);
         _awayFrom = new Point3D(threat.X, threat.Y, threat.Z);
+        _awayIdleFoes = idleFoes;
         _awaySteps = steps;
 
         if (AwayStalled())
@@ -388,7 +397,7 @@ public sealed class CharacterMotor
 
     private bool TakeAwayStep()
     {
-        if (StepAwayFrom(_awayFrom))
+        if (StepAwayFrom(_awayFrom, _awayIdleFoes))
         {
             _awaySteps--;
             return true;

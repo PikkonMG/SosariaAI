@@ -46,11 +46,11 @@ public sealed class FleeSkill : Skill
         _started = Core.Now;
         _failedLegs = 0;
         _failedGoals.Clear();
-        var threat = ThreatLocation();
+        var threat = Threat();
 
-        if (threat != character.Location)
+        if (threat != null && threat.Location != character.Location)
         {
-            character.Memory.Danger.Note(threat, Core.Now);
+            character.Memory.Danger.Note(threat.Location, Core.Now);
         }
 
         if (FleeRules.KeepsAwayFromParty(character.Memory.Danger.RecentRuns(Core.Now)))
@@ -106,7 +106,7 @@ public sealed class FleeSkill : Skill
             _failedGoals.Add(_goal);
         }
 
-        if (!StartLeg(ThreatLocation()))
+        if (!StartLeg(Threat()))
         {
             _failedLegs++;
         }
@@ -141,11 +141,14 @@ public sealed class FleeSkill : Skill
             ?.Nearest(character.Location, DestinationKind.Bank)
             ?.Arrival;
 
-    private bool StartLeg(Point3D threat)
+    private bool StartLeg(Mobile threat)
     {
         _walk?.Abort();
         _walk = null;
-        if (EscapeRoute.PickGoal(_character, threat, FleeRules.CoveredTiles, SafePlace(_character), _failedGoals) is not { } goal)
+        var from = threat?.Location ?? _character.Location;
+        var idleFoes = HuntSkill.IdleHostileSpots(_character, threat);
+
+        if (EscapeRoute.PickGoal(_character, from, FleeRules.CoveredTiles, SafePlace(_character), _failedGoals, idleFoes) is not { } goal)
         {
             return false;
         }
@@ -163,9 +166,9 @@ public sealed class FleeSkill : Skill
         return false;
     }
 
-    private Point3D ThreatLocation()
+    private Mobile Threat()
     {
         var hostile = HuntSkill.StrongestHostile(_character) ?? _character.Combatant;
-        return hostile is { Deleted: false } ? hostile.Location : _character.Location;
+        return hostile is { Deleted: false } ? hostile : null;
     }
 }

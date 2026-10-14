@@ -336,7 +336,7 @@ public static partial class CombatBrain
     /// A bow shoots only after the archer stood still (a full second before AOS), so an archer
     /// holds a band of distance. A foe inside the band is stepped away from when a shot would
     /// not get off before its blow, and shot where the archer stands once the steps cannot
-    /// buy the room.
+    /// buy the room. The break-away runs on until an arrow leaves (<see cref="NoteShot"/>).
     /// </summary>
     private static void FightAsArcher(SosariaCharacter character, Memory memory, Mobile foe, int distance, CombatStance stance)
     {
@@ -344,6 +344,8 @@ public static partial class CombatBrain
         {
             return;
         }
+
+        NoteShot(character, memory, foe);
 
         if (!character.InLOS(foe))
         {
@@ -367,46 +369,30 @@ public static partial class CombatBrain
             now - character.LastMoveTime,
             character.NextCombatTime - now
         );
-        var holds = CastTiming.Holds(needMs, memory.Threats.SoonestBlowMs);
-        ExpireBreakAway(memory);
-        var footwork = distance >= ArcherKeepMin
-            ? Footwork.Act
-            : FootworkRules.Next(holds, KitingMs(memory), memory.Pinned, stance);
+        var holds = distance >= ArcherKeepMin || CastTiming.Holds(needMs, memory.Threats.SoonestBlowMs);
+        var footwork = FootworkNow(memory, holds, stance);
 
         NoteReach(memory, foe, blocked: false);
 
-        switch (footwork)
+        if (footwork == Footwork.OpenGap)
         {
-            case Footwork.OpenGap:
-            {
-                OpenGap(character, memory, foe, FootworkRules.RetreatSteps(memory.Threats.NearestDistance));
-                return;
-            }
-            case Footwork.Commit:
-            {
-                if (!memory.Committed && LogsOnce(character, ShakeLine, foe))
-                {
-                    logger.Information(
-                        "{Name} cannot shake {Foe} ({Why}) and shoots where it stands",
-                        character.Name,
-                        foe.Name,
-                        CommitReason(memory, stance)
-                    );
-                }
+            StepOut(character, memory, foe);
+            return;
+        }
 
-                memory.Committed = true;
-                break;
-            }
-            default:
+        if (footwork == Footwork.Commit)
+        {
+            if (!memory.Committed && LogsOnce(character, ShakeLine, foe))
             {
-                if (memory.KitingSince != 0 && !memory.Committed && LogsOnce(character, StepClearLine, foe))
-                {
-                    logger.Information("{Name} stepped clear of {Foe} to shoot", character.Name, foe.Name);
-                }
-
-                EndKite(memory);
-                break;
+                logger.Information(
+                    "{Name} cannot shake {Foe} ({Why}) and shoots where it stands",
+                    character.Name,
+                    foe.Name,
+                    CommitReason(memory, stance)
+                );
             }
+
+            memory.Committed = true;
         }
 
         character.Motor.Stop();
@@ -419,15 +405,18 @@ public static partial class CombatBrain
     /// Leaves on the numbers, on a foe far past its dare, or on the hit line, unless the trade
     /// of blows says the fight is being won; or at once when Jev <paramref name="ordered"/> the
     /// flee. A person is left at the same line as a monster. Never where the guards shelter it
-    /// (a red under the guards may run out), never from a room too weak to be a threat
+    /// (a red under the guards may run out), never from attackers too weak to be a threat
     /// (FleeRules.MayFlee), and never once a hunted runner stands fast in its corner
-    /// (<see cref="RetreatRules.StandsFast"/>), not even on Jev's word.
+    /// (<see cref="RetreatRules.StandsFast"/>), not even on Jev's word. The threat and the
+    /// numbers are the attackers' alone (<see cref="RoomPicture.AttackerThreat"/>): weighed on
+    /// the whole room, one idle monster in sight of a mongbat fight sent the fighter running,
+    /// and the run pulled the idle one in.
     /// </summary>
     private static bool TryRetreat(SosariaCharacter character, Memory memory, Mobile foe, bool ordered)
     {
         var picture = memory.Picture;
 
-        if (memory.StandsFast || !FleeRules.MayFlee(GuardsShelter(character), picture.Threat))
+        if (memory.StandsFast || !FleeRules.MayFlee(GuardsShelter(character), picture.AttackerThreat))
         {
             return false;
         }
@@ -438,7 +427,7 @@ public static partial class CombatBrain
         var hits = Vitals.HitsFraction(character);
         var outnumbered = memory.PickingOff
             ? RetreatRules.PackCaughtUp(picture.CloseAttackers, picture.CloseThreat, dare, multiple)
-            : RetreatRules.IsOutnumbered(picture.Attackers, picture.Threat, dare, multiple);
+            : RetreatRules.IsOutnumbered(picture.Attackers, picture.AttackerThreat, dare, multiple);
         var overwhelmed = DangerRules.Overwhelms(SoloThreatOf(memory, foe), dare, Party.AlliesPower(character), multiple);
         var line = RetreatRules.Line(BaseLineOf(character), nerve, picture.Attackers);
         var gambling = RetreatRules.IsGambling(nerve, picture.Attackers, hits, Vitals.HitsFraction(foe));
@@ -638,7 +627,7 @@ public static partial class CombatBrain
         if (!character.CheckFlee())
         {
             if (!RetreatRules.RunsOn(
-                    RetreatRules.IsClear(memory.Picture.NearestDistance, SourceDistance(character, memory), memory.Hunted),
+                    RetreatRules.IsClear(memory.Picture.AttackerNearest, SourceDistance(character, memory), memory.Hunted),
                     ChaserOnRunner(character, memory) != null,
                     Core.TickCount - memory.LastFleeAt))
             {
@@ -653,7 +642,7 @@ public static partial class CombatBrain
         var scanned = ScanIfDue(character, memory);
         var picture = memory.Picture;
 
-        if (RetreatRules.IsClear(picture.NearestDistance, SourceDistance(character, memory), memory.Hunted))
+        if (RetreatRules.IsClear(picture.AttackerNearest, SourceDistance(character, memory), memory.Hunted))
         {
             if (Changed(memory, Decision.Clear))
             {
@@ -907,7 +896,7 @@ public static partial class CombatBrain
 
         if (FightPullRules.KeepsDrawing(follows, now - memory.PullSince, memory.Picture.Count, NavMetric.Chebyshev(character.Location, group)))
         {
-            StepClear(character, group);
+            StepClear(character, memory, group);
             return true;
         }
 
@@ -1081,15 +1070,17 @@ public static partial class CombatBrain
     /// <summary>
     /// Runs one leg away from the middle of the pack, not from the one foe in view, to a place
     /// it can reach (<see cref="EscapeRoute"/>): along a coast or a wall, back the way it came,
-    /// or to a road node, never into the water or a corner. Arriving still in trouble chains to
-    /// the next leg; a leg that points back toward the pack is replaced; one that stalls is
-    /// struck off and another is picked. With no place to go it steps clear by the ground.
-    /// False when it could not move at all this think.
+    /// or to a road node, never into the water or a corner, and not past a hostile that is not
+    /// on it yet (<see cref="ReadIdleFoes"/>). Arriving still in trouble chains to the next leg;
+    /// a leg that points back toward the pack is replaced; one that stalls is struck off and
+    /// another is picked. With no place to go it steps clear by the ground. False when it could
+    /// not move at all this think.
     /// </summary>
     private static bool RunFromPack(SosariaCharacter character, Memory memory, RoomPicture picture)
     {
         var here = character.Location;
         var pack = new Point3D(picture.CenterX, picture.CenterY, character.Z);
+        ReadIdleFoes(character, memory, target: null);
 
         if (memory.EscapeGoal != null &&
             (NavMetric.Chebyshev(here, memory.EscapeAt) <= EscapeRules.SameGoalTiles ||
@@ -1103,13 +1094,20 @@ public static partial class CombatBrain
             // Reading the ground costs a few hundred step checks; with nowhere found it waits a moment.
             if (Core.TickCount - memory.NextEscapePickAt < 0)
             {
-                return StepClear(character, pack);
+                return StepClear(character, memory, pack);
             }
 
-            if (EscapeRoute.PickGoal(character, pack, EscapeRules.LegTiles, SafetyFrom(character, memory), memory.StalledEscapes) is not { } goal)
+            if (EscapeRoute.PickGoal(
+                    character,
+                    pack,
+                    EscapeRules.LegTiles,
+                    SafetyFrom(character, memory),
+                    memory.StalledEscapes,
+                    memory.IdleFoes
+                ) is not { } goal)
             {
                 memory.NextEscapePickAt = Core.TickCount + RetreatRules.EscapeRepickMs;
-                return StepClear(character, pack);
+                return StepClear(character, memory, pack);
             }
 
             memory.EscapeAt = goal;
@@ -1135,7 +1133,7 @@ public static partial class CombatBrain
 
         memory.StalledEscapes.Add(memory.EscapeAt);
         memory.EscapeGoal = null;
-        return StepClear(character, pack);
+        return StepClear(character, memory, pack);
     }
 
     /// <summary>
@@ -1146,9 +1144,9 @@ public static partial class CombatBrain
     private static Point3D? SafetyFrom(SosariaCharacter character, Memory memory) =>
         People.IsLivingPlayer(memory.FleeFrom) ? FleeSkill.SafePlace(character) : null;
 
-    /// <summary>One step back from the pack by the ground; true while the body could not step yet or did.</summary>
-    private static bool StepClear(SosariaCharacter character, Point3D pack) =>
-        !character.Motor.CanMoveNow || character.Motor.StepAwayFrom(pack);
+    /// <summary>One step back from the pack by the ground, clear of the idle hostiles; true while the body could not step yet or did.</summary>
+    private static bool StepClear(SosariaCharacter character, Memory memory, Point3D pack) =>
+        !character.Motor.CanMoveNow || character.Motor.StepAwayFrom(pack, memory.IdleFoes);
 
     /// <summary>
     /// Ends the fight: no combatant, no war mode, no focus, back to wandering. Leaving the

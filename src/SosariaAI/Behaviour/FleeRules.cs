@@ -41,6 +41,15 @@ public static class FleeRules
     public static bool MayFleeAttacker(int threat) => threat >= ThreatRating.MinThreatToFlee;
 
     /// <summary>
+    /// A fighter hit on a hunt answers the attacker unless it is far past the dare
+    /// (<paramref name="overwhelmed"/>); hit at any other job it runs from what it would not
+    /// fight back, but never from a threat too weak to run from (<see cref="MayFleeAttacker"/>),
+    /// the floor a worker already had. Without it a hurt fighter at a job ran from a mongbat.
+    /// </summary>
+    public static bool FighterRunsFromHit(bool hunting, bool overwhelmed, bool wouldFight, int threat) =>
+        hunting ? overwhelmed : !wouldFight && MayFleeAttacker(threat);
+
+    /// <summary>
     /// The one rule for running away. The goal loop and the danger check both use it, so
     /// a character is never stopped for danger and then offered no way to run.
     /// </summary>

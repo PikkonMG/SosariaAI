@@ -125,6 +125,12 @@ public static partial class CombatBrain
         public long KitingSince;
         public bool Pinned;
         public bool Committed;
+
+        /// <summary>The bow's swing clock at the last read, to tell when an arrow left (<see cref="FootworkRules.Fired"/>).</summary>
+        public long SwingClock;
+
+        /// <summary>Where the hostiles not on this character yet stand, for the steps and the runs to keep off.</summary>
+        public readonly List<Point3D> IdleFoes = new(MaxSightings);
         public SpellKind? Planned;
         public long UnreachableSince;
         public Point3D UnreachableFoeAt;
@@ -136,6 +142,9 @@ public static partial class CombatBrain
         public string StanceAskKey;
         public bool StanceAskInFlight;
         public int StanceAsks;
+
+        /// <summary>The words Jev was unsure about this fight; they are not asked again until it ends.</summary>
+        public readonly HashSet<string> UnsureStanceKeys = new();
         public int CastsThisFight;
         public int BrokenThisFight;
 
@@ -198,6 +207,8 @@ public static partial class CombatBrain
             KitingSince = 0;
             Pinned = false;
             Committed = false;
+            SwingClock = 0;
+            IdleFoes.Clear();
             Planned = null;
             UnreachableSince = 0;
             FightId++;
@@ -208,6 +219,7 @@ public static partial class CombatBrain
             StanceAskKey = null;
             StanceAskInFlight = false;
             StanceAsks = 0;
+            UnsureStanceKeys.Clear();
             CastsThisFight = 0;
             BrokenThisFight = 0;
             FleeFrom = null;

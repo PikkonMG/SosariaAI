@@ -102,7 +102,9 @@ public static partial class CombatBrain
 
     /// <summary>
     /// Asks Jev for a stance when the fight is worth it and its words changed since the last
-    /// answer, at most once per ask gap. The same words keep the last answer standing without a call.
+    /// answer, at most once per ask gap (<see cref="CombatStanceJev.NextAsk"/>). The same words
+    /// keep the last answer standing without a call, for one of the fight's asks; words Jev was
+    /// unsure about are not asked again this fight.
     /// </summary>
     private static void TryAskStance(SosariaCharacter character, Memory memory, Mobile foe, StanceSituation situation, long now)
     {
@@ -120,20 +122,23 @@ public static partial class CombatBrain
         }
 
         var key = CombatStanceJev.Key(situation);
+        var step = CombatStanceJev.NextAsk(
+            key == memory.StanceAskKey,
+            memory.JevStance != null,
+            memory.UnsureStanceKeys.Contains(key)
+        );
 
-        if (key == memory.StanceAskKey)
+        if (step == StanceAskStep.Extend)
         {
-            if (memory.JevStance != null)
-            {
-                memory.StanceUntil = now + CombatStanceJev.StanceHoldMs;
-            }
-
+            memory.StanceUntil = now + CombatStanceJev.StanceHoldMs;
+            memory.StanceAsks++;
             return;
         }
 
         var fight = memory.FightId;
 
-        if (!CombatStanceJev.TryAsk(character, foe, situation, verdict => ApplyVerdict(character, fight, foe, verdict)))
+        if (step != StanceAskStep.Ask ||
+            !CombatStanceJev.TryAsk(character, foe, situation, verdict => ApplyVerdict(character, fight, foe, key, verdict)))
         {
             return;
         }
@@ -158,12 +163,20 @@ public static partial class CombatBrain
         return StanceRules.WorthAsking(situation.FoeIsPerson, threat, dare, situation.HitsFraction);
     }
 
-    /// <summary>Jev's answer, back on the world thread. An answer for a fight already over is dropped.</summary>
-    private static void ApplyVerdict(SosariaCharacter character, int fight, Mobile foe, StanceVerdict verdict)
+    /// <summary>
+    /// Jev's answer to the words <paramref name="key"/>, back on the world thread. An answer for
+    /// a fight already over is dropped; an unsure one marks the words, so they are not asked again.
+    /// </summary>
+    private static void ApplyVerdict(SosariaCharacter character, int fight, Mobile foe, string key, StanceVerdict verdict)
     {
         if (!Memories.TryGetValue(character, out var memory) || memory.FightId != fight)
         {
             return;
+        }
+
+        if (verdict.Stance == null)
+        {
+            memory.UnsureStanceKeys.Add(key);
         }
 
         memory.StanceAskInFlight = false;

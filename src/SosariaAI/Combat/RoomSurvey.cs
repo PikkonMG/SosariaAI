@@ -8,7 +8,9 @@ namespace SosariaAI.Combat;
 /// <summary>
 /// What one glance at a room tells a player: how many hostiles, what they rate together,
 /// how many are on me, how many of those can hit me this second, where the mass of them
-/// stands, and how far the nearest two are.
+/// stands, and how far the nearest two are. The ones on me apart: what they rate together
+/// (<see cref="AttackerThreat"/>) and how far the nearest of them is (<see cref="AttackerNearest"/>).
+/// A monster in sight that is not on me is no reason to run, and running from it pulls it in.
 /// </summary>
 public readonly record struct RoomPicture(
     int Count,
@@ -19,7 +21,9 @@ public readonly record struct RoomPicture(
     int CenterX,
     int CenterY,
     int NearestDistance,
-    int SecondDistance
+    int SecondDistance,
+    int AttackerThreat,
+    int AttackerNearest
 )
 {
     public bool Any => Count > 0;
@@ -32,24 +36,26 @@ public readonly record struct RoomPicture(
 public sealed class RoomTally
 {
     private readonly List<HostileStats> _all = [];
+    private readonly List<HostileStats> _attackers = [];
     private readonly List<HostileStats> _close = [];
-    private int _attackers;
     private long _sumX;
     private long _sumY;
     private int _nearest;
     private int _second;
+    private int _attackerNearest;
 
     public RoomTally() => Reset();
 
     public void Reset()
     {
         _all.Clear();
+        _attackers.Clear();
         _close.Clear();
-        _attackers = 0;
         _sumX = 0;
         _sumY = 0;
         _nearest = RoomSurvey.NoDistance;
         _second = RoomSurvey.NoDistance;
+        _attackerNearest = RoomSurvey.NoDistance;
     }
 
     public void Add(int x, int y, int distance, bool onSelf, HostileStats stats)
@@ -73,7 +79,8 @@ public sealed class RoomTally
             return;
         }
 
-        _attackers++;
+        _attackers.Add(stats);
+        _attackerNearest = Math.Min(_attackerNearest, distance);
 
         if (RoomSurvey.IsClose(distance))
         {
@@ -88,13 +95,15 @@ public sealed class RoomTally
         return new RoomPicture(
             count,
             ThreatRating.Score(_all),
-            _attackers,
+            _attackers.Count,
             _close.Count,
             ThreatRating.Score(_close),
             count == 0 ? originX : (int)(_sumX / count),
             count == 0 ? originY : (int)(_sumY / count),
             _nearest,
-            _second
+            _second,
+            ThreatRating.Score(_attackers),
+            _attackerNearest
         );
     }
 }

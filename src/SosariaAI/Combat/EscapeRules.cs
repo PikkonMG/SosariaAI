@@ -17,9 +17,10 @@ public readonly record struct EscapeOption(Point3D At, int Exits, bool Known);
 /// <summary>
 /// Where to run, judged on the ground itself. A player backing off a monster looks where it
 /// is going: it turns along a coast or a wall instead of pushing into it, leaves by open
-/// ground that keeps room to keep moving, and never backs into a corner or a dead end. The
-/// walk is tested step by step with the engine's own step check (a <see cref="TileStep"/>),
-/// so a way that is blocked is never chosen. Pure over the step delegate.
+/// ground that keeps room to keep moving, never backs into a corner or a dead end, and does
+/// not run past a monster that has not noticed it yet. The walk is tested step by step with
+/// the engine's own step check (a <see cref="TileStep"/>), so a way that is blocked is never
+/// chosen. Pure over the step delegate.
 /// </summary>
 public static class EscapeRules
 {
@@ -50,6 +51,22 @@ public static class EscapeRules
     public const int DeadEndPenalty = 12;
     public const int KnownBonus = 4;
     public const int SafetyBonus = 6;
+
+    /// <summary>
+    /// A hostile not on the runner yet this near where a step or a leg leads is walked into and
+    /// joins the fight. Steps and legs scored on the ground alone ran a fighter backing off one
+    /// monster into the next one, and the run pulled it in.
+    /// </summary>
+    public const int IdleFoeTiles = 4;
+
+    /// <summary>A step toward an idle hostile costs one tile more than a straight step away gains.</summary>
+    public const int IdleFoeStepPenalty = (KiteLookahead + 1) * AwayWeight;
+
+    /// <summary>A leg that ends by an idle hostile costs one tile more than a whole leg away gains.</summary>
+    public const int IdleFoeGoalPenalty = (LegTiles + 1) * AwayWeight;
+
+    /// <summary>No idle hostile to keep off: a walker that only steps away from one threat.</summary>
+    public static readonly IReadOnlyList<Point3D> NoIdleFoes = [];
 
     /// <summary>A goal this near one that stalled is the same goal.</summary>
     public const int SameGoalTiles = 1;
@@ -142,17 +159,34 @@ public static class EscapeRules
     /// <summary>A straight walk that hit something and has at most the way back and one turn left.</summary>
     public static bool IsDeadEnd(int reach, int maxSteps, int exits) => reach < maxSteps && exits <= DeadEndExits;
 
-    public static int StepScore(int gainTiles, int reach, int maxSteps, int exits) =>
+    public static int StepScore(int gainTiles, int reach, int maxSteps, int exits, int idleFoesNear) =>
         gainTiles * AwayWeight + reach * ReachWeight + exits * ExitWeight -
-        (IsDeadEnd(reach, maxSteps, exits) ? DeadEndPenalty : 0);
+        (IsDeadEnd(reach, maxSteps, exits) ? DeadEndPenalty : 0) - idleFoesNear * IdleFoeStepPenalty;
+
+    /// <summary>How many of <paramref name="idleFoes"/> stand within <see cref="IdleFoeTiles"/> of <paramref name="at"/>.</summary>
+    public static int IdleFoesNear(IReadOnlyList<Point3D> idleFoes, Point3D at)
+    {
+        var near = 0;
+
+        for (var i = 0; i < idleFoes.Count; i++)
+        {
+            if (NavMetric.Chebyshev(at, idleFoes[i]) <= IdleFoeTiles)
+            {
+                near++;
+            }
+        }
+
+        return near;
+    }
 
     /// <summary>
     /// The direction of the next step back from a threat, or <see cref="NoChoice"/> when
     /// pinned. A step never brings the runner nearer the threat; sideways along a wall or a
     /// coast counts. Among the steps left, the one whose short straight walk ends farthest
-    /// away, on open ground, wins.
+    /// away, on open ground, and clear of the <paramref name="idleFoes"/> (hostiles not on the
+    /// runner yet), wins.
     /// </summary>
-    public static int ChooseStep(TileStep step, Point3D from, int threatX, int threatY, int lookahead)
+    public static int ChooseStep(TileStep step, Point3D from, int threatX, int threatY, int lookahead, IReadOnlyList<Point3D> idleFoes)
     {
         var threat = new Point3D(threatX, threatY, from.Z);
         var here = NavMetric.Chebyshev(from, threat);
@@ -171,7 +205,7 @@ public static class EscapeRules
 
             var probe = Probe(step, x, y, z, d, lookahead - 1);
             var gain = NavMetric.Chebyshev(probe.At, threat) - here;
-            var score = StepScore(gain, probe.Reach + 1, lookahead, probe.Exits);
+            var score = StepScore(gain, probe.Reach + 1, lookahead, probe.Exits, IdleFoesNear(idleFoes, probe.At));
 
             if (score > bestScore)
             {
@@ -185,10 +219,10 @@ public static class EscapeRules
 
     /// <summary>
     /// How good a goal is: farther from the pack than here by at least <see cref="MinGainTiles"/>,
-    /// then open ground, known ground (walked in by, or on the road net), and the way to safety.
-    /// A goal that gains too little is no option.
+    /// then open ground, known ground (walked in by, or on the road net), the way to safety, and
+    /// no idle hostile beside it. A goal that gains too little is no option.
     /// </summary>
-    public static int GoalScore(int gainTiles, int legTiles, int exits, bool known, bool towardSafety)
+    public static int GoalScore(int gainTiles, int legTiles, int exits, bool known, bool towardSafety, int idleFoesNear)
     {
         if (gainTiles < MinGainTiles)
         {
@@ -197,11 +231,21 @@ public static class EscapeRules
 
         return gainTiles * AwayWeight - legTiles * LegWeight + exits * ExitWeight +
                (known ? KnownBonus : 0) + (towardSafety ? SafetyBonus : 0) -
-               (exits <= DeadEndExits ? DeadEndPenalty : 0);
+               (exits <= DeadEndExits ? DeadEndPenalty : 0) - idleFoesNear * IdleFoeGoalPenalty;
     }
 
-    /// <summary>The best goal among the options, or <see cref="NoChoice"/>.</summary>
-    public static int PickGoal(IReadOnlyList<EscapeOption> options, Point3D from, int threatX, int threatY, Point3D? safety)
+    /// <summary>
+    /// The best goal among the options, or <see cref="NoChoice"/>. A goal beside one of
+    /// <paramref name="idleFoes"/> loses to any goal clear of them that gains a leg's ground or near it.
+    /// </summary>
+    public static int PickGoal(
+        IReadOnlyList<EscapeOption> options,
+        Point3D from,
+        int threatX,
+        int threatY,
+        Point3D? safety,
+        IReadOnlyList<Point3D> idleFoes
+    )
     {
         var threat = new Point3D(threatX, threatY, from.Z);
         var here = NavMetric.Chebyshev(from, threat);
@@ -217,7 +261,8 @@ public static class EscapeRules
                 NavMetric.Chebyshev(from, option.At),
                 option.Exits,
                 option.Known,
-                towardSafety
+                towardSafety,
+                IdleFoesNear(idleFoes, option.At)
             );
 
             if (score > bestScore)

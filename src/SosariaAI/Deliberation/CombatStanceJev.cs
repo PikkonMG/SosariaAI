@@ -10,6 +10,19 @@ namespace SosariaAI.Deliberation;
 /// <summary>Jev's read of a fight: a stance, or null when the rules must pick.</summary>
 public readonly record struct StanceVerdict(CombatStance? Stance, double Confidence, string Source);
 
+/// <summary>What a due stance ask does with the words of this tick (<see cref="CombatStanceJev.NextAsk"/>).</summary>
+public enum StanceAskStep
+{
+    /// <summary>No call: the words were answered already, or answered unsure this fight.</summary>
+    Skip,
+
+    /// <summary>The same words and a stance standing: hold it longer, for one of the fight's asks.</summary>
+    Extend,
+
+    /// <summary>New words: ask.</summary>
+    Ask
+}
+
 /// <summary>
 /// The tactical advisor for a fight that matters. Code owns the fight: it computes every
 /// number, the trade of blows included, and passes Jev only a few short lines of words (hurt,
@@ -19,8 +32,9 @@ public readonly record struct StanceVerdict(CombatStance? Stance, double Confide
 /// choice they spread their answer thin and lean on shared words. A yes below its risk floor,
 /// or one that does not clearly beat the next, is no answer, and the stance rules pick. Asked
 /// only for a fight that matters (<see cref="StanceRules.WorthAsking"/>), only when the words
-/// changed, at most once per <see cref="AskGapMs"/> per character and
-/// <see cref="MaxAsksPerFight"/> times a fight.
+/// changed and were not answered unsure before in the fight, at most once per
+/// <see cref="AskGapMs"/> per character and <see cref="MaxAsksPerFight"/> times a fight,
+/// extensions of a standing stance counted (<see cref="NextAsk"/>).
 /// </summary>
 public static class CombatStanceJev
 {
@@ -30,7 +44,7 @@ public static class CombatStanceJev
     /// <summary>A stance Jev set stands this long, then the rules take over until the next answer.</summary>
     public const int StanceHoldMs = 6000;
 
-    /// <summary>Asks one fight may make; past it the rules run the rest of the fight.</summary>
+    /// <summary>Asks one fight may make, extensions included; past it the rules run the rest of the fight.</summary>
     public const int MaxAsksPerFight = 6;
 
     public const double HealthyFraction = 0.9;
@@ -99,7 +113,7 @@ public static class CombatStanceJev
 
         foreach (var (name, ask) in StanceAsks)
         {
-            if (StanceRules.Feasible(ask.Stance, s))
+            if (StanceRules.Askable(ask.Stance, s))
             {
                 questions[name] = new JevQuestion(
                     SystemOneApi.NoulType,
@@ -117,9 +131,9 @@ public static class CombatStanceJev
         string.Join(WordSeparator, YouWords(s), FoeWords(s), FightWords(s), MeansWords(s));
 
     /// <summary>
-    /// The feasible stance with the highest yes, when that yes clears its risk floor and beats
-    /// the next yes by <see cref="StanceRules.ClearWinGap"/>; else no stance. Either way the
-    /// verdict names the provider that was asked.
+    /// The askable stance (<see cref="StanceRules.Askable"/>) with the highest yes, when that yes
+    /// clears its risk floor and beats the next yes by <see cref="StanceRules.ClearWinGap"/>; else
+    /// no stance. Either way the verdict names the provider that was asked.
     /// </summary>
     internal static StanceVerdict Read(
         IReadOnlyDictionary<string, SystemOneAnswer> answers,
@@ -137,7 +151,7 @@ public static class CombatStanceJev
         {
             foreach (var (name, ask) in StanceAsks)
             {
-                if (!StanceRules.Feasible(ask.Stance, s) ||
+                if (!StanceRules.Askable(ask.Stance, s) ||
                     !answers.TryGetValue(name, out var answer) || answer.Noul is not { } yes)
                 {
                     continue;
@@ -160,6 +174,17 @@ public static class CombatStanceJev
             ? new StanceVerdict(stance, bestYes, source)
             : new StanceVerdict(null, bestYes, source);
     }
+
+    /// <summary>
+    /// What a due ask does. The words of the last answer extend a stance that stands, and the
+    /// extension spends one of the fight's asks; with no stance standing they are not asked
+    /// again. New words are asked, unless Jev was unsure about them before in this fight. An
+    /// unsure answer leaves the fight as no call does: live, 48% of 6,228 stance calls in 2h20m
+    /// came back unsure, and extensions that spent no ask kept a fight on Jev past its cap.
+    /// </summary>
+    public static StanceAskStep NextAsk(bool sameWords, bool stanceStands, bool unsureBefore) =>
+        sameWords ? (stanceStands ? StanceAskStep.Extend : StanceAskStep.Skip)
+        : unsureBefore ? StanceAskStep.Skip : StanceAskStep.Ask;
 
     /// <summary>
     /// Puts the fight to Jev. False when no System One provider is routed or the call was

@@ -16,6 +16,11 @@ public class FootworkRulesTests
     private const long SwingIn800 = 800;
     private const int Twice = 2;
     private const int LoneFoe = 1;
+    private const long Now = 100000;
+    private const long BowDelayMs = 2500;
+    private const int KeepMax = 8;
+    private const int PastKeepMax = 9;
+    private const int SafeLightning = 4;
 
     [Fact]
     public void Next_TheCastHolds_Acts() =>
@@ -33,10 +38,34 @@ public class FootworkRulesTests
     }
 
     [Fact]
-    public void Next_AKiterKeepsRunning_AHolderNeverSteps()
+    public void Next_AKiterCommitsAfterTheGraceToo_AHolderNeverSteps()
     {
-        Assert.Equal(Footwork.OpenGap, FootworkRules.Next(false, PastGrace, pinned: false, CombatStance.Kite));
+        // A kite that never committed never shot: bots outrun nearly every monster, so the
+        // grace never ran out on its own and the archer ran the whole fight.
+        Assert.Equal(Footwork.OpenGap, FootworkRules.Next(false, JustStarted, pinned: false, CombatStance.Kite));
+        Assert.Equal(Footwork.Commit, FootworkRules.Next(false, PastGrace, pinned: false, CombatStance.Kite));
         Assert.Equal(Footwork.Commit, FootworkRules.Next(false, JustStarted, pinned: false, CombatStance.Hold));
+    }
+
+    [Fact]
+    public void Fired_TheSwingClockMovedAFullDelayOn()
+    {
+        const long Before = Now - BowDelayMs;
+
+        Assert.True(FootworkRules.Fired(Before, Now + BowDelayMs, Now));
+        Assert.False(FootworkRules.Fired(Before, Now + FootworkRules.HeldShotRetryMs, Now));
+        Assert.False(FootworkRules.Fired(Now + BowDelayMs, Now + BowDelayMs, Now));
+    }
+
+    [Fact]
+    public void PlanCircle_WhatFitsNowInsideTheBand_TheTopCircleOutsideIt()
+    {
+        var bandMin = FootworkRules.KeepBandTiles;
+
+        Assert.Equal(SafeLightning, FootworkRules.PlanCircle(bandMin, bandMin, KeepMax, SafeLightning));
+        Assert.Equal(SafeLightning, FootworkRules.PlanCircle(KeepMax, bandMin, KeepMax, SafeLightning));
+        Assert.Equal(CastTiming.TopCircle, FootworkRules.PlanCircle(bandMin - 1, bandMin, KeepMax, SafeLightning));
+        Assert.Equal(CastTiming.TopCircle, FootworkRules.PlanCircle(PastKeepMax, bandMin, KeepMax, SafeLightning));
     }
 
     [Fact]
