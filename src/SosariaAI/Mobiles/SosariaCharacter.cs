@@ -490,7 +490,7 @@ public partial class SosariaCharacter : PlayerMobile
                     inDungeon: Region?.IsPartOf<DungeonRegion>() == true,
                     loneMark: pack < OutlawRules.MinPack && OutlawRules.LoneMark(RedGang.PeopleNear(this, m.Location, OutlawRules.AloneRange, m)),
                     selfPower: CharacterPower.For(this),
-                    targetPower: CharacterPower.For(m),
+                    targetPower: RedGang.SidePower(m),
                     courage: courage
                 ) &&
                 PkRules.MayAttack(
@@ -1962,30 +1962,7 @@ public partial class SosariaCharacter : PlayerMobile
     /// blues ride to already, one in the reds' town, beyond its leash, at a spot it just failed to reach, or where it just ran from a threat
     /// (<see cref="ConflictRules.BlueRides"/>).
     /// </summary>
-    public ShardEvent PkReportToAnswer()
-    {
-        var journal = SosariaSettings.Journal;
-
-        if (journal == null)
-        {
-            return null;
-        }
-
-        var from = Location;
-        var leash = HomeLeash.ConfiguredRadius();
-        var unreachable = Memory.Unreachable.Active(Core.Now);
-        var fledFrom = Memory.Danger.Active(Core.Now);
-        var now = Core.Now;
-
-        return journal.FindReport(
-            Name,
-            from,
-            now,
-            ShardEventType.Pk,
-            HomeFacet,
-            accepts: report => ConflictRules.BlueRides(report, from, leash, unreachable, fledFrom, now)
-        );
-    }
+    public ShardEvent PkReportToAnswer() => ConflictSkill.NewsToAnswer(this, ShardEventType.Pk);
 
     /// <summary>
     /// True when this character must run from the threat in sight. A worker runs from any
@@ -2172,6 +2149,7 @@ public partial class SosariaCharacter : PlayerMobile
                 PartyRoads.RidesAgainstDen(this)
             ),
             IsPkHunter = IsPkHunter,
+            HunterRides = IsPkHunter && ConflictSkill.HunterRides(this),
             HasShoppingErrand = VendorBuySkill.HasErrand(this),
             NeedsTool = WorkerTools.MissesAny(this),
             NeedsPetFood = PetPantry.IsLow(this),

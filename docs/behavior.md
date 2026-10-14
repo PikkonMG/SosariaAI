@@ -523,10 +523,27 @@ minutes for the rest. A mate joins a gang's ride only when its own run can
 start: its Conflict job does not rest, and a camp is in its reach.
 
 A red that is run off its hot spot three times on one run gives the spot up and
-rides home. A red whose pack is full or whose supplies are short does not ride
-out. A red whose combat kit or weapon is gone does not ride out until it
+rides home. The gang also gives the spot up and rides home when the blue
+fighters it sees within 18 tiles are a mob for its pack (3 or more, and more
+than the pack) or have more than 1.25 times the power of the gang near it. The
+log then writes `rides back to the Den from <spot> ... a band of blue fighters
+holds the spot`. A red whose pack is full or whose supplies are short does not
+ride out. A red whose combat kit or weapon is gone does not ride out until it
 re-arms in the Den, when the spare kit bag or the shops can arm it. With nothing
 to re-arm from, it rides out as it is and strips what it can.
+
+A red that died sits out every run (hot spot, dungeon, or hunt) for 30 minutes
+after its death. In that time it rides home, re-arms, and hangs about the Den.
+A run takes no hot spot that the red shuns. A red shuns the ground within 60
+tiles of a spot when it or a gang mate fell there in the last 60 minutes, or
+when 2 or more reds fell there in the last 45 minutes (the blues hold it). The
+red reads these falls from the shard news (`red-kill`). When it shuns every
+spot in reach, its run is a dungeon delve or a hunt, or it stays in the Den.
+
+Before a red draws, it counts the blue fighters within 10 tiles of the mark
+with the mark's party: these blues see the red and draw on it. A red draws only
+when its gang's power is more than that side's power. In a fight, the same side
+power decides when the red runs from a stronger side.
 
 Nobody draws on a person who stands within 6 tiles of guarded ground: the fight
 would end at the guard line the next step. This holds for a red's pick, a
@@ -539,8 +556,17 @@ already after the drawer.
 Blue sweeps ride out to clear reds off PvP hot spots, but a sweep never picks
 the Den. A blue goes into the Den only on a Den raid, a posse (PK hunters near a
 murder ride after the killer), or a PK hunter's Den run. PK hunters are a
-quarter of the blue fighters at Adept or better. A quarter of their runs ride
-into the Den, with at most two hunters there at once.
+quarter of the blue fighters at Adept or better.
+
+A PK hunter answers news. It rides to a fresh murder, or to a fresh red
+sighting (a `RED AT <place>!!` scream), when the news is less than 10 minutes
+old, it is not in the Den, and it lies inside the hunter's leash. A murder
+draws at most 3 blues, and a sighting at most 2 hunters. At the place, the
+hunter patrols and chases any red it sees. The log writes `pk hunter: <name>
+rides out to <place> on word of <red>`. With no news, a hunter patrols a hot
+spot only in its standing phases, one phase in 10. A quarter of these standing
+patrols ride into the Den, with at most two hunters there at once. Between
+news, a hunter does its other work.
 
 | Den raid rule | Value |
 |---|---|

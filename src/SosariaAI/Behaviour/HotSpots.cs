@@ -107,10 +107,11 @@ public static class HotSpots
 
     /// <summary>
     /// The camp a red's run takes now: a weighted draw over the spots out of the Den within its
-    /// reach (see <see cref="HotSpotRules.InReach"/>), the same for its whole gang in this slot
-    /// when the mates stand on the same ground. Null when no spot is in reach. The trip counts
-    /// the moongates a red may take (<see cref="OpenGates"/>): from the Den the Yew gate is one
-    /// hop away, but 1,900 tiles in a straight line, and a red with no rune never camped it.
+    /// reach (see <see cref="HotSpotRules.InReach"/>) that it does not shun
+    /// (<see cref="RedGraves.Shuns"/>), the same for its whole gang in this slot when the mates
+    /// stand on the same ground. Null when no spot is left. The trip counts the moongates a red
+    /// may take (<see cref="OpenGates"/>): from the Den the Yew gate is one hop away, but 1,900
+    /// tiles in a straight line, and a red with no rune never camped it.
     /// </summary>
     public static (HotSpot Spot, Point3D Camp)? CampFor(SosariaCharacter red, DateTime now)
     {
@@ -126,7 +127,7 @@ public static class HotSpots
 
         foreach (var spot in For(red.Map))
         {
-            if (!HotSpotRules.IsRunCamp(spot.Kind))
+            if (!HotSpotRules.IsRunCamp(spot.Kind) || RedGraves.Shuns(red, spot.Center, now))
             {
                 continue;
             }

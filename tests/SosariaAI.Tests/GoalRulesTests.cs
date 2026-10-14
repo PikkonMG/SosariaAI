@@ -60,27 +60,22 @@ public class GoalRulesTests
         Assert.Equal(new Goal(GoalKind.Leisure, SkillKinds.GoHome), goal);
     }
 
-    [Fact]
-    public void Pick_PkHunter_HuntsRedsInMostPhases()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Pick_PkHunter_RidesOnlyWhenItHasCause(bool rides)
     {
+        // Hunters rode out in 70% of their phases with no news: 428 standing rides in one night.
         var hunter = new Situation
         {
             Needs = new NeedsSnapshot { HitsFraction = 1 },
             Role = CharacterRole.Fighter,
             Disposition = DispositionKind.Lawful,
-            IsPkHunter = true
+            IsPkHunter = true,
+            HunterRides = rides
         };
-        var hunts = 0;
 
-        for (var seed = 0; seed < SeedSweep; seed++)
-        {
-            var goal = GoalRules.Pick(hunter, seed);
-            Assert.Equal(PkHunterRules.HuntsThisPhase(seed), goal.Kind == GoalKind.Pk);
-            hunts += goal.Kind == GoalKind.Pk ? 1 : 0;
-        }
-
-        Assert.True(hunts > SeedSweep / 2);
-        Assert.True(hunts < SeedSweep);
+        Assert.Equal(rides, GoalRules.Pick(hunter, FixedSeed).Kind == GoalKind.Pk);
     }
 
     [Fact]

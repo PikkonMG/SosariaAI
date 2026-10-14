@@ -10,6 +10,7 @@ using SosariaAI.Economy;
 using SosariaAI.Logging;
 using SosariaAI.Mobiles;
 using SosariaAI.Navigation;
+using SosariaAI.Social;
 
 namespace SosariaAI.Skills;
 
@@ -22,13 +23,15 @@ namespace SosariaAI.Skills;
 /// <see cref="GangRunPhase"/>). There it patrols the roads round the spot, and now and then the
 /// gang lies in wait at the spot's camp, hidden when it can, shuffling when it cannot (see
 /// <see cref="RedGangRules"/>). A red that drifts from its pack walks back to it. When the
-/// pack is heavy, the fights go badly, the supplies run short or the camp slot is up, the run
-/// ends and the gang on the spot rides back to the Den together (see
-/// <see cref="RedGangRunRules"/>). A lawful fighter walks toward a reported PK attack. A PK
-/// hunter with no report to answer rides out to hunt reds (see <see cref="PkHunterRules"/>): a
-/// patrol of a hot spot the reds camp, now and then of Buccaneer's Den itself, chasing any red
-/// it sees there (<see cref="FactionPatrolSkill"/>). Combat remains in WorldPlay, so this skill
-/// never invents or teleports a target.
+/// pack is heavy, the fights go badly, the supplies run short, a band of blue fighters holds the
+/// spot or the camp slot is up, the run ends and the gang on the spot rides back to the Den
+/// together (see <see cref="RedGangRunRules"/>). A red that died lately sits out the runs, and
+/// a run takes no spot the red shuns (<see cref="RedGraves"/>). A lawful fighter walks toward a
+/// reported PK attack. A PK hunter with no murder to answer rides out on word of a red: to
+/// where it was seen, chasing any red it sees there (<see cref="FactionPatrolSkill"/>); with no
+/// word only in its standing phases, to a hot spot the reds camp or now and then into
+/// Buccaneer's Den itself (see <see cref="RedSightingRules"/>). Combat remains in WorldPlay, so
+/// this skill never invents or teleports a target.
 /// </summary>
 public sealed class ConflictSkill : Skill
 {
@@ -60,6 +63,8 @@ public sealed class ConflictSkill : Skill
     public const string GuardsInWayWhy = "the red cannot get there past the guards";
     public const string DiedWhy = "died on the outing";
     public const string NoHuntGroundWhy = "no red ground to hunt";
+    public const string RestsAfterDeathWhy = "the red died lately and sits out the runs";
+    public const string NoRedWordWhy = "no word of a red to answer";
 
     /// <summary>The hunters who set out for the Den; <see cref="HuntersInDen"/> keeps those still on the run.</summary>
     private static readonly HashSet<Serial> DenHunters = [];
@@ -124,6 +129,65 @@ public sealed class ConflictSkill : Skill
             SupplyCheck.IsLow(red)
         );
 
+    /// <summary>
+    /// True when this red would set out on a run now: nothing turns its run back
+    /// (<see cref="WhyNotSetOut(SosariaCharacter)"/>) and it does not sit out the runs after a
+    /// death (<see cref="RedGangRunRules.RestsAfterDeath"/>).
+    /// </summary>
+    public static bool SetsOut(SosariaCharacter red) =>
+        WhyNotSetOut(red) == HuntEndReason.None && !RedGangRunRules.RestsAfterDeath(red.LastDeathAt, Core.Now);
+
+    /// <summary>
+    /// True when this PK hunter rides out now (<see cref="RedSightingRules.HunterRides"/>): a
+    /// murder or a red sighting to answer, or a standing phase.
+    /// </summary>
+    public static bool HunterRides(SosariaCharacter hunter) =>
+        RedSightingRules.HunterRides(
+            hunter.PkReportToAnswer() != null || SightingToAnswer(hunter) != null,
+            StandingPhase(hunter)
+        );
+
+    /// <summary>
+    /// The red sighting this PK hunter would ride to (<see cref="NewsToAnswer"/>), or null: one
+    /// that draws one more hunter (<see cref="RedSightingRules.DrawsHunter"/>).
+    /// </summary>
+    private static ShardEvent SightingToAnswer(SosariaCharacter hunter) =>
+        NewsToAnswer(hunter, ShardEventType.Red, sighting => RedSightingRules.DrawsHunter(sighting.Answerers));
+
+    /// <summary>
+    /// The news of <paramref name="type"/> this blue would ride to, or null: fresh, answered by
+    /// few, out of the Den, inside its leash, and not where it just failed to get to or ran from
+    /// (<see cref="ConflictRules.BlueRides"/>); when <paramref name="alsoAccepts"/> is given,
+    /// only news it passes.
+    /// </summary>
+    public static ShardEvent NewsToAnswer(SosariaCharacter blue, string type, Func<ShardEvent, bool> alsoAccepts = null)
+    {
+        if (SosariaSettings.Journal is not { } journal)
+        {
+            return null;
+        }
+
+        var now = Core.Now;
+        var from = blue.Location;
+        var leash = HomeLeash.ConfiguredRadius();
+        var unreachable = blue.Memory.Unreachable.Active(now);
+        var fledFrom = blue.Memory.Danger.Active(now);
+
+        return journal.FindReport(
+            blue.Name,
+            from,
+            now,
+            type,
+            blue.HomeFacet,
+            accepts: report => ConflictRules.BlueRides(report, from, leash, unreachable, fledFrom, now) &&
+                               alsoAccepts?.Invoke(report) != false
+        );
+    }
+
+    // This phase of the hunter is a standing patrol (RedSightingRules.PatrolsWithoutWord).
+    private static bool StandingPhase(SosariaCharacter hunter) =>
+        RedSightingRules.PatrolsWithoutWord(ChoiceSeed.For(hunter.Serial.Value, Core.Now));
+
     public override bool Begin(SosariaCharacter character)
     {
         _character = character;
@@ -150,6 +214,11 @@ public sealed class ConflictSkill : Skill
 
         if (character.Disposition == DispositionKind.Outlaw)
         {
+            if (RedGangRunRules.RestsAfterDeath(character.LastDeathAt, Core.Now))
+            {
+                return CannotStart(RestsAfterDeathWhy);
+            }
+
             var stay = WhyNotSetOut(character);
 
             if (stay != HuntEndReason.None)
@@ -308,12 +377,24 @@ public sealed class ConflictSkill : Skill
     }
 
     /// <summary>
-    /// A PK hunter's run: into Buccaneer's Den now and then while few hunters ride there
+    /// A PK hunter's run: to the red sighting it heard of (<see cref="SightingToAnswer"/>); with no
+    /// word, only in a standing phase (<see cref="RedSightingRules.PatrolsWithoutWord"/>), into
+    /// Buccaneer's Den now and then while few hunters ride there
     /// (<see cref="PkHunterRules.RidesToDen"/>), else the hot spot a blue sweep would take. The
     /// Den lies past every blue's leash, and the hunter rides there all the same.
     /// </summary>
     private bool StartHunt(SosariaCharacter hunter)
     {
+        if (SightingToAnswer(hunter) is { } sighting)
+        {
+            return AnswerSighting(hunter, sighting);
+        }
+
+        if (!StandingPhase(hunter))
+        {
+            return CannotStart(NoRedWordWhy);
+        }
+
         var den = PkHunterRules.RidesToDen(Utility.Random(int.MaxValue), HuntersInDen())
             ? HotSpots.DenSpot(hunter.Map)
             : null;
@@ -323,14 +404,11 @@ public sealed class ConflictSkill : Skill
             return CannotStart(NoHuntGroundWhy);
         }
 
-        var hunt = new FactionPatrolSkill(ground, GuildType.Regular);
-
-        if (!hunt.Begin(hunter))
+        if (!RideOut(hunter, ground))
         {
             return CannotStart(NoWalkWhy(ground.Name));
         }
 
-        _hunt = hunt;
         HuntsDen = den != null;
 
         if (HuntsDen)
@@ -339,6 +417,40 @@ public sealed class ConflictSkill : Skill
         }
 
         WorldPlay.Log($"pk hunter: {hunter.Name} rides out to {ground.Name}");
+        return true;
+    }
+
+    /// <summary>
+    /// The hunter rides to where the red was seen and patrols there. A place it cannot stand
+    /// at or walk to is noted, so the next choice is other news or other work.
+    /// </summary>
+    private bool AnswerSighting(SosariaCharacter hunter, ShardEvent sighting)
+    {
+        var seen = ConflictRules.SpotOf(sighting);
+        var standing = Standing(hunter.Map, seen);
+
+        if (standing == Point3D.Zero || !RideOut(hunter, new FactionSpot(sighting.Place, standing)))
+        {
+            hunter.Memory.Unreachable.Note(seen, Core.Now);
+            return CannotStart(NoWalkWhy(sighting.Place));
+        }
+
+        sighting.Answerers++;
+        WorldPlay.Log($"pk hunter: {hunter.Name} rides out to {sighting.Place} on word of {sighting.Actor}");
+        return true;
+    }
+
+    /// <summary>The hunter's patrol of <paramref name="ground"/>; false when no walk leads there.</summary>
+    private bool RideOut(SosariaCharacter hunter, FactionSpot ground)
+    {
+        var hunt = new FactionPatrolSkill(ground, GuildType.Regular);
+
+        if (!hunt.Begin(hunter))
+        {
+            return false;
+        }
+
+        _hunt = hunt;
         return true;
     }
 
@@ -371,8 +483,8 @@ public sealed class ConflictSkill : Skill
         }
     }
 
-    // Now and then the red looks at its pack, its wounds and its supplies; when the run is
-    // over it calls the gang on the spot home with it.
+    // Now and then the red looks at its pack, its wounds, its supplies and the blue fighters in
+    // sight; when the run is over it calls the gang on the spot home with it.
     private bool RunIsOver()
     {
         var now = Core.Now;
@@ -403,8 +515,9 @@ public sealed class ConflictSkill : Skill
             SupplyCheck.IsLow(_character),
             _runsOff
         );
+        var bluesHold = BluesHoldSpot();
 
-        if (reason == HuntEndReason.None)
+        if (reason == HuntEndReason.None && !bluesHold)
         {
             return false;
         }
@@ -414,12 +527,21 @@ public sealed class ConflictSkill : Skill
 
         if (RidesHome.Opens((HotSpots.CrewKey(_character), _spot.Name), now))
         {
+            var because = bluesHold ? RedGangRunRules.BluesHoldWords : RedGangRunRules.Because(reason);
             WorldPlay.Log(
-                $"{_character.Name} rides back to the Den from {_spot.Name} with a pack of {RedGang.PackSize(_character)}: {RedGangRunRules.Because(reason)}"
+                $"{_character.Name} rides back to the Den from {_spot.Name} with a pack of {RedGang.PackSize(_character)}: {because}"
             );
         }
 
         return true;
+    }
+
+    // The blue fighters in the red's sight against its pack and the gang near it (RedGangRunRules.BluesHoldSpot).
+    private bool BluesHoldSpot()
+    {
+        var (fighters, power) = RedGang.BlueFighters(_character, RedGangRunRules.WatchTiles);
+
+        return RedGangRunRules.BluesHoldSpot(fighters, power, RedGang.Surroundings(_character).Pack, RedGang.Power(_character));
     }
 
     /// <summary>Sets out for the outing's goal: a camp, the busy ground or a murder report.</summary>

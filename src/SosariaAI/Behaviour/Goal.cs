@@ -98,10 +98,10 @@ public static class GoalRules
             return new Goal(GoalKind.Leisure, SkillKinds.GoHome);
         }
 
-        // A PK hunter spends most of its phases hunting reds (PkHunterRules.HuntShare).
+        // A PK hunter rides on news of a red, and now and then on a standing patrol.
         if (situation.Disposition == DispositionKind.Outlaw ||
             AnswersPkReport(situation) ||
-            situation.IsPkHunter && PkHunterRules.HuntsThisPhase(seed))
+            situation.HunterRides)
         {
             return new Goal(GoalKind.Pk, NoTarget);
         }

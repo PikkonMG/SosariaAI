@@ -126,10 +126,11 @@ public class CorpseRunRulesTests
     [Fact]
     public void WhyRecallHome_NamesTheCause()
     {
-        Assert.Equal(CorpseRunRules.OtherFacetReason, CorpseRunRules.WhyRecallHome(false, true, 0));
-        Assert.Equal(CorpseRunRules.UnderGuardsReason, CorpseRunRules.WhyRecallHome(true, true, 0));
-        Assert.Equal(CorpseRunRules.NoWayReason, CorpseRunRules.WhyRecallHome(true, false, CorpseRunRules.MaxWalks));
-        Assert.Equal(CorpseRunRules.TooLongReason, CorpseRunRules.WhyRecallHome(true, false, 1));
+        Assert.Equal(CorpseRunRules.OtherFacetReason, CorpseRunRules.WhyRecallHome(false, true, false, 0));
+        Assert.Equal(CorpseRunRules.UnderGuardsReason, CorpseRunRules.WhyRecallHome(true, true, false, 0));
+        Assert.Equal(CorpseRunRules.WatchedReason, CorpseRunRules.WhyRecallHome(true, false, true, 0));
+        Assert.Equal(CorpseRunRules.NoWayReason, CorpseRunRules.WhyRecallHome(true, false, false, CorpseRunRules.MaxWalks));
+        Assert.Equal(CorpseRunRules.TooLongReason, CorpseRunRules.WhyRecallHome(true, false, false, 1));
     }
 
     [Fact]
@@ -176,4 +177,23 @@ public class CorpseRunRulesTests
     [InlineData(false, true, false)]
     public void ShopsAfterReclaim_ALostBodyOrOneThatGaveNoArms(bool bodyLost, bool armed, bool shops) =>
         Assert.Equal(shops, CorpseRunRules.ShopsAfterReclaim(bodyLost, armed));
+
+    [Fact]
+    public void Next_ARedLeavesAWatchedBodyForTheDen()
+    {
+        // 1,181 of 1,990 red deaths in one night came on the walk back to the body.
+        const int near = CorpseRunRules.CloseWalkTiles;
+
+        Assert.Equal(CorpseRunStep.RecallHome, CorpseRunRules.Next(true, true, near, 0, Early, murderer: true, bodyWatched: true));
+        Assert.Equal(CorpseRunStep.CloseWalk, CorpseRunRules.Next(true, true, near, 0, Early, murderer: true, bodyWatched: false));
+        Assert.Equal(CorpseRunStep.CloseWalk, CorpseRunRules.Next(true, true, near, 0, Early, murderer: false, bodyWatched: true));
+    }
+
+    [Fact]
+    public void BodyWatched_ByTheKillerOrACrowd()
+    {
+        Assert.True(CorpseRunRules.BodyWatched(killerNearBody: true, bluesNearBody: 0));
+        Assert.True(CorpseRunRules.BodyWatched(killerNearBody: false, bluesNearBody: SosariaAI.Combat.OutlawRules.CrowdRetreat));
+        Assert.False(CorpseRunRules.BodyWatched(killerNearBody: false, bluesNearBody: SosariaAI.Combat.OutlawRules.CrowdRetreat - 1));
+    }
 }

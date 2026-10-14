@@ -60,9 +60,17 @@ public class LawfulRulesTests
     [Fact]
     public void ShouldHunt_OutsideGuardsWithOddsOrForAFriend()
     {
-        Assert.True(LawfulRules.ShouldHunt(underGuards: false, sidePower: 90, outlawPower: 100, outlawOnFriend: false));
-        Assert.False(LawfulRules.ShouldHunt(underGuards: false, sidePower: 50, outlawPower: 100, outlawOnFriend: false));
-        Assert.True(LawfulRules.ShouldHunt(underGuards: false, sidePower: 50, outlawPower: 100, outlawOnFriend: true));
-        Assert.False(LawfulRules.ShouldHunt(underGuards: true, sidePower: 500, outlawPower: 100, outlawOnFriend: true));
+        Assert.True(LawfulRules.ShouldHunt(underGuards: false, sidePower: 90, outlawPower: 100, outlawOnFriend: false, antiPk: true));
+        Assert.False(LawfulRules.ShouldHunt(underGuards: false, sidePower: 50, outlawPower: 100, outlawOnFriend: false, antiPk: true));
+        Assert.True(LawfulRules.ShouldHunt(underGuards: false, sidePower: 50, outlawPower: 100, outlawOnFriend: true, antiPk: false));
+        Assert.False(LawfulRules.ShouldHunt(underGuards: true, sidePower: 500, outlawPower: 100, outlawOnFriend: true, antiPk: true));
+    }
+
+    [Fact]
+    public void ShouldHunt_AnyOtherBlueLetsARedPassUnlessFarStronger()
+    {
+        // Every passing blue drew on every red at 0.8: 1,879 reds that had hurt no one died in a night.
+        Assert.False(LawfulRules.ShouldHunt(underGuards: false, sidePower: 140, outlawPower: 100, outlawOnFriend: false, antiPk: false));
+        Assert.True(LawfulRules.ShouldHunt(underGuards: false, sidePower: 150, outlawPower: 100, outlawOnFriend: false, antiPk: false));
     }
 }

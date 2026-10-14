@@ -149,9 +149,95 @@ public static class RedGang
         return fighters;
     }
 
-    /// <summary>A person and the living people fighting beside it: its party.</summary>
-    public static int SidePower(Mobile person) =>
-        CharacterPower.For(person) + (person is SosariaCharacter character ? Party.AlliesPower(character) : 0);
+    /// <summary>
+    /// A person and the living people who fight beside it when a red comes for it: its party
+    /// (<see cref="Party.AlliesPower"/>), and the blue fighters near enough to see the red and
+    /// draw on it (<see cref="RedGangRules.OutlawScanTiles"/>, the reach of the blues' own scan).
+    /// Counting the party alone, reds drew on 360 marks in one night and killed 21: the fighters
+    /// standing by drew on the red, and it ran from "a stronger side" 2,295 times.
+    /// </summary>
+    public static int SidePower(Mobile person)
+    {
+        var power = CharacterPower.For(person) + (person is SosariaCharacter character ? Party.AlliesPower(character) : 0);
+
+        if (person?.Map == null || person.Map == Map.Internal)
+        {
+            return power;
+        }
+
+        var party = GameParty.Of(person);
+
+        foreach (var mobile in person.Map.GetMobilesInRange(person.Location, RedGangRules.OutlawScanTiles))
+        {
+            if (mobile != person && IsBlueFighter(mobile) && party?.Contains(mobile) != true)
+            {
+                power += CharacterPower.For(mobile);
+            }
+        }
+
+        return power;
+    }
+
+    /// <summary>
+    /// The blue fighters this red sees within <paramref name="range"/>, and their power: the
+    /// ones who would draw on it (<see cref="RedGangRunRules.BluesHoldSpot"/>).
+    /// </summary>
+    public static (int Count, int Power) BlueFighters(SosariaCharacter red, int range)
+    {
+        if (red.Map == null || red.Map == Map.Internal)
+        {
+            return (0, 0);
+        }
+
+        var count = 0;
+        var power = 0;
+
+        foreach (var mobile in red.Map.GetMobilesInRange(red.Location, range))
+        {
+            if (mobile != red && IsBlueFighter(mobile) && red.CanSee(mobile))
+            {
+                count++;
+                power += CharacterPower.For(mobile);
+            }
+        }
+
+        return (count, power);
+    }
+
+    /// <summary>
+    /// True when <paramref name="name"/> is this red's own or a gang mate's: the side whose
+    /// fall a red takes to heart (<see cref="RedGraves"/>).
+    /// </summary>
+    public static bool SidesWith(SosariaCharacter red, string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return false;
+        }
+
+        if (string.Equals(red.Name, name, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        foreach (var mate in _reds)
+        {
+            if (mate != red && SameGang(red, mate) && string.Equals(mate.Name, name, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// A living blue person in sight who draws on a red: a fighter character, or a player at a
+    /// keyboard, whose build the plugin cannot read.
+    /// </summary>
+    private static bool IsBlueFighter(Mobile mobile) =>
+        People.IsLivingPlayer(mobile) && !mobile.Hidden && !IsLivingRed(mobile) &&
+        (mobile is SosariaCharacter character ? character.Build?.Role == CharacterRole.Fighter : People.IsHuman(mobile));
 
     /// <summary>
     /// Gang mates in range turn on the victim, on the draw and while the fight lasts; at the draw
@@ -224,7 +310,7 @@ public static class RedGang
                 RedGangRules.MayRide(
                     mate.RestsSkill(SkillKinds.Conflict),
                     RedGangReach.CampInReach(mate),
-                    ConflictSkill.WhyNotSetOut(mate) == HuntEndReason.None
+                    ConflictSkill.SetsOut(mate)
                 ))
             {
                 _mates.Add(mate);

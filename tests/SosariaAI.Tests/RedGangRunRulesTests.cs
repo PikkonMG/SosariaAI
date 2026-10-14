@@ -147,6 +147,36 @@ public class RedGangRunRulesTests
         Assert.Equal(4, said.Count);
     }
 
+    [Fact]
+    public void RestsAfterDeath_ARedThatDiedSitsOutTheRunsForTheRest()
+    {
+        Assert.True(RedGangRunRules.RestsAfterDeath(Now, Now));
+        Assert.True(RedGangRunRules.RestsAfterDeath(Now, Now + RedGangRunRules.DeathRest - TimeSpan.FromSeconds(1)));
+        Assert.False(RedGangRunRules.RestsAfterDeath(Now, Now + RedGangRunRules.DeathRest));
+    }
+
+    [Fact]
+    public void RestsAfterDeath_ARedThatNeverDied_Rides()
+    {
+        Assert.False(RedGangRunRules.RestsAfterDeath(default, Now));
+        Assert.False(RedGangRunRules.RestsAfterDeath(Now.AddMinutes(1), Now));
+    }
+
+    [Theory]
+    [InlineData(0, 0, 1, 100, false)]
+    [InlineData(1, 100, 1, 100, false)]
+    [InlineData(1, 126, 1, 100, true)]
+    [InlineData(3, 120, 1, 100, true)]
+    [InlineData(2, 120, 2, 200, false)]
+    [InlineData(3, 150, 3, 300, false)]
+    [InlineData(4, 150, 3, 300, true)]
+    public void BluesHoldSpot_AMobOrAClearlyStrongerBand(int fighters, int bluePower, int pack, int gangPower, bool holds) =>
+        Assert.Equal(holds, RedGangRunRules.BluesHoldSpot(fighters, bluePower, pack, gangPower));
+
+    [Fact]
+    public void BluesHoldWords_SayWhyTheGangRodeHome() =>
+        Assert.False(string.IsNullOrWhiteSpace(RedGangRunRules.BluesHoldWords));
+
     private static Dictionary<string, int> Tally(Func<string, bool> canRun)
     {
         var picks = new Dictionary<string, int>

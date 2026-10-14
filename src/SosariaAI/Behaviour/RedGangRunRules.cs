@@ -9,9 +9,11 @@ namespace SosariaAI.Behaviour;
 /// A red's day, the 1999 way: a run out of Buccaneer's Den, then home to it, again and again.
 /// Most runs work a PvP hot spot with the gang (see <see cref="RedGangRules"/>); the rest delve
 /// a dungeon or farm monsters in the open. A run ends when the pack is heavy with loot, the red
-/// is hurt again and again, the reagents or bandages run short, or the run time is up; the red
-/// rides back to the Den, banks the take, heals, restocks and hangs about a while, then rides
-/// out again (see <see cref="GoalPlanRules.RedConflictRun"/>). Pure.
+/// is hurt again and again, the reagents or bandages run short, a band of blue fighters holds
+/// the spot, or the run time is up; the red rides back to the Den, banks the take, heals,
+/// restocks and hangs about a while, then rides out again (see
+/// <see cref="GoalPlanRules.RedConflictRun"/>). A red that died sits out the runs a while
+/// (<see cref="DeathRest"/>). Pure.
 /// </summary>
 public static class RedGangRunRules
 {
@@ -39,6 +41,22 @@ public static class RedGangRunRules
     /// 60 times each in two hours.
     /// </summary>
     public const int RunsOffLimit = 3;
+
+    /// <summary>
+    /// A red that died sits out the runs this long after its death: it rises, gets home,
+    /// re-arms and rests before it rides out again. Live, 452 of 511 reds killed on a hot-spot
+    /// run had died less than 30 minutes before, back out on the next run with a fresh body.
+    /// </summary>
+    public static readonly TimeSpan DeathRest = TimeSpan.FromMinutes(30);
+
+    /// <summary>
+    /// A red on its spot watches this far for blue fighters: the reach of a player's screen,
+    /// past the blues' own draw (<see cref="RedGangRules.OutlawScanTiles"/>), so it sees a band coming.
+    /// </summary>
+    public const int WatchTiles = 18;
+
+    /// <summary>The words the activity log gives a run the blues ended (<see cref="BluesHoldSpot"/>).</summary>
+    public const string BluesHoldWords = "a band of blue fighters holds the spot";
 
     /// <summary>No low-hits looks yet: a red that has not set out.</summary>
     private const int NoLowHits = 0;
@@ -119,6 +137,24 @@ public static class RedGangRunRules
     /// </summary>
     public static HuntEndReason WhyNotSetOut(bool packFull, bool suppliesLow) =>
         WhyHeadHome(default, default, packFull, Vitals.FullHits, NoLowHits, suppliesLow, runsOff: 0);
+
+    /// <summary>
+    /// True while a red that died at <paramref name="lastDeathAt"/> sits out the runs
+    /// (<see cref="DeathRest"/>). A red that never died rides.
+    /// </summary>
+    public static bool RestsAfterDeath(DateTime lastDeathAt, DateTime now) =>
+        lastDeathAt != default && now >= lastDeathAt && now - lastDeathAt < DeathRest;
+
+    /// <summary>
+    /// The blue fighters in a red's sight hold its spot: a mob for its pack
+    /// (<see cref="OutlawRules.IsMob"/>), or a side clearly stronger than the gang near it
+    /// (<see cref="OutlawRules.RunPowerMargin"/>). The gang gives the spot up before the band
+    /// draws, as the reds of the era left when an anti-PK guild rode in. Live, 511 reds died on
+    /// a hot-spot run in one night, and 93 of the 94 rides home came when the time ran out.
+    /// </summary>
+    public static bool BluesHoldSpot(int blueFighters, int bluePower, int packSize, int gangPower) =>
+        blueFighters > 0 &&
+        (OutlawRules.IsMob(blueFighters, packSize) || bluePower > gangPower * OutlawRules.RunPowerMargin);
 
     /// <summary>The words the activity log gives for a run's end.</summary>
     public static string Because(HuntEndReason reason) =>

@@ -158,7 +158,9 @@ public static class RedGangRules
     /// <summary>
     /// A mate called to ride takes the run only when its own run can start: the run does not
     /// rest after repeated failure, a camp lies within its reach, and it would set out at all
-    /// (<see cref="RedGangRunRules.WhyNotSetOut"/>). The call handed Kerr a run with no camp in
+    /// (<see cref="ConflictSkill.SetsOut"/>): nothing turns its run back
+    /// (<see cref="RedGangRunRules.WhyNotSetOut"/>) and it does not sit out the runs after a
+    /// death (<see cref="RedGangRunRules.RestsAfterDeath"/>). The call handed Kerr a run with no camp in
     /// reach every two seconds; each one failed at once, and he left Conflict "for 60 minutes"
     /// 49 times in half an hour. Mates short of reagents or heavy with loot were called out of
     /// the Den tavern and turned back the same second: 47 of 78 such ends in forty minutes.

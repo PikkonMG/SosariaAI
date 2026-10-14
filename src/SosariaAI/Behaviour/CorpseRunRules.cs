@@ -45,6 +45,7 @@ public static class CorpseRunRules
     public const string TooLongReason = "the run took too long";
     public const string UnderGuardsReason = "it lies under the guards";
     public const string NoGuardFreeWalkReason = "no walk clear of the guards reaches it";
+    public const string WatchedReason = "its killer or a crowd of blues stands over it";
 
     /// <summary>The whole walk back is given up after this long.</summary>
     public static readonly TimeSpan GiveUpAfter = TimeSpan.FromMinutes(10);
@@ -59,7 +60,10 @@ public static class CorpseRunRules
     /// burned the run in six seconds, and the red went out again naked. Sent home whenever the
     /// body lay past the close walk, as one raised at a far ankh always is, 411 of 412 reds left
     /// their gear on the body and 3 in 156 got it back, against 2 in 3 blues: the spare kit
-    /// emptied, and the Den filled with naked reds.
+    /// emptied, and the Den filled with naked reds. A body its killer or a crowd of blues
+    /// stands over (<paramref name="bodyWatched"/>) is left for the Den too: 1,181 of 1,990
+    /// red deaths in one night came on the walk back to the body, a median nine minutes after
+    /// the raise, most of them at the hands of the same blues.
     /// </summary>
     public static CorpseRunStep Next(
         bool corpseFound,
@@ -68,7 +72,8 @@ public static class CorpseRunRules
         int walks,
         TimeSpan elapsed,
         bool murderer = false,
-        bool bodyUnderGuards = false
+        bool bodyUnderGuards = false,
+        bool bodyWatched = false
     )
     {
         if (!corpseFound || sameMap && distance <= LootRange)
@@ -78,7 +83,7 @@ public static class CorpseRunRules
 
         if (murderer)
         {
-            return !sameMap || bodyUnderGuards || walks >= MaxWalks || elapsed >= GiveUpAfter
+            return !sameMap || bodyUnderGuards || bodyWatched || walks >= MaxWalks || elapsed >= GiveUpAfter
                 ? CorpseRunStep.RecallHome
                 : distance <= CloseWalkTiles ? CorpseRunStep.CloseWalk : CorpseRunStep.LongWalk;
         }
@@ -100,11 +105,20 @@ public static class CorpseRunRules
         !sameMap ? OtherFacetReason : walks >= MaxWalks ? NoWayReason : TooLongReason;
 
     /// <summary>Why a red left its body for the Den, for the log.</summary>
-    public static string WhyRecallHome(bool sameMap, bool bodyUnderGuards, int walks) =>
+    public static string WhyRecallHome(bool sameMap, bool bodyUnderGuards, bool bodyWatched, int walks) =>
         !sameMap ? OtherFacetReason
         : bodyUnderGuards ? UnderGuardsReason
+        : bodyWatched ? WatchedReason
         : walks >= MaxWalks ? NoWayReason
         : TooLongReason;
+
+    /// <summary>
+    /// A red's body is watched when its killer stands within sight of it, or a crowd of blues
+    /// (<see cref="Combat.OutlawRules.CrowdRetreat"/> or more) does: walking back means fighting them
+    /// again, naked. Pure.
+    /// </summary>
+    public static bool BodyWatched(bool killerNearBody, int bluesNearBody) =>
+        killerNearBody || bluesNearBody >= Combat.OutlawRules.CrowdRetreat;
 
     /// <summary>
     /// A red's close walk to its body: <paramref name="walker"/>, but never a step onto a tile

@@ -4,9 +4,9 @@ using SosariaAI.Spawning;
 namespace SosariaAI.Behaviour;
 
 /// <summary>
-/// The anti-PKs of 1999: a few solid blue fighters who logged in to hunt reds. Most of their
-/// time online went to PvP, riding the hot spots the reds camped and now and then into
-/// Buccaneer's Den itself; a dungeon now and then filled the rest. Only a few ride into the Den
+/// The anti-PKs of 1999: a few solid blue fighters who logged in to hunt reds. They rode on
+/// word of a murder or a red seen nearby, now and then on a standing patrol of the hot spots,
+/// and now and then into Buccaneer's Den itself; the rest of their time went to the dungeons. Only a few ride into the Den
 /// at once, so the reds' town sees a hunter here and there, not a crowd. Who hunts is rolled
 /// once per person, so a hunter stays one across restarts. Pure.
 /// </summary>
@@ -18,9 +18,6 @@ public static class PkHunterRules
     /// <summary>The share of blue fighters at <see cref="MinTier"/> or better who hunt reds.</summary>
     public const int HunterPercent = 25;
 
-    /// <summary>The share of a hunter's phases spent hunting reds; the rest go to its other jobs.</summary>
-    public const double HuntShare = 0.7;
-
     /// <summary>The share of a hunter's runs that ride into Buccaneer's Den.</summary>
     public const double DenShare = 0.25;
 
@@ -28,7 +25,6 @@ public static class PkHunterRules
     public const int MaxInDen = 2;
 
     private const int HunterSalt = 461;
-    private const int HuntSalt = 463;
     private const int DenSalt = 467;
 
     /// <summary>The person's own dice make it a hunter (<see cref="HunterPercent"/>), if it can be one.</summary>
@@ -41,8 +37,6 @@ public static class PkHunterRules
     public static bool IsHunter(bool rollsHunter, bool fighter, bool red, SkillTier tier) =>
         rollsHunter && fighter && !red && tier >= MinTier;
 
-    /// <summary>This phase goes to hunting reds (<see cref="HuntShare"/>), from the phase seed.</summary>
-    public static bool HuntsThisPhase(int seed) => ChoiceSeed.Unit(seed, HuntSalt) < HuntShare;
 
     /// <summary>
     /// This run rides into the Den (<see cref="DenShare"/>, from the run's roll) while fewer than

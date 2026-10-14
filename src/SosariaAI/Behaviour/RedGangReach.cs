@@ -51,23 +51,38 @@ public static class RedGangReach
     }
 
     /// <summary>
-    /// Adds to <paramref name="unmet"/> each outing of a red's run whose target the red cannot
-    /// get to now (see <see cref="CanReach"/>): a hot-spot camp, the door of its dungeon hall,
-    /// its hunt ground. The scorer then never picks it, and the run takes an outing that can
-    /// start. A blue's outings are left alone.
+    /// Adds to <paramref name="unmet"/> each outing of the war on the reds that cannot start now.
+    /// For a red, every outing of its run while it sits out the runs after a death
+    /// (<see cref="RedGangRunRules.RestsAfterDeath"/>), and else each one whose target it cannot
+    /// get to (see <see cref="CanReach"/>): a hot-spot camp, the door of its dungeon hall, its
+    /// hunt ground. For a PK hunter, its ride against the reds while it has no word of one and no
+    /// standing patrol (<see cref="ConflictSkill.HunterRides"/>). The scorer then never picks
+    /// it, and the person takes work that can start. Every other blue's outings are left alone.
     /// </summary>
     public static void AddUnreachableOutings(SosariaCharacter character, List<string> unmet)
     {
-        if (character?.Disposition != DispositionKind.Outlaw || unmet == null)
+        if (character == null || unmet == null)
         {
             return;
         }
+
+        if (character.Disposition != DispositionKind.Outlaw)
+        {
+            if (character.IsPkHunter && !ConflictSkill.HunterRides(character))
+            {
+                unmet.Add(SkillKinds.Conflict);
+            }
+
+            return;
+        }
+
+        var resting = RedGangRunRules.RestsAfterDeath(character.LastDeathAt, Core.Now);
 
         for (var i = 0; i < RedGangRunRules.Outings.Length; i++)
         {
             var outing = RedGangRunRules.Outings[i];
 
-            if (!OutingReady(character, outing))
+            if (resting || !OutingReady(character, outing))
             {
                 unmet.Add(outing);
             }

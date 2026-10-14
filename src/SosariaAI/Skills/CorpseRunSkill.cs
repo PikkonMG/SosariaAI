@@ -122,8 +122,18 @@ public sealed class CorpseRunSkill : Skill
         var distance = corpse == null ? 0 : NavMetric.Chebyshev(_character.Location, corpse.Location);
         var murderer = PkRules.IsRed(_character.Kills);
         var bodyUnderGuards = corpse != null && GuardCall.IsGuardedPlace(corpse.Location, corpse.Map);
+        var bodyWatched = murderer && sameMap && corpse != null && BodyWatched(corpse);
 
-        var ruleStep = CorpseRunRules.Next(corpse != null, sameMap, distance, _walks, Core.Now - _startedAt, murderer, bodyUnderGuards);
+        var ruleStep = CorpseRunRules.Next(
+            corpse != null,
+            sameMap,
+            distance,
+            _walks,
+            Core.Now - _startedAt,
+            murderer,
+            bodyUnderGuards,
+            bodyWatched
+        );
 
         if (JudgedStep(ruleStep, murderer, corpse, distance) is not { } step)
         {
@@ -144,7 +154,7 @@ public sealed class CorpseRunSkill : Skill
             {
                 return StartRecallHome(
                     corpse,
-                    step == ruleStep ? CorpseRunRules.WhyRecallHome(sameMap, bodyUnderGuards, _walks) : JevChoseRecallReason
+                    step == ruleStep ? CorpseRunRules.WhyRecallHome(sameMap, bodyUnderGuards, bodyWatched, _walks) : JevChoseRecallReason
                 );
             }
             default:
@@ -253,6 +263,16 @@ public sealed class CorpseRunSkill : Skill
                RecallRules.WhyNoRecall(_character, denBank, RecallRules.NoRoadMinTripTiles) == null;
     }
 
+    /// <summary>The red's killer or a crowd of blues stands over its body (<see cref="CorpseRunRules.BodyWatched"/>).</summary>
+    private bool BodyWatched(Corpse corpse)
+    {
+        var killer = ResurrectOffer.KillerOf(_character);
+        return CorpseRunRules.BodyWatched(KillerNear(killer, corpse), RedGang.PeopleNear(_character, corpse.Location, RedMomentJev.WatchTiles, killer));
+    }
+
+    private static bool KillerNear(Mobile killer, Corpse corpse) =>
+        killer is { Deleted: false, Alive: true } && killer.Map == corpse.Map && killer.InRange(corpse.Location, RedMomentJev.WatchTiles);
+
     /// <summary>What the raised red knows of its body and the ground round it, for Jev.</summary>
     private WayBackFacts WayBackFactsOf(Corpse corpse, int distance)
     {
@@ -263,7 +283,7 @@ public sealed class CorpseRunSkill : Skill
             SpareKit.Armed(_character),
             distance,
             DungeonGround.RegionNames(map)(corpse.Location) != null,
-            killer is { Deleted: false, Alive: true } && killer.Map == map && killer.InRange(corpse.Location, RedMomentJev.WatchTiles),
+            KillerNear(killer, corpse),
             RedGang.PeopleNear(_character, corpse.Location, RedMomentJev.WatchTiles, killer),
             DungeonReturn.HostilesNear(map, corpse.Location, RedMomentJev.WatchTiles),
             RedGang.GangMatesNear(_character)

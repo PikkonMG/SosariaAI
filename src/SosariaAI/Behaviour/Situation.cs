@@ -178,6 +178,12 @@ public sealed record Situation
     public bool IsPkHunter { get; init; }
 
     /// <summary>
+    /// This PK hunter rides out now: a murder or a red sighting to answer, or one of its few
+    /// standing patrols (<see cref="Skills.ConflictSkill.HunterRides"/>).
+    /// </summary>
+    public bool HunterRides { get; init; }
+
+    /// <summary>
     /// The person is short of something a shop in reach sells (a supply, a harvest tool or a
     /// kit piece) and carries gold to pay. A shopping trip is offered only then.
     /// </summary>

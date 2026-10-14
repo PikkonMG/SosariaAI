@@ -43,19 +43,6 @@ public class PkHunterRulesTests
     }
 
     [Fact]
-    public void HuntsThisPhase_MostPhasesButNotAll()
-    {
-        var hunts = 0;
-
-        for (var seed = 0; seed < SeedsToRoll; seed++)
-        {
-            hunts += PkHunterRules.HuntsThisPhase(seed) ? 1 : 0;
-        }
-
-        Assert.InRange((double)hunts / SeedsToRoll, PkHunterRules.HuntShare - ShareSlack, PkHunterRules.HuntShare + ShareSlack);
-    }
-
-    [Fact]
     public void RidesToDen_NowAndThen_AndNeverPastTheCap()
     {
         var rides = 0;

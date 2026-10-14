@@ -795,7 +795,9 @@ public static class WorldPlay
 
         var sidePower = CharacterPower.For(character) + Party.AlliesPower(character);
 
-        if (!LawfulRules.ShouldHunt(false, sidePower, CharacterPower.For(outlaw), OutlawOnFriend(character, outlaw)) ||
+        var antiPk = character.Disposition == DispositionKind.Lawful;
+
+        if (!LawfulRules.ShouldHunt(false, sidePower, CharacterPower.For(outlaw), OutlawOnFriend(character, outlaw), antiPk) ||
             WouldRunFrom(character, outlaw, IsOutlaw))
         {
             return;

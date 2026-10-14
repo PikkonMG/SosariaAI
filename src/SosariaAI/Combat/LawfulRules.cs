@@ -9,8 +9,14 @@ namespace SosariaAI.Combat;
 /// </summary>
 public static class LawfulRules
 {
-    /// <summary>A hunter takes on a red when its side reaches this share of the red's power.</summary>
+    /// <summary>An anti-PK (lawful) hunter takes on a red when its side reaches this share of the red's power.</summary>
     public const double HuntOdds = 0.8;
+
+    /// <summary>
+    /// Any other blue draws on a red only with a side this many times the red's power: most
+    /// players let a red pass unless it came at them or theirs.
+    /// </summary>
+    public const double CautiousOdds = 1.5;
 
     public static bool ShouldWarn(DispositionKind disposition, bool seesRedOrGrey, bool victimNamed) =>
         disposition == DispositionKind.Lawful && seesRedOrGrey && victimNamed;
@@ -28,11 +34,15 @@ public static class LawfulRules
         (disposition == DispositionKind.Lawful || inParty || hunting);
 
     /// <summary>
-    /// A hunter draws when the guards reach neither side and its side is strong enough. A
-    /// red caught hurting this hunter's friend is fought whatever the odds.
+    /// A hunter draws when the guards reach neither side and its side is strong enough: an
+    /// anti-PK (<paramref name="antiPk"/>) at <see cref="HuntOdds"/>, any other blue only at
+    /// <see cref="CautiousOdds"/>. A red caught hurting this hunter's friend is fought whatever
+    /// the odds. In one night every passing blue drew on every red at 0.8: blues going home
+    /// killed reds 634 times and dungeon crews 458 times, 1,879 of them reds that had hurt no one.
     /// </summary>
-    public static bool ShouldHunt(bool underGuards, int sidePower, int outlawPower, bool outlawOnFriend) =>
-        !underGuards && (outlawOnFriend || outlawPower <= 0 || sidePower >= outlawPower * HuntOdds);
+    public static bool ShouldHunt(bool underGuards, int sidePower, int outlawPower, bool outlawOnFriend, bool antiPk) =>
+        !underGuards &&
+        (outlawOnFriend || outlawPower <= 0 || sidePower >= outlawPower * (antiPk ? HuntOdds : CautiousOdds));
 
     /// <summary>
     /// A blue starts a new fight in Buccaneer's Den only when it rides against the reds there: on
