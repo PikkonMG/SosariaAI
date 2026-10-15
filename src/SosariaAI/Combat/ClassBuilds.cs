@@ -33,7 +33,7 @@ public static class ClassBuilds
 
     /// <summary>
     /// The share of mages that are provoke mages, out of <see cref="PercentBase"/>: musicianship and
-    /// provocation in place of the scribe's and brewer's crafts. Only the rare bard sang in a fight,
+    /// provocation in place of wrestling and the scribe's craft. Only the rare bard sang in a fight,
     /// eleven provokes in an hour and a half of 800 people.
     /// </summary>
     public const int ProvokeMageShare = 25;
@@ -284,9 +284,11 @@ public static class ClassBuilds
     }
 
     /// <summary>
-    /// A mage is a mage: magery, evaluate, meditation, resist and wrestling, and the scribe's
-    /// and brewer's crafts beside them, or, for a provoke mage (<see cref="ProvokeMageShare"/>),
-    /// musicianship and provocation and an instrument in the pack. It holds its spellbook, never
+    /// A mage is a mage: magery, evaluate, meditation, resist and hiding, as nearly every mage of
+    /// the period trained, with wrestling and the scribe's craft, or, for a provoke mage
+    /// (<see cref="ProvokeMageShare"/>), musicianship and provocation in place of those two and
+    /// an instrument in the pack. A fighter does not spend its points on hiding: only the
+    /// ranger and the thief train it. It holds its spellbook, never
     /// a weapon (the engine puts a weapon in the pack at every cast), and wears leather, the only
     /// armor that lets it meditate in full.
     /// </summary>
@@ -298,8 +300,8 @@ public static class ClassBuilds
         {
             Primary = SkillName.Magery,
             Secondary = provokes
-                ? [.. MageCore, SkillName.Musicianship, SkillName.Provocation]
-                : [.. MageCore, SkillName.Inscribe, SkillName.Alchemy],
+                ? [SkillName.EvalInt, SkillName.Meditation, SkillName.MagicResist, SkillName.Musicianship, SkillName.Provocation, SkillName.Hiding]
+                : [.. MageCore, SkillName.Inscribe, SkillName.Hiding],
             Stats = CasterStats,
             Style = CombatStyle.Mage,
             Armor = KitArmor.Light,

@@ -62,9 +62,13 @@ the same person:
 - a name, face, clothes, home town, work patch, and ambition of their own.
 
 Armor follows the build, and so do weapons and spells. About two in seven
-fighters who are not archers roll a pure mage. One mage in four is a provoke
-mage (musicianship and provocation), and one tamer in four tames with
-peacemaking; both carry an instrument and use it in a fight. Mages, healers, bards, and
+fighters who are not archers roll a pure mage. Mages train Hiding, as nearly
+all mages of the period did; among fighters only rangers and thieves spend
+points on it. One mage in four is a provoke mage (musicianship and
+provocation), and one tamer in four tames with peacemaking; both carry an
+instrument and use it in a fight. Stealth, a mount and sightseeing are offered
+only when they can start: the Hiding and light armour stealth needs, a rider on
+foot with its own mount in reach, a place near home to look at. Mages, healers, bards, and
 tamers are casters: they hold only a spellbook, never a weapon, and wear
 leather, because the engine puts a held weapon in the pack at every cast and
 any armor heavier than leather cuts meditation. Only casters cast spells in a

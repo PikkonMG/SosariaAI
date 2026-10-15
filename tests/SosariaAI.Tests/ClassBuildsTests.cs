@@ -98,7 +98,21 @@ public class ClassBuildsTests
             Assert.Equal(KitArmor.Light, template.Armor);
             Assert.Equal(CombatStyle.Mage, template.Style);
             Assert.Contains(SkillName.Meditation, template.Secondary);
+            Assert.Contains(SkillName.Hiding, template.Secondary);
             Assert.True(template.Trains(SkillName.Inscribe) || template.Trains(SkillName.Provocation));
+        }
+    }
+
+    [Theory]
+    [InlineData(PersonClass.Warrior)]
+    [InlineData(PersonClass.Fencer)]
+    [InlineData(PersonClass.Archer)]
+    public void Fighters_SpendNoPointsOnHiding(PersonClass fighter)
+    {
+        // Hiding costs a fighter points out of its 700: only the ranger and the thief train it.
+        for (var i = 0; i < 40; i++)
+        {
+            Assert.False(ClassBuilds.TemplateFor(fighter, CharacterRole.Fighter, "Felucca:dex#" + i).Trains(SkillName.Hiding));
         }
     }
 
