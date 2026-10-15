@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Server;
 
 namespace SosariaAI.Combat;
 
@@ -25,4 +26,7 @@ public sealed class ResolvedBuild
     public double HealInterval { get; init; }
 
     public bool IsFighter => Role == CharacterRole.Fighter;
+
+    /// <summary>True when <paramref name="skill"/> is one of the build's skills.</summary>
+    public bool Trains(SkillName skill) => Skills?.ContainsKey(skill.ToString()) == true;
 }

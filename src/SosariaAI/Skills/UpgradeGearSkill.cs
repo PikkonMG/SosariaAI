@@ -212,7 +212,7 @@ public sealed class UpgradeGearSkill : Skill
             return null;
         }
 
-        var row = ClassBuilds.TemplateOf(character).Weapon;
+        var row = ClassBuilds.WeaponRowOf(character);
         var kitWeapon = row == null ? null : KitWeapon(character.Build?.Kit, row);
 
         for (var i = 0; i < lacking.Count; i++)
@@ -240,15 +240,16 @@ public sealed class UpgradeGearSkill : Skill
 
         var outer = character.FindItemOnLayer(Layer.OuterTorso);
         var robeWorn = outer is Robe and not DeathRobe;
+        var row = ClassBuilds.WeaponRowOf(character);
 
         return new GearNeeds
         {
             Weight = template.Armor,
             Target = GearLadder.Target(template, profile.Tier, profile.Wealth),
             Female = character.Female,
-            Weapon = template.Weapon == null ? null : KitWeapon(character.Build?.Kit, template.Weapon),
-            WeaponRow = template.Weapon,
-            Armed = HasOwnWeapon(character),
+            Weapon = row == null ? null : KitWeapon(character.Build?.Kit, row),
+            WeaponRow = row,
+            Armed = GearEquip.HasOwnWeapon(character),
             Shield = template.Shield ? ClassKits.ShieldFor(profile.Tier, character.CharacterId) : null,
             ShieldWorn = character.FindItemOnLayer(Layer.TwoHanded) is BaseShield,
             WantsRobe = !robeWorn && OutfitRules.WearsRobe(profile, character.CharacterId),
@@ -271,11 +272,6 @@ public sealed class UpgradeGearSkill : Skill
 
         return row;
     }
-
-    private static bool HasOwnWeapon(Mobile mobile) =>
-        mobile.FindItemOnLayer(Layer.OneHanded) is BaseWeapon ||
-        mobile.FindItemOnLayer(Layer.TwoHanded) is BaseWeapon ||
-        GearEquip.BestPackWeapon(mobile, allowRanged: true) != null;
 
     /// <summary>
     /// Starts the visit to a crafter at a bank in reach whose pack holds the piece, priced within

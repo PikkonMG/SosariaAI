@@ -36,7 +36,7 @@ public static class PoisonRules
         return packed is { Deleted: false } ? packed : null;
     }
 
-    /// <summary>The weapon in hand or in the pack that takes poison, else food in the pack, else null.</summary>
+    /// <summary>The weapon it fights with, in hand or in the pack, that takes poison, else food in the pack, else null.</summary>
     public static Item FindCoatable(SosariaCharacter character) =>
         (Item)FindWeapon(character) ?? character?.Backpack?.FindItemByType<Food>();
 
@@ -47,14 +47,16 @@ public static class PoisonRules
             return null;
         }
 
-        if (character.FindItemOnLayer(Layer.OneHanded) is BaseWeapon { Deleted: false } held && IsPoisonable(held.Layer, held.Type))
+        if (character.FindItemOnLayer(Layer.OneHanded) is BaseWeapon { Deleted: false } held && IsPoisonable(held.Layer, held.Type) &&
+            GearEquip.MayWield(character, held))
         {
             return held;
         }
 
         foreach (var item in character.Backpack?.Items ?? [])
         {
-            if (item is BaseWeapon { Deleted: false } packed && IsPoisonable(packed.Layer, packed.Type))
+            if (item is BaseWeapon { Deleted: false } packed && IsPoisonable(packed.Layer, packed.Type) &&
+                GearEquip.MayWield(character, packed))
             {
                 return packed;
             }

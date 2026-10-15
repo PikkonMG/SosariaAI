@@ -306,12 +306,14 @@ public static class SupplyCheck
         return lowest;
     }
 
-    /// <summary>The ammunition of the ranged weapon the person wields or carries, or null.</summary>
+    /// <summary>
+    /// The ammunition of the bow the person holds, or would draw from its pack, or null. A bow
+    /// it may not wield (<see cref="GearEquip.MayWield"/>) is goods: a mage with a looted bow buys no arrows.
+    /// </summary>
     public static Type AmmoType(Mobile person)
     {
-        var ranged = person?.FindItemOnLayer(Layer.TwoHanded) as BaseRanged ??
-                     person?.FindItemOnLayer(Layer.OneHanded) as BaseRanged ??
-                     person?.Backpack?.FindItemByType<BaseRanged>();
+        var ranged = GearEquip.OwnWeaponInHand(person) as BaseRanged ??
+                     GearEquip.BestPackWeapon(person, allowRanged: true) as BaseRanged;
         return ranged?.AmmoType;
     }
 }

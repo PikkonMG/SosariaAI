@@ -48,7 +48,8 @@ public static class CraftedGear
 
     /// <summary>
     /// True when <paramref name="piece"/> betters what the buyer wears in its place: armor its
-    /// class buys in the same slot, a weapon of the skill it fights with, or a shield it carries.
+    /// class buys in the same slot, a weapon of the skill it fights with and may wield, or a
+    /// shield it carries. A mage still holding its mining pick is no buyer for a broadsword.
     /// </summary>
     public static bool Betters(SosariaCharacter buyer, Item piece)
     {
@@ -61,7 +62,7 @@ public static class CraftedGear
         {
             BaseShield => buyer.FindItemOnLayer(Layer.TwoHanded) is BaseShield worn && GearScore.RankOf(piece) > GearScore.RankOf(worn),
             BaseArmor armor => SlotOf(armor) is { } slot && GearScore.RankOf(piece) > GearScore.SlotRank(buyer, slot),
-            BaseWeapon weapon => buyer.Weapon is BaseWeapon held && held.Skill == weapon.Skill &&
+            BaseWeapon weapon => GearEquip.MayWield(buyer, weapon) && buyer.Weapon is BaseWeapon held && held.Skill == weapon.Skill &&
                                  GearScore.RankOf(piece) > GearScore.WeaponRank(buyer),
             _ => false
         };

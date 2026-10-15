@@ -111,10 +111,13 @@ public static class GearEquip
     }
 
     /// <summary>
-    /// A person on the road wears a weapon. A hatchet in the pack while an orc
-    /// swings is how a neighbour dies unarmed. Empty hands draw the best weapon in the
-    /// pack, so the exceptional katana comes out before the pickaxe. An archer whose
-    /// quiver ran dry draws its best melee weapon; nothing refills the arrows.
+    /// A person on the road holds what it fights with. A hatchet in the pack while an orc
+    /// swings is how a neighbour dies unarmed. A weapon or book in hand that its build does not
+    /// fight with goes to the pack first (<see cref="WieldRules"/>): the mace a mage looted, the
+    /// pick it mined with. A caster then holds its spellbook, which a harvest tool had put in
+    /// the pack, and nothing gave back. Anyone else with empty hands draws the best weapon in
+    /// the pack it may hold, so the exceptional katana comes out before the pickaxe. An archer
+    /// whose quiver ran dry draws its best melee weapon it may hold; nothing refills the arrows.
     /// Equipping breaks the words in the hands (Spell.OnCasterEquipping), even a first circle
     /// spell a blow would spare, so the weapon waits for the spell to end: every arrow on a
     /// casting mage drew its weapon through AggressiveAction and broke its Magic Arrow, 87 of
@@ -133,6 +136,13 @@ public static class GearEquip
         }
 
         FreeBusyHands(mobile);
+        PutAwayForeignArms(mobile);
+
+        if (WieldRules.HoldsSpellbook(BuildOf(mobile)))
+        {
+            return GearScore.HasWeapon(mobile) || Spellbook.FindRegular(mobile) is { } book && EquipTool(mobile, book);
+        }
+
         var dryBow = BowWithoutAmmo(mobile);
 
         if (GearScore.HasWeapon(mobile) && !dryBow)
@@ -145,11 +155,53 @@ public static class GearEquip
     }
 
     /// <summary>
-    /// A weapon in hand or one in the pack <see cref="EquipReadyWeapon"/> would draw. Read
-    /// without touching the hands, so a worker asked to help keeps its tool until it says yes.
+    /// What <see cref="EquipReadyWeapon"/> would hold, in hand or in the pack: a caster's
+    /// spellbook, anyone else's own weapon. Read without touching the hands, so a worker asked
+    /// to help keeps its tool until it says yes.
     /// </summary>
     public static bool CanArm(Mobile mobile) =>
-        GearScore.HasWeapon(mobile) || BestPackWeapon(mobile, allowRanged: true) != null;
+        WieldRules.HoldsSpellbook(BuildOf(mobile)) ? Spellbook.FindRegular(mobile) != null : HasOwnWeapon(mobile);
+
+    /// <summary>True when the person holds or carries a weapon it may wield (<see cref="MayWield"/>).</summary>
+    public static bool HasOwnWeapon(Mobile mobile) =>
+        OwnWeaponInHand(mobile) != null || BestPackWeapon(mobile, allowRanged: true) != null;
+
+    /// <summary>The weapon in either hand that the person may wield, or null.</summary>
+    public static BaseWeapon OwnWeaponInHand(Mobile mobile) =>
+        OwnWeapon(mobile, mobile?.FindItemOnLayer(Layer.OneHanded)) ??
+        OwnWeapon(mobile, mobile?.FindItemOnLayer(Layer.TwoHanded));
+
+    /// <summary>True when the person's build fights with <paramref name="weapon"/> (<see cref="WieldRules.MayWield"/>).</summary>
+    public static bool MayWield(Mobile mobile, BaseWeapon weapon) =>
+        weapon != null && WieldRules.MayWield(BuildOf(mobile), weapon.Skill);
+
+    private static BaseWeapon OwnWeapon(Mobile mobile, Item held) =>
+        held is BaseWeapon weapon && MayWield(mobile, weapon) ? weapon : null;
+
+    /// <summary>True for a weapon or spellbook the person's build does not fight with; anything else is no arm at all.</summary>
+    private static bool IsForeignArm(Mobile mobile, Item item) =>
+        item switch
+        {
+            BaseWeapon weapon => !MayWield(mobile, weapon),
+            Spellbook => !WieldRules.MayHoldSpellbook(BuildOf(mobile)),
+            _ => false
+        };
+
+    /// <summary>Moves to the pack each weapon or book in the hands that the person does not fight with (<see cref="IsForeignArm"/>).</summary>
+    private static void PutAwayForeignArms(Mobile mobile)
+    {
+        var held = WornConflicts(mobile, Layer.OneHanded);
+
+        for (var i = 0; i < held.Count; i++)
+        {
+            if (held[i].Movable && IsForeignArm(mobile, held[i]))
+            {
+                mobile.AddToBackpack(held[i]);
+            }
+        }
+    }
+
+    private static ResolvedBuild BuildOf(Mobile mobile) => (mobile as SosariaCharacter)?.Build;
 
     /// <summary>True when the wielded weapon is a bow or crossbow and the pack holds none of its ammunition.</summary>
     public static bool BowWithoutAmmo(Mobile mobile)
@@ -159,7 +211,10 @@ public static class GearEquip
         return ranged != null && (mobile.Backpack?.GetAmount(ranged.AmmoType) ?? 0) == 0;
     }
 
-    /// <summary>The highest-ranked weapon in the pack (see <see cref="GearScore.RankOf"/>), or null.</summary>
+    /// <summary>
+    /// The highest-ranked weapon in the pack (see <see cref="GearScore.RankOf"/>) that the person
+    /// may wield (<see cref="MayWield"/>), or null. A looted weapon it may not wield is goods.
+    /// </summary>
     public static BaseWeapon BestPackWeapon(Mobile mobile, bool allowRanged)
     {
         var pack = mobile?.Backpack;
@@ -173,7 +228,7 @@ public static class GearEquip
 
         foreach (var weapon in pack.FindItemsByType<BaseWeapon>())
         {
-            if (weapon.Deleted || !allowRanged && weapon is BaseRanged)
+            if (weapon.Deleted || !allowRanged && weapon is BaseRanged || !MayWield(mobile, weapon))
             {
                 continue;
             }
@@ -193,10 +248,17 @@ public static class GearEquip
     /// <summary>
     /// Wears bought gear, moving whatever the slot already wears to the backpack like a
     /// player changing equipment. A shield stays up beside a one-handed weapon. Anything
-    /// that will not equip lands in the pack.
+    /// that will not equip lands in the pack, and so does a weapon or book the person's build
+    /// does not fight with: a fighter's bought travel book put its katana in the pack.
     /// </summary>
     public static void EquipOrPack(Mobile mobile, Item item)
     {
+        if (IsForeignArm(mobile, item))
+        {
+            mobile.AddToBackpack(item);
+            return;
+        }
+
         var conflicts = WornConflicts(mobile, item.Layer, keep: item);
 
         for (var i = 0; i < conflicts.Count; i++)

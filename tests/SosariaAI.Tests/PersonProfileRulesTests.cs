@@ -125,6 +125,30 @@ public class PersonProfileRulesTests
     }
 
     [Fact]
+    public void Fixtures_RollOnlyClassesOfTheirAuthoredFightStyle()
+    {
+        // A fixture keeps its authored build: a swordsman fixture rolled as a mage, healer or
+        // bard was titled and dressed as a caster and fought with its katana.
+        var swordsman = Template(BuildPresets.Swordsman, null, SkillKinds.Hunt, SkillKinds.Music);
+        var mage = Template(BuildPresets.Mage, null, SkillKinds.Mage);
+        var lumberjack = Template(null, PersonJobs.Worker, SkillKinds.Lumberjack, SkillKinds.Cartography);
+        var mageRolls = new HashSet<PersonClass>();
+
+        for (var i = 0; i < People; i++)
+        {
+            var id = $"Felucca:fixture{i}";
+            var mageClass = PersonProfileRules.Roll(id, mage, Expansion.SE).Class;
+            mageRolls.Add(mageClass);
+
+            Assert.Equal(CombatStyle.Melee, StyleOf(PersonProfileRules.Roll(id, swordsman, Expansion.SE).Class, id));
+            Assert.Equal(CombatStyle.Mage, StyleOf(mageClass, id));
+            Assert.Equal(CombatStyle.Melee, StyleOf(PersonProfileRules.Roll(id, lumberjack, Expansion.T2A).Class, id));
+        }
+
+        Assert.Contains(PersonClass.Healer, mageRolls);
+    }
+
+    [Fact]
     public void LaterEras_RollTheirOwnClasses()
     {
         var fighter = Template(BuildPresets.Swordsman, null, SkillKinds.Hunt);
@@ -272,4 +296,7 @@ public class PersonProfileRulesTests
 
     private static bool Both(PersonTrait traits, PersonTrait first, PersonTrait second) =>
         (traits & first) != 0 && (traits & second) != 0;
+
+    private static CombatStyle StyleOf(PersonClass personClass, string id) =>
+        ClassBuilds.TemplateFor(personClass, CharacterRole.Fighter, id).Style;
 }

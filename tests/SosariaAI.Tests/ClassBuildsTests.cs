@@ -4,6 +4,7 @@ using System.Linq;
 using Server;
 using SosariaAI.Behaviour;
 using SosariaAI.Combat;
+using SosariaAI.Mobiles;
 using SosariaAI.Spawning;
 using Xunit;
 
@@ -318,6 +319,44 @@ public class ClassBuildsTests
         Assert.Equal(CombatStyle.Mage, template.Style);
         Assert.Contains(SkillName.Magery, template.Secondary);
         Assert.True(kit.IndexOf(ClassKits.Spellbook) < kit.IndexOf(ClassKits.NecromancerSpellbook));
+    }
+
+    [Fact]
+    public void WeaponSkill_IsHeldByEveryCopyOfAClassWithAWeaponRow_AndNoneByACaster()
+    {
+        foreach (var (profile, role, id) in Everyone())
+        {
+            var template = ClassBuilds.TemplateFor(profile.Class, role, id);
+            var build = ClassBuilds.For(profile, role, id, EraBand.T2A);
+
+            Assert.Equal(template.Weapon == null, template.WeaponSkill == null);
+            Assert.Equal(template.Caster, WieldRules.HoldsSpellbook(build));
+
+            if (template.WeaponSkill is { } skill)
+            {
+                Assert.True(WieldRules.MayWield(build, skill), $"{profile.Class} {id} may not hold its {template.Weapon}");
+            }
+        }
+    }
+
+    [Fact]
+    public void WeaponRowOf_OnlyForABuildThatMayHoldIt()
+    {
+        // A thief fixture keeps its authored build, which trains no fencing: buying the
+        // thief's dagger would leave it unarmed, and it would buy the dagger again.
+        var fixture = new SosariaCharacter((Serial)0x7C01) { CharacterId = "Felucca:nyle" };
+        fixture.BindProfile(Profile(PersonClass.Thief, SkillTier.Expert));
+        fixture.Build = BuildPresets.ThiefNovice();
+
+        var copy = new SosariaCharacter((Serial)0x7C02) { CharacterId = "Felucca:nyle#1" };
+        copy.BindProfile(Profile(PersonClass.Thief, SkillTier.Expert));
+
+        var mage = new SosariaCharacter((Serial)0x7C03) { CharacterId = "Felucca:sela#1" };
+        mage.BindProfile(Profile(PersonClass.Mage, SkillTier.Expert));
+
+        Assert.Null(ClassBuilds.WeaponRowOf(fixture));
+        Assert.Equal(ClassBuilds.ThiefDagger, ClassBuilds.WeaponRowOf(copy));
+        Assert.Null(ClassBuilds.WeaponRowOf(mage));
     }
 
     private static PersonProfile Profile(PersonClass personClass, SkillTier tier) =>

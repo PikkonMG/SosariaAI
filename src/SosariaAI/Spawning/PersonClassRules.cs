@@ -43,6 +43,10 @@ public static class PersonClassRules
     public const int FighterMageShare = 40;
 
     /// <param name="career">The trade of the person's craft routine, or null (<see cref="CraftCareerRules.CareerOf"/>).</param>
+    /// <param name="authoredStyle">
+    /// The fight style of the authored build a fixture keeps (<see cref="BuildPresets.StyleOf"/>),
+    /// or null for a copy, whose build follows its class.
+    /// </param>
     public static PersonClass Pick(
         string job,
         string preset,
@@ -50,7 +54,8 @@ public static class PersonClassRules
         string career,
         string uniqueId,
         int salt,
-        Expansion expansion
+        Expansion expansion,
+        CombatStyle? authoredStyle = null
     )
     {
         var uses = usesSkill ?? (_ => false);
@@ -59,8 +64,8 @@ public static class PersonClassRules
         {
             PersonJobs.Thief => PersonClass.Thief,
             PersonJobs.Tamer => PersonClass.Tamer,
-            PersonJobs.Worker => CraftCareerRules.ClassOf(career) ?? PickWorker(uses, uniqueId, salt),
-            _ => PickFighter(preset, uses, uniqueId, salt, expansion)
+            PersonJobs.Worker => CraftCareerRules.ClassOf(career) ?? PickWorker(uses, uniqueId, salt, authoredStyle),
+            _ => PickFighter(preset, uses, uniqueId, salt, expansion, authoredStyle)
         };
     }
 
@@ -101,18 +106,21 @@ public static class PersonClassRules
         Func<string, bool> uses,
         string uniqueId,
         int salt,
-        Expansion expansion
+        Expansion expansion,
+        CombatStyle? authoredStyle
     )
     {
+        int Fits(PersonClass personClass, int share) => Fit(personClass, share, authoredStyle, uniqueId);
+
         if (string.Equals(preset, BuildPresets.Mage, StringComparison.OrdinalIgnoreCase))
         {
             return PersonDice.Weighted(
                     uniqueId,
                     salt,
-                    MageShare,
-                    MageHealerShare,
-                    MageTreasureHunterShare,
-                    Share(PersonClass.Necromancer, MageNecromancerShare, expansion)
+                    Fits(PersonClass.Mage, MageShare),
+                    Fits(PersonClass.Healer, MageHealerShare),
+                    Fits(PersonClass.TreasureHunter, MageTreasureHunterShare),
+                    Fits(PersonClass.Necromancer, Share(PersonClass.Necromancer, MageNecromancerShare, expansion))
                 ) switch
                 {
                     0 => PersonClass.Mage,
@@ -124,7 +132,7 @@ public static class PersonClassRules
 
         if (string.Equals(preset, BuildPresets.Archer, StringComparison.OrdinalIgnoreCase))
         {
-            return PersonDice.Weighted(uniqueId, salt, ArcherShare, RangerShare) == 0
+            return PersonDice.Weighted(uniqueId, salt, Fits(PersonClass.Archer, ArcherShare), Fits(PersonClass.Ranger, RangerShare)) == 0
                 ? PersonClass.Archer
                 : PersonClass.Ranger;
         }
@@ -134,14 +142,14 @@ public static class PersonClassRules
         return PersonDice.Weighted(
                 uniqueId,
                 salt,
-                WarriorShare,
-                FencerShare,
-                MeleeHealerShare,
-                bard,
-                Share(PersonClass.Paladin, PaladinShare, expansion),
-                Share(PersonClass.Samurai, SamuraiShare, expansion),
-                Share(PersonClass.Ninja, NinjaShare, expansion),
-                FighterMageShare
+                Fits(PersonClass.Warrior, WarriorShare),
+                Fits(PersonClass.Fencer, FencerShare),
+                Fits(PersonClass.Healer, MeleeHealerShare),
+                Fits(PersonClass.Bard, bard),
+                Fits(PersonClass.Paladin, Share(PersonClass.Paladin, PaladinShare, expansion)),
+                Fits(PersonClass.Samurai, Share(PersonClass.Samurai, SamuraiShare, expansion)),
+                Fits(PersonClass.Ninja, Share(PersonClass.Ninja, NinjaShare, expansion)),
+                Fits(PersonClass.Mage, FighterMageShare)
             ) switch
             {
                 0 => PersonClass.Warrior,
@@ -158,11 +166,23 @@ public static class PersonClassRules
     private static int Share(PersonClass personClass, int share, Expansion expansion) =>
         Allowed(personClass, expansion) ? share : 0;
 
+    /// <summary>
+    /// The share of a class for a fixture that keeps an authored build of
+    /// <paramref name="authoredStyle"/>: none for a class whose template fights another way. A
+    /// swordsman fixture rolled as a mage, healer or bard was titled and dressed as a caster
+    /// and fought with its katana. A copy (null) keeps every share.
+    /// </summary>
+    private static int Fit(PersonClass personClass, int share, CombatStyle? authoredStyle, string uniqueId) =>
+        authoredStyle is not { } style ||
+        ClassBuilds.TemplateFor(personClass, CharacterRole.Fighter, uniqueId).Style == style
+            ? share
+            : 0;
+
     // A gatherer is the class of its harvest: a template that mines and smiths a dagger now and
     // then is a miner, who sells its ingots to the smiths. A live run turned 55 of every 100 such
     // copies into smiths and spawned no miner at all. Templates that name a trade and gather
     // nothing make the class of that trade.
-    private static PersonClass PickWorker(Func<string, bool> uses, string uniqueId, int salt)
+    private static PersonClass PickWorker(Func<string, bool> uses, string uniqueId, int salt, CombatStyle? authoredStyle)
     {
         if (uses(SkillKinds.Mine))
         {
@@ -185,7 +205,14 @@ public static class PersonClassRules
             var hunter = uses(SkillKinds.Cartography) ? TreasureHunterShare : 0;
             var merchant = uses(SkillKinds.BankShop) || uses(SkillKinds.VendorSell) ? MerchantShare : 0;
 
-            return PersonDice.Weighted(uniqueId, salt, LumberjackShare, carpenter, hunter, merchant) switch
+            return PersonDice.Weighted(
+                    uniqueId,
+                    salt,
+                    Fit(PersonClass.Lumberjack, LumberjackShare, authoredStyle, uniqueId),
+                    Fit(PersonClass.Carpenter, carpenter, authoredStyle, uniqueId),
+                    Fit(PersonClass.TreasureHunter, hunter, authoredStyle, uniqueId),
+                    Fit(PersonClass.Merchant, merchant, authoredStyle, uniqueId)
+                ) switch
             {
                 0 => PersonClass.Lumberjack,
                 1 => PersonClass.Carpenter,

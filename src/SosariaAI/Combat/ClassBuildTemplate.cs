@@ -9,6 +9,8 @@ namespace SosariaAI.Combat;
 /// </summary>
 public sealed class ClassBuildTemplate
 {
+    private static readonly SkillName[] WeaponSkills = [SkillName.Swords, SkillName.Macing, SkillName.Fencing, SkillName.Archery];
+
     public SkillName Primary { get; init; }
 
     public SkillName[] Secondary { get; init; } = [];
@@ -22,6 +24,23 @@ public sealed class ClassBuildTemplate
 
     /// <summary>A <see cref="KitVariation"/> row key, or null for a caster with no weapon.</summary>
     public string Weapon { get; init; }
+
+    /// <summary>The weapon skill the template trains, the one skill its <see cref="Weapon"/> row keeps; null for a caster.</summary>
+    public SkillName? WeaponSkill
+    {
+        get
+        {
+            foreach (var skill in WeaponSkills)
+            {
+                if (Trains(skill))
+                {
+                    return skill;
+                }
+            }
+
+            return null;
+        }
+    }
 
     /// <summary>True only beside a one-handed row.</summary>
     public bool Shield { get; init; }

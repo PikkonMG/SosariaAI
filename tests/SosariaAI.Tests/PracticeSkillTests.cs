@@ -1,11 +1,15 @@
+using System;
+using System.Collections.Generic;
 using Server;
+using SosariaAI.Combat;
 using SosariaAI.Configuration;
+using SosariaAI.Mobiles;
 using SosariaAI.Skills;
 using Xunit;
 
 namespace SosariaAI.Tests;
 
-public class PracticeSkillTests
+public class PracticeSkillTests : IDisposable
 {
     private const int ExpectedKindCount = 17;
     private const int ExpectedCompanyReachTiles = 8;
@@ -13,6 +17,21 @@ public class PracticeSkillTests
     private const double ClassicMax = 100;
     private const double ExtendedMax = 120;
     private const double CurseWeaponMax = 40;
+    private const double TrainedSkill = 70;
+    private static readonly Point3D Bank = new(100, 100, 0);
+
+    private readonly List<IEntity> _placed = [];
+
+    static PracticeSkillTests() => Timer.Init(0);
+
+    public PracticeSkillTests()
+    {
+        TestMap.EnsureLand();
+        TestMap.EnsureRunningWorld();
+        TestMap.EnsureDecayScheduler();
+    }
+
+    public void Dispose() => TestMap.Remove(_placed);
 
     public static TheoryData<string> TableKinds() => new(PracticeSkillTable.Kinds);
 
@@ -69,10 +88,61 @@ public class PracticeSkillTests
 
     [Theory]
     [MemberData(nameof(TableKinds))]
-    public void TastersOnly_OnlyTaste(string kind)
+    public void TrainedOnly_FightingAndTastePractice(string kind)
     {
         PracticeSkillTable.TryGet(kind, out var rule);
-        Assert.Equal(kind == SkillKinds.Taste, rule.TastersOnly);
+        Assert.Equal(
+            kind is SkillKinds.Archery or SkillKinds.Fence or SkillKinds.Mace or SkillKinds.Parry or SkillKinds.Sword
+                or SkillKinds.Tactics or SkillKinds.Taste or SkillKinds.Wrestle,
+            rule.TrainedOnly
+        );
+        Assert.Equal(rule.TrainedOnly, Array.IndexOf(PracticeSkillTable.TrainedOnlyKinds, kind) >= 0);
+    }
+
+    [Fact]
+    public void GatedKinds_KeepTrainedOnlyPracticeFromOtherBuilds() =>
+        Assert.All(PracticeSkillTable.TrainedOnlyKinds, kind => Assert.Contains(kind, SkillReadiness.GatedKinds));
+
+    [Theory]
+    [MemberData(nameof(TableKinds))]
+    public void MayBegin_NoCharacter_IsFalse(string kind)
+    {
+        PracticeSkillTable.TryGet(kind, out var rule);
+        Assert.False(PracticeSkillTable.MayBegin(rule, null));
+    }
+
+    [Fact]
+    public void MayBegin_Mage_PractisesItsOwnSkills_NotAFightersWeapon()
+    {
+        // A mage copied from a fighter's template kept its mace and sword practice.
+        var mage = InWorld((Serial)0x7B01, BuildPresets.MageNovice());
+
+        Assert.False(MayBegin(SkillKinds.Mace, mage));
+        Assert.False(MayBegin(SkillKinds.Sword, mage));
+        Assert.False(MayBegin(SkillKinds.Tactics, mage));
+        Assert.True(MayBegin(SkillKinds.Wrestle, mage));
+        Assert.True(MayBegin(SkillKinds.ItemId, mage));
+    }
+
+    [Fact]
+    public void MayBegin_Swordsman_PractisesSwords_NotMace()
+    {
+        var swordsman = InWorld((Serial)0x7B03, BuildPresets.SwordsmanNovice());
+
+        Assert.True(MayBegin(SkillKinds.Sword, swordsman));
+        Assert.True(MayBegin(SkillKinds.Parry, swordsman));
+        Assert.False(MayBegin(SkillKinds.Mace, swordsman));
+        Assert.False(MayBegin(SkillKinds.Archery, swordsman));
+    }
+
+    [Fact]
+    public void MayBegin_Taste_OnlyABuildThatTrainsTasteID()
+    {
+        var alchemist = InWorld((Serial)0x7B05, Trains(SkillName.Alchemy, SkillName.TasteID));
+        var fighter = InWorld((Serial)0x7B07, Trains(SkillName.Swords, SkillName.Healing));
+
+        Assert.True(MayBegin(SkillKinds.Taste, alchemist));
+        Assert.False(MayBegin(SkillKinds.Taste, fighter));
     }
 
     [Fact]
@@ -101,5 +171,30 @@ public class PracticeSkillTests
     {
         PracticeSkillTable.TryGet(kind, out var rule);
         Assert.Equal(SkillStatus.Failed, new PracticeSkill(rule).Tick());
+    }
+
+    private static bool MayBegin(string kind, SosariaCharacter character) =>
+        PracticeSkillTable.TryGet(kind, out var rule) && PracticeSkillTable.MayBegin(rule, character);
+
+    /// <summary>A person of <paramref name="build"/> standing on the test land.</summary>
+    private SosariaCharacter InWorld(Serial serial, ResolvedBuild build)
+    {
+        var character = new SosariaCharacter(serial) { Build = build };
+        character.DefaultMobileInit();
+        character.MoveToWorld(Bank, TestMap.EnsureLand());
+        _placed.Add(character);
+        return character;
+    }
+
+    private static ResolvedBuild Trains(params SkillName[] skills)
+    {
+        var trained = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var skill in skills)
+        {
+            trained[skill.ToString()] = TrainedSkill;
+        }
+
+        return new ResolvedBuild { Skills = trained };
     }
 }

@@ -128,6 +128,17 @@ public static class ClassBuilds
     public static ClassBuildTemplate TemplateOf(SosariaCharacter character) =>
         TemplateFor(character.PersonProfile.Class, character.Build?.Role ?? CharacterRole.Worker, character.CharacterId);
 
+    /// <summary>
+    /// The weapon row of the character's template when its build may hold that row's weapons
+    /// (<see cref="WieldRules.MayWield"/>), else null. A fixture keeps its authored build: a
+    /// thief fixture with no fencing would buy the thief's dagger, not hold it, and buy it again.
+    /// </summary>
+    public static string WeaponRowOf(SosariaCharacter character)
+    {
+        var template = TemplateOf(character);
+        return template.WeaponSkill is { } skill && WieldRules.MayWield(character.Build, skill) ? template.Weapon : null;
+    }
+
     public static ClassBuildTemplate TemplateFor(PersonClass personClass, CharacterRole role, string uniqueId) =>
         personClass switch
         {

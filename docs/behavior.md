@@ -74,7 +74,18 @@ leather, because the engine puts a held weapon in the pack at every cast and
 any armor heavier than leather cuts meditation. Only casters cast spells in a
 fight or to heal. Fighters (warriors, fencers, archers, rangers, thieves, and
 workers) fight with their weapon, bandages, and potions; their magery is only
-for travel. A melee fighter wears metal from its first day: ring mail up to
+for travel, and their spellbook stays in the pack. The same rule holds every
+time a hand is filled, not only on the first day: at a fight, after a death,
+at the bank and at the shop. A caster whose pick or fishing pole pushed its
+spellbook into the pack takes the book back out; it never draws the mace it
+looted. Any other build holds only a weapon of a skill it trains, so a
+swordsman keeps its sword and a looted mace or bow is goods for the shop. The
+practice of a fighting skill (sword, mace, fencing, archery, parry, tactics,
+wrestling) and of taste identification is for a build that trains it: a mage
+made from a fighter's template does not practise mace at the bank. A named
+fixture keeps its authored build, so its class is one that fights the same
+way: a swordsman fixture is never titled a mage, healer or bard. A melee
+fighter wears metal from its first day: ring mail up to
 journeyman, chain at expert, plate above, and bone for a few veterans. Heavier
 armor than a build may wear goes into the pack. Paladins, necromancers,
 samurai, and ninjas spawn only when the server's era (ModernUO's

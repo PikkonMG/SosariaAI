@@ -291,7 +291,7 @@ public static class SpareKit
 
         return SpareKitRules.LacksArms(
             character.IsCombatKitMissing(),
-            template?.Weapon != null,
+            ClassBuilds.WeaponRowOf(character) != null,
             GearEquip.CanArm(character),
             template == null ? [] : GearLadder.Slots(template.Armor),
             GearScore.SlotRank(character, GearSlot.Chest) > GearScore.UnarmedScore
@@ -348,7 +348,7 @@ public static class SpareKit
             var role = build.RoleOf(name);
             var kitPiece = KitOnceRules.IsCombatKitPiece(name) && WorkerTools.IsKitItem(character, loose);
             var inBag = FindIn(bag, name) != null || FindRole(bag, build, role) != null;
-            var looseSpare = loose is BaseWeapon ? GearScore.HasWeapon(character) : character.FindItemOnLayer(loose.Layer) != null;
+            var looseSpare = loose is BaseWeapon ? GearEquip.OwnWeaponInHand(character) != null : character.FindItemOnLayer(loose.Layer) != null;
 
             if (!SpareKitRules.Stows(build.Fits(role, name) || kitPiece, inBag, looseSpare))
             {
@@ -392,7 +392,7 @@ public static class SpareKit
         switch (role.Kind)
         {
             case SpareRoleKind.Weapon:
-                return GearScore.HasWeapon(character);
+                return GearEquip.OwnWeaponInHand(character) != null;
             case SpareRoleKind.Shield:
                 return character.FindItemOnLayer(Layer.TwoHanded) is BaseShield;
             case SpareRoleKind.Armor:
@@ -460,7 +460,7 @@ public static class SpareKit
         public static KitBuild Of(SosariaCharacter character)
         {
             var template = ClassBuilds.TemplateOf(character);
-            var row = template.Weapon;
+            var row = ClassBuilds.WeaponRowOf(character);
 
             return new KitBuild(
                 row,

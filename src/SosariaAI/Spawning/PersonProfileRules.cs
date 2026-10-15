@@ -74,6 +74,7 @@ public static class PersonProfileRules
     public static PersonProfile Roll(string uniqueId, CharacterDefinition definition, Expansion expansion)
     {
         var build = definition?.Build;
+        var copy = WorkSites.IsCopy(uniqueId);
         var personClass = PersonClassRules.Pick(
             PersonJobs.Of(build),
             build?.Preset,
@@ -81,9 +82,10 @@ public static class PersonProfileRules
             CraftCareerRules.CareerOf(definition),
             uniqueId,
             ClassSalt,
-            expansion
+            expansion,
+            copy ? null : BuildPresets.StyleOf(build)
         );
-        var tier = WorkSites.IsCopy(uniqueId)
+        var tier = copy
             ? SkillTierRules.Roll(uniqueId, TierSalt, personClass)
             : SkillTierRules.ForFixture(build?.Veteran == true, uniqueId, TierSalt);
         var traits = RollTraits(uniqueId);

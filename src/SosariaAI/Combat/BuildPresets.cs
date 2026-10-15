@@ -72,7 +72,7 @@ public static class BuildPresets
         var skills = MergeSkills(preset.Skills, definition?.Skills, veteran);
         var kit = definition?.Kit is { Count: > 0 } ? definition.Kit : preset.Kit;
 
-        var style = ParseStyle(definition?.Style, preset.Style);
+        var style = StyleOf(definition);
         var role = ParseRole(definition?.Role, preset.Role);
         var stats = ResolveStats(definition?.Preset, preset, definition?.Stats, veteran, band);
 
@@ -90,6 +90,10 @@ public static class BuildPresets
             HealInterval = definition?.HealInterval ?? preset.HealInterval
         };
     }
+
+    /// <summary>The fight style of the authored build: its own style, else its preset's.</summary>
+    public static CombatStyle StyleOf(BuildDefinition definition) =>
+        ParseStyle(definition?.Style, ResolvePreset(definition?.Preset).Style);
 
     public static ResolvedBuild ResolvePreset(string name)
     {

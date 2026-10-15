@@ -18,7 +18,6 @@ public class SaleGoodsForSaleTests
     private const uint PackSerial = 0x9C01;
     private const uint LogSerial = 0x9C02;
     private const uint GemSerial = 0x9C03;
-    private const uint SpareSerial = 0x9C04;
     private const uint PickaxeSerial = 0x9C05;
     private const uint GoldSerial = 0x9C06;
     private const uint BandageSerial = 0x9C07;
@@ -40,7 +39,8 @@ public class SaleGoodsForSaleTests
         seller.Items.Add(pack);
         var log = new Log((Serial)LogSerial);
         var gem = new Amber((Serial)GemSerial);
-        var spare = new Katana((Serial)SpareSerial);
+        // Only the plain constructor sets the weapon skill the spare is kept by.
+        var spare = new Katana();
         var pickaxe = new Pickaxe((Serial)PickaxeSerial);
         var gold = new Gold((Serial)GoldSerial);
         var bandage = new Bandage((Serial)BandageSerial);

@@ -129,6 +129,48 @@ public class FreshKitWearTests
     }
 
     [RealMapFact]
+    public void EveryCopy_HoldsOnlyWhatItsBuildFightsWith()
+    {
+        foreach (var (character, personClass, tier) in People(Enum.GetValues<PersonClass>().Where(Allowed).ToArray()))
+        {
+            GearEquip.EquipReadyWeapon(character);
+            var weapon = Weapon(character);
+
+            if (WieldRules.HoldsSpellbook(character.Build))
+            {
+                Assert.Null(weapon);
+                Assert.IsAssignableFrom<Spellbook>(character.FindItemOnLayer(Layer.OneHanded));
+            }
+            else if (weapon != null)
+            {
+                Assert.True(
+                    WieldRules.MayWield(character.Build, weapon.Skill),
+                    $"{personClass} {tier} holds a {weapon.GetType().Name}: {Paperdoll(character)}"
+                );
+            }
+        }
+    }
+
+    [RealMapFact]
+    public void MageThatMinedAndLooted_HoldsItsBookAgain_WhenTheFightComes()
+    {
+        // The pick took the book out of the hand, nothing gave it back, and the next draw
+        // brought out the mace off an orc.
+        var mage = KitWorld.Dress(KitWorld.Profile(PersonClass.Mage, SkillTier.Expert, PersonWealth.Modest, false), "Felucca:minedmage#1");
+        var pickaxe = new Pickaxe();
+        var mace = new Mace();
+        GearEquip.EquipTool(mage, pickaxe);
+        mage.AddToBackpack(mace);
+
+        Assert.Same(pickaxe, Weapon(mage));
+        Assert.True(GearEquip.EquipReadyWeapon(mage));
+        Assert.IsAssignableFrom<Spellbook>(mage.FindItemOnLayer(Layer.OneHanded));
+        Assert.Null(Weapon(mage));
+        Assert.True(pickaxe.IsChildOf(mage.Backpack));
+        Assert.True(mace.IsChildOf(mage.Backpack));
+    }
+
+    [RealMapFact]
     public void Workers_HoldTheirTool_AndWearNoBodyArmor()
     {
         foreach (var (character, personClass, tier) in People([PersonClass.Miner, PersonClass.Lumberjack, PersonClass.Tailor]))

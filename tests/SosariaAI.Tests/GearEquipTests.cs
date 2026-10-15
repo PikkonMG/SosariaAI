@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using Server;
 using Server.Items;
+using SosariaAI.Combat;
 using SosariaAI.Mobiles;
 using SosariaAI.Skills;
 using Xunit;
@@ -11,6 +13,7 @@ public class GearEquipTests
 {
     private const int OneArrow = 1;
     private const int FighterStat = 100;
+    private const double TrainedSkill = 100;
 
     static GearEquipTests() => Timer.Init(0);
 
@@ -141,8 +144,8 @@ public class GearEquipTests
     {
         // The pickaxe went into the pack first; the exceptional katana must still come out.
         var character = Character((Serial)0x731C);
-        character.Backpack.AddItem(new Pickaxe((Serial)0x741C));
-        var katana = new Katana((Serial)0x741D) { Quality = WeaponQuality.Exceptional };
+        character.Backpack.AddItem(new Pickaxe());
+        var katana = new Katana { Quality = WeaponQuality.Exceptional };
         character.Backpack.AddItem(katana);
 
         Assert.Same(katana, GearEquip.BestPackWeapon(character, allowRanged: true));
@@ -170,11 +173,12 @@ public class GearEquipTests
     public void BestPackWeapon_DryBow_SkipsRangedWeapons()
     {
         var character = Character((Serial)0x731E);
-        character.Backpack.AddItem(new HeavyCrossbow((Serial)0x741E));
-        var mace = new Mace((Serial)0x741F);
-        character.Backpack.AddItem(mace);
+        character.Build = Trains(CombatStyle.Archer, SkillName.Archery, SkillName.Swords);
+        character.Backpack.AddItem(new HeavyCrossbow());
+        var sword = new Broadsword();
+        character.Backpack.AddItem(sword);
 
-        Assert.Same(mace, GearEquip.BestPackWeapon(character, allowRanged: false));
+        Assert.Same(sword, GearEquip.BestPackWeapon(character, allowRanged: false));
     }
 
     [Fact]
@@ -183,10 +187,105 @@ public class GearEquipTests
         var character = Character((Serial)0x7320);
         var pole = new FishingPole((Serial)0x7420) { Layer = Layer.TwoHanded };
         Wear(character, pole);
-        character.Backpack.AddItem(new Mace((Serial)0x7421));
+        character.Backpack.AddItem(new Katana());
 
         Assert.True(GearEquip.CanArm(character));
         Assert.Same(pole, character.FindItemOnLayer(Layer.TwoHanded));
+    }
+
+    [Fact]
+    public void BestPackWeapon_LootedWeaponOfAnotherSkill_IsGoods()
+    {
+        // A swordsman keeps its katana; the mace off an orc is for the shop.
+        var character = Character((Serial)0x7330);
+        character.Backpack.AddItem(new Mace());
+
+        Assert.Null(GearEquip.BestPackWeapon(character, allowRanged: true));
+        Assert.False(GearEquip.CanArm(character));
+        Assert.False(GearEquip.EquipReadyWeapon(character));
+    }
+
+    [Fact]
+    public void BestPackWeapon_Mage_FindsNoWeapon()
+    {
+        var mage = Mage((Serial)0x7332);
+        mage.Backpack.AddItem(new Katana());
+        mage.Backpack.AddItem(new Mace());
+
+        Assert.Null(GearEquip.BestPackWeapon(mage, allowRanged: true));
+        Assert.False(GearEquip.HasOwnWeapon(mage));
+    }
+
+    [Fact]
+    public void EquipReadyWeapon_MageHoldingAMace_PutsItInThePack()
+    {
+        TestMap.EnsureRunningWorld();
+        TestMap.EnsureDecayScheduler();
+        // Mages drew a looted mace between casts and walked in to swing it.
+        var mage = Mage((Serial)0x7334);
+        var mace = new Mace { Layer = Layer.OneHanded };
+        Wear(mage, mace);
+
+        Assert.False(GearEquip.EquipReadyWeapon(mage));
+        Assert.True(mace.IsChildOf(mage.Backpack));
+        Assert.Null(mage.FindItemOnLayer(Layer.OneHanded));
+    }
+
+    [Fact]
+    public void EquipReadyWeapon_FighterHoldingAWeaponOfAnotherSkill_PutsItInThePack()
+    {
+        TestMap.EnsureRunningWorld();
+        TestMap.EnsureDecayScheduler();
+        var character = Character((Serial)0x7336);
+        var mace = new Mace { Layer = Layer.OneHanded };
+        Wear(character, mace);
+
+        GearEquip.EquipReadyWeapon(character);
+
+        Assert.True(mace.IsChildOf(character.Backpack));
+    }
+
+    [Fact]
+    public void CanArm_Mage_ReadsItsSpellbook_NotAWeapon()
+    {
+        var mage = Mage((Serial)0x7338);
+        mage.Backpack.AddItem(new Mace());
+
+        Assert.False(GearEquip.CanArm(mage));
+
+        mage.Backpack.AddItem(new Spellbook());
+
+        Assert.True(GearEquip.CanArm(mage));
+    }
+
+    [Fact]
+    public void EquipOrPack_WeaponOfAnotherSkill_GoesToThePack()
+    {
+        TestMap.EnsureRunningWorld();
+        TestMap.EnsureDecayScheduler();
+        var character = Character((Serial)0x733A);
+        var mace = new Mace { Layer = Layer.OneHanded };
+
+        GearEquip.EquipOrPack(character, mace);
+
+        Assert.True(mace.IsChildOf(character.Backpack));
+        Assert.Null(character.FindItemOnLayer(Layer.OneHanded));
+    }
+
+    [Fact]
+    public void EquipOrPack_FightersTravelBook_GoesToThePack_AndTheSwordStays()
+    {
+        TestMap.EnsureRunningWorld();
+        TestMap.EnsureDecayScheduler();
+        var character = Character((Serial)0x733C);
+        var katana = new Katana { Layer = Layer.OneHanded };
+        Wear(character, katana);
+        var book = new Spellbook();
+
+        GearEquip.EquipOrPack(character, book);
+
+        Assert.True(book.IsChildOf(character.Backpack));
+        Assert.Same(katana, character.FindItemOnLayer(Layer.OneHanded));
     }
 
     [Fact]
@@ -226,6 +325,27 @@ public class GearEquipTests
     [Fact]
     public void CanArm_EmptyHandsAndPack_IsFalse() =>
         Assert.False(GearEquip.CanArm(Character((Serial)0x7322)));
+
+    /// <summary>A pure mage: it fights with its spellbook.</summary>
+    private static SosariaCharacter Mage(Serial serial)
+    {
+        var character = Character(serial);
+        character.Build = BuildPresets.MageNovice();
+        return character;
+    }
+
+    /// <summary>A build of <paramref name="style"/> that trains only <paramref name="skills"/>.</summary>
+    private static ResolvedBuild Trains(CombatStyle style, params SkillName[] skills)
+    {
+        var trained = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var skill in skills)
+        {
+            trained[skill.ToString()] = TrainedSkill;
+        }
+
+        return new ResolvedBuild { Style = style, Skills = trained };
+    }
 
     /// <summary>A person with a fighter's stats, strong enough for any armor.</summary>
     private static SosariaCharacter Fighter(Serial serial)

@@ -14,7 +14,8 @@ namespace SosariaAI.Skills;
 /// tend it, a beast to study, a creature to discord or two to provoke, a fight to calm, an instrument to play,
 /// someone to beg from, heat to cook at and a pan and meat to cook with, someone hidden to
 /// search for, a trapped chest to disarm, a lockpick and a locked chest to pick, a poison
-/// potion and a blade or food to coat, a taster's training to taste food, the axe, pick
+/// potion and a blade or food to coat, a build that trains the skill for taste and fighting
+/// practice (<see cref="PracticeSkillTable.TrainedOnlyKinds"/>), the axe, pick
 /// or pole a harvest needs and a site in reach not found bare, and for a crafter a free place
 /// to work, the tool of its trade and its
 /// stock, carried, on a shelf in reach at a price it can pay or held up at the bank; for a
@@ -32,10 +33,10 @@ public static class SkillReadiness
     public static readonly string[] GatedKinds =
     [
         SkillKinds.Tame, SkillKinds.Vet, SkillKinds.Lore, SkillKinds.Discord, SkillKinds.Peace, SkillKinds.Provoke, SkillKinds.Beg, SkillKinds.Cook,
-        SkillKinds.DetectHidden, SkillKinds.RemoveTrap, SkillKinds.Lockpick, SkillKinds.Poison, SkillKinds.Taste,
+        SkillKinds.DetectHidden, SkillKinds.RemoveTrap, SkillKinds.Lockpick, SkillKinds.Poison,
         SkillKinds.Mine, SkillKinds.Lumberjack, SkillKinds.Fish, SkillKinds.Smith, SkillKinds.Tailor, SkillKinds.Carpentry,
         SkillKinds.Fletch, SkillKinds.Alchemy, SkillKinds.Inscription, SkillKinds.Tinker, SkillKinds.Cartography,
-        SkillKinds.Stealth, SkillKinds.Mount, SkillKinds.Sightsee
+        SkillKinds.Stealth, SkillKinds.Mount, SkillKinds.Sightsee, .. PracticeSkillTable.TrainedOnlyKinds
     ];
 
     /// <summary>The gated skills among the character's routines whose precondition fails where it stands.</summary>
@@ -77,7 +78,6 @@ public static class SkillReadiness
             SkillKinds.RemoveTrap => RemoveTrapSkill.HasWork(character),
             SkillKinds.Lockpick => LockpickSkill.HasWork(character),
             SkillKinds.Poison => PoisonRules.HasWork(character),
-            SkillKinds.Taste => TasteRules.MayBegin(character),
             SkillKinds.Mine or SkillKinds.Lumberjack or SkillKinds.Fish =>
                 WorkerTools.HasToolFor(character, kind) && !StocksElsewhere(character, kind) &&
                 !HarvestPatches.IsDry(character.Serial.Value, kind, Core.Now),
@@ -85,6 +85,7 @@ public static class SkillReadiness
             SkillKinds.Stealth => StealthRules.MayBegin(character, Stealth.HidingRequirement),
             SkillKinds.Mount => MountRules.RiderMayMount(character.Mounted) && OwnedMounts.Nearest(character, MountRules.SearchTiles) != null,
             SkillKinds.Sightsee => SightseeSkill.HasPlace(character),
+            _ when PracticeSkillTable.TryGet(kind, out var practice) => PracticeSkillTable.MayBegin(practice, character),
             _ when CraftCareerRules.TradeByKind(kind) is { } trade => CanCraft(character, trade),
             _ => true
         };
