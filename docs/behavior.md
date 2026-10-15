@@ -82,7 +82,9 @@ looted. Any other build holds only a weapon of a skill it trains, so a
 swordsman keeps its sword and a looted mace or bow is goods for the shop. The
 practice of a fighting skill (sword, mace, fencing, archery, parry, tactics,
 wrestling) and of taste identification is for a build that trains it: a mage
-made from a fighter's template does not practise mace at the bank. A named
+made from a fighter's template does not practise mace at the bank, and its
+ambition never names such a skill, even when its fighter persona speaks of the
+sword. A named
 fixture keeps its authored build, so its class is one that fights the same
 way: a swordsman fixture is never titled a mage, healer or bard. A melee
 fighter wears metal from its first day: ring mail up to

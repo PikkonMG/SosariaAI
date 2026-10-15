@@ -78,6 +78,9 @@ public static class PracticeSkillTable
 
     public static bool TryGet(string kind, out PracticeSkillRule rule) => Rules.TryGetValue(kind, out rule);
 
+    /// <summary>True when only a build that trains <paramref name="skill"/> practises it (<see cref="PracticeSkillRule.TrainedOnly"/>).</summary>
+    public static bool IsTrainedOnly(SkillName skill) => Rules.Values.Any(rule => rule.TrainedOnly && rule.Skill == skill);
+
     /// <summary>The person is in the world and, for a trained-only kind, its build trains the skill.</summary>
     public static bool MayBegin(PracticeSkillRule rule, SosariaCharacter character) =>
         People.InWorld(character) && (!rule.TrainedOnly || character.Build?.Trains(rule.Skill) == true);

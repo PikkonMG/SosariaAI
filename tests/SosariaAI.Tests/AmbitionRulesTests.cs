@@ -1,4 +1,6 @@
+using Server;
 using SosariaAI.Behaviour;
+using SosariaAI.Combat;
 using Xunit;
 
 namespace SosariaAI.Tests;
@@ -15,6 +17,8 @@ public class AmbitionRulesTests
     private const int MidBoatProgress = 1500;
     private const int NearDoneProgress = 1500;
     private const int NextSeed = 7;
+    private const string ArcherBackground = "An archer from Yew who keeps a horse.";
+    private const string DuelistBackground = "A duelist who keeps to the Britain bank.";
 
     [Fact]
     public void SeedFromBackground_ConnorBoat_IsGoldSmallBoat()
@@ -319,9 +323,9 @@ public class AmbitionRulesTests
     [InlineData("Wants a vendor on the busiest street in Britain.", AmbitionKind.Gold, "a vendor on the busiest street in Britain")]
     [InlineData("Hopes to buy back the family farm near Britain.", AmbitionKind.Gold, "the family farm near Britain")]
     [InlineData("Dreams of a quiet house by the Skara Brae shore.", AmbitionKind.Gold, "a quiet house by the Skara Brae shore")]
-    [InlineData("Wants to become a grandmaster smith before the next winter.", AmbitionKind.Skill, nameof(Server.SkillName.Blacksmith))]
-    [InlineData("Wants to breed the finest horses in Trinsic.", AmbitionKind.Skill, nameof(Server.SkillName.AnimalTaming))]
-    [InlineData("Hopes to pull off the perfect heist at the Britain bank.", AmbitionKind.Skill, nameof(Server.SkillName.Stealing))]
+    [InlineData("Wants to become a grandmaster smith before the next winter.", AmbitionKind.Skill, nameof(SkillName.Blacksmith))]
+    [InlineData("Wants to breed the finest horses in Trinsic.", AmbitionKind.Skill, nameof(SkillName.AnimalTaming))]
+    [InlineData("Hopes to pull off the perfect heist at the Britain bank.", AmbitionKind.Skill, nameof(SkillName.Stealing))]
     [InlineData("Wants to clear Covetous of harpies once and for all.", AmbitionKind.Kills, "Harpy")]
     [InlineData("Hopes to bring down a balron and live to tell the tale.", AmbitionKind.Kills, "Balron")]
     [InlineData("Wants to see every town's market in a single year.", AmbitionKind.Place, AmbitionRules.PlaceMinoc)]
@@ -426,5 +430,46 @@ public class AmbitionRulesTests
     public void ShouldReseed_DoesNotLoopWhenTheBackgroundHasNothingBetter()
     {
         Assert.False(AmbitionRules.ShouldReseed(UntouchedNestEgg, UntouchedNestEgg));
+    }
+
+    [Fact]
+    public void SeedFromBackground_Mage_PassesOverAFightingSkillItNeverTrains_ToATradeItCan()
+    {
+        // A mage copied from a fighter's template keeps the fighter's persona.
+        var mage = AmbitionRules.SeedFromBackground(ArcherBackground, BuildPresets.MageNovice());
+        var archer = AmbitionRules.SeedFromBackground(ArcherBackground, BuildPresets.ArcherNovice());
+
+        Assert.Equal(new Ambition(AmbitionKind.Skill, nameof(SkillName.AnimalTaming), AmbitionRules.DefaultSkillGoal, 0), mage);
+        Assert.Equal(new Ambition(AmbitionKind.Skill, AmbitionRules.SkillArchery, AmbitionRules.DefaultSkillGoal, 0), archer);
+    }
+
+    [Fact]
+    public void SeedFromBackground_Mage_WithNoOtherTrade_TakesNoSkillGoal()
+    {
+        var ambition = AmbitionRules.SeedFromBackground(DuelistBackground, BuildPresets.MageNovice());
+
+        Assert.NotEqual(AmbitionKind.Skill, ambition.Kind);
+    }
+
+    [Fact]
+    public void MayAim_FightingSkill_OnlyForABuildThatTrainsIt()
+    {
+        var mage = BuildPresets.MageNovice();
+
+        Assert.False(AmbitionRules.MayAim(AmbitionRules.SkillSwords, mage));
+        Assert.False(AmbitionRules.MayAim(nameof(SkillName.Macing), mage));
+        Assert.True(AmbitionRules.MayAim(AmbitionRules.SkillMagery, mage));
+        Assert.True(AmbitionRules.MayAim(AmbitionRules.SkillMining, mage));
+        Assert.True(AmbitionRules.MayAim(AmbitionRules.SkillSwords, BuildPresets.SwordsmanNovice()));
+        Assert.True(AmbitionRules.MayAim(AmbitionRules.SkillSwords, null));
+    }
+
+    [Fact]
+    public void ShouldReseed_ASavedSkillTheBuildNeverTrains_EvenWithProgress()
+    {
+        var swords = new Ambition(AmbitionKind.Skill, AmbitionRules.SkillSwords, AmbitionRules.DefaultSkillGoal, NearDoneProgress);
+
+        Assert.True(AmbitionRules.ShouldReseed(swords, UntouchedNestEgg, BuildPresets.MageNovice()));
+        Assert.False(AmbitionRules.ShouldReseed(swords, UntouchedNestEgg, BuildPresets.SwordsmanNovice()));
     }
 }

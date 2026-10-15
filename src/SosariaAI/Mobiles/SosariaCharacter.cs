@@ -764,15 +764,16 @@ public partial class SosariaCharacter : PlayerMobile
 
     public void EnsureLife()
     {
-        var raw = AmbitionRules.SeedFromBackground(Persona?.Background);
+        var raw = AmbitionRules.SeedFromBackground(Persona?.Background, Build);
         var seed = AmbitionRules.FinalizeSeed(
             raw,
             SkillValue(raw.Target),
             Persona?.Background,
-            unchecked((int)Serial.Value)
+            unchecked((int)Serial.Value),
+            Build
         );
 
-        if (!string.IsNullOrWhiteSpace(AmbitionKind) && !AmbitionRules.ShouldReseed(CurrentAmbition(), seed))
+        if (!string.IsNullOrWhiteSpace(AmbitionKind) && !AmbitionRules.ShouldReseed(CurrentAmbition(), seed, Build))
         {
             TickAmbition();
 
@@ -840,7 +841,8 @@ public partial class SosariaCharacter : PlayerMobile
         var next = AmbitionRules.NextAfterComplete(
             updated,
             unchecked((int)Serial.Value),
-            Persona?.Background
+            Persona?.Background,
+            Build
         );
         AmbitionKind = next.Kind.ToString();
         AmbitionTarget = next.Target;

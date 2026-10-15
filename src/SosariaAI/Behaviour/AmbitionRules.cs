@@ -1,5 +1,7 @@
 using System;
 using Server;
+using SosariaAI.Combat;
+using SosariaAI.Skills;
 
 namespace SosariaAI.Behaviour;
 
@@ -236,11 +238,11 @@ public static class AmbitionRules
     /// The first ambition comes from what the persona's own background says. A character
     /// saving for something saves for it. A veteran already has its skill, so a skill goal
     /// would finish the moment it was set; it gets a hunt instead. A wanderer travels, and
-    /// anyone else trains the trade its background names, hunts the creature it names, or
-    /// saves for the thing it wants. Only a background that says none of these falls back
-    /// to a plain sum of gold.
+    /// anyone else trains the trade its background names that its <paramref name="build"/> can
+    /// train (<see cref="MayAim"/>), hunts the creature it names, or saves for the thing it
+    /// wants. Only a background that says none of these falls back to a plain sum of gold.
     /// </summary>
-    public static Ambition SeedFromBackground(string background)
+    public static Ambition SeedFromBackground(string background, ResolvedBuild build = null)
     {
         var text = background ?? string.Empty;
 
@@ -263,7 +265,7 @@ public static class AmbitionRules
             return new Ambition(AmbitionKind.Place, NamedTown(text) ?? PlaceMinoc, PlaceGoal, 0);
         }
 
-        if (TradeSkillOf(text) is { } skill)
+        if (TradeSkillOf(text, build) is { } skill)
         {
             return new Ambition(AmbitionKind.Skill, skill, DefaultSkillGoal, 0);
         }
@@ -285,7 +287,7 @@ public static class AmbitionRules
     /// Fill in live progress. If the goal is already met, pick the next fitting want
     /// instead of celebrating a seed that finished the moment it was written.
     /// </summary>
-    public static Ambition FinalizeSeed(Ambition seed, int skillValue, string background, int nextSeed)
+    public static Ambition FinalizeSeed(Ambition seed, int skillValue, string background, int nextSeed, ResolvedBuild build = null)
     {
         if (seed.Kind != AmbitionKind.Skill)
         {
@@ -299,20 +301,35 @@ public static class AmbitionRules
             return withSkill;
         }
 
-        return NextAfterComplete(withSkill, nextSeed, background);
+        return NextAfterComplete(withSkill, nextSeed, background, build);
     }
 
     /// <summary>
     /// True when a saved ambition is the plain fallback nobody has worked on yet, and the
     /// character's own background now yields something real. An older build seeded most
     /// characters with that fallback, and it was saved; this lets them pick up the goal
-    /// their persona actually describes. Real progress is never thrown away.
+    /// their persona actually describes. Real progress is never thrown away. A saved skill
+    /// the person's <paramref name="build"/> cannot train (<see cref="MayAim"/>) is no goal,
+    /// whatever its progress: it gives way to what the background yields now.
     /// </summary>
-    public static bool ShouldReseed(Ambition saved, Ambition fromBackground) =>
+    public static bool ShouldReseed(Ambition saved, Ambition fromBackground, ResolvedBuild build = null) =>
+        saved.Kind == AmbitionKind.Skill && !MayAim(saved.Target, build) ||
         saved.Kind == AmbitionKind.Gold &&
         string.Equals(saved.Target, NestEggTarget, StringComparison.OrdinalIgnoreCase) &&
         saved.Progress == 0 &&
         !string.Equals(fromBackground.Target, NestEggTarget, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// True when a person of <paramref name="build"/> can train <paramref name="skill"/> toward a
+    /// goal. A skill only a build that trains it practises (fighting and taste, see
+    /// <see cref="PracticeSkillTable.IsTrainedOnly"/>) needs that build: a mage copied from a
+    /// fighter's template keeps the fighter's persona, and "swordsman" in it set Swords at 100,
+    /// a skill the mage never trains. Any other skill rises at work. A person with no build in
+    /// view may aim at any skill.
+    /// </summary>
+    public static bool MayAim(string skill, ResolvedBuild build) =>
+        build == null || !Enum.TryParse(skill, ignoreCase: true, out SkillName name) ||
+        !PracticeSkillTable.IsTrainedOnly(name) || build.Trains(name);
 
     public static double Fraction(Ambition a)
     {
@@ -350,11 +367,11 @@ public static class AmbitionRules
     /// What a character wants after it gets what it wanted. The seed is the character's
     /// own, so two characters finishing the same kind of goal go different ways.
     /// </summary>
-    public static Ambition NextAfterComplete(Ambition done, int seed, string background)
+    public static Ambition NextAfterComplete(Ambition done, int seed, string background, ResolvedBuild build = null)
     {
         var pick = seed & int.MaxValue;
         var town = Towns[pick % Towns.Length];
-        var trade = TradeSkillOf(background);
+        var trade = TradeSkillOf(background, build);
 
         return done.Kind switch
         {
@@ -386,13 +403,14 @@ public static class AmbitionRules
             : new Ambition(AmbitionKind.Kills, CreatureSkeleton, DefaultKillGoal, 0);
     }
 
-    private static string TradeSkillOf(string background)
+    // The first trade the background names that the build can train (MayAim).
+    private static string TradeSkillOf(string background, ResolvedBuild build)
     {
         var text = background ?? string.Empty;
 
         for (var i = 0; i < TradeSkills.Length; i++)
         {
-            if (HasWord(text, TradeSkills[i].Word))
+            if (HasWord(text, TradeSkills[i].Word) && MayAim(TradeSkills[i].Skill, build))
             {
                 return TradeSkills[i].Skill;
             }
