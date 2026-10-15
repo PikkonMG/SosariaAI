@@ -25,6 +25,14 @@ public static class FloorDrops
     /// <summary>Bars on those drops alone (<see cref="AboveReach"/>), one object per set, or null for none.</summary>
     public static PathSearchBars BarsAboveReach(DungeonMap floors, int power) => LadderOf(floors).Bars(power);
 
+    /// <summary>
+    /// The barred pads open only for a trip that starts or ends in a dungeon: a walker inside
+    /// must get out, and one bound for a floor goes in. A trip from one surface place to another
+    /// keeps them barred: 13 such trips in three hours took the pads and walked into Destard,
+    /// Covetous and other floors on their way across town. Pure.
+    /// </summary>
+    public static bool OpensPads(bool fromDungeon, bool toDungeon) => fromDungeon || toDungeon;
+
     private static Ladder LadderOf(DungeonMap floors) => ByFloors.GetValue(floors, static map => new Ladder(map));
 
     /// <summary>

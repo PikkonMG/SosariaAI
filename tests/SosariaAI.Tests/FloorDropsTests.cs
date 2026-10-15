@@ -188,4 +188,15 @@ public class FloorDropsTests
             Z = 0,
             Connects = [.. connects]
         };
+
+    [Theory]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(true, true, true)]
+    [InlineData(false, false, false)]
+    public void OpensPads_OnlyForATripIntoOrOutOfADungeon(bool fromDungeon, bool toDungeon, bool opens)
+    {
+        // 13 trips across town in three hours took the pads and walked into Destard and Covetous.
+        Assert.Equal(opens, FloorDrops.OpensPads(fromDungeon, toDungeon));
+    }
 }

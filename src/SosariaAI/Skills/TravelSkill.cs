@@ -924,8 +924,9 @@ public sealed class TravelSkill : Skill
     /// hits came through the door hurt, found its own stairs down barred, and its plan from the
     /// door ended with the walk to the first node blocked. A murderer's road there still keeps
     /// off the guards, and crosses them only when that search finds none too
-    /// (<see cref="WayPastTheGuards"/>). False when the search barred no pad, found a road, or
-    /// no recall or second search could start.
+    /// (<see cref="WayPastTheGuards"/>). A trip from one surface place to another never opens
+    /// the pads (<see cref="FloorDrops.OpensPads"/>). False when the search barred no pad, found
+    /// a road, or no recall or second search could start.
     /// </summary>
     private bool WayOverTheDrops(NavGraph graph, DestinationCatalog catalog, PathSearchBars bars, string whyNone)
     {
@@ -939,7 +940,11 @@ public sealed class TravelSkill : Skill
             return true;
         }
 
-        if (!QueueGraphPlan(graph, catalog, out _, out _, openPads: true))
+        var dungeonAt = DungeonGround.RegionNames(_character.Map);
+        var goal = ResolveTileGoal() ?? TileGoal();
+
+        if (!FloorDrops.OpensPads(dungeonAt(_character.Location) != null, dungeonAt(goal) != null) ||
+            !QueueGraphPlan(graph, catalog, out _, out _, openPads: true))
         {
             return false;
         }
