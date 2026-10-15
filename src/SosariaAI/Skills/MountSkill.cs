@@ -58,9 +58,13 @@ public sealed class MountSkill : Skill
             return Fail(NotInWorldReason);
         }
 
-        if (!MountRules.RiderMayMount(_rider.Mounted))
+        // The rider got on in passing while it walked to the mount (SosariaCharacter.RemountInPassing):
+        // the job is done. Counted a failure, it failed 50 times in three hours with the rider seated.
+        if (_rider.Mounted)
         {
-            return Fail(RidesWhy);
+            _walk?.Abort();
+            _walk = null;
+            return SkillStatus.Done;
         }
 
         var chosen = _target is { Deleted: false } ? _target : OwnedMounts.Nearest(_rider, MountRules.SearchTiles);
