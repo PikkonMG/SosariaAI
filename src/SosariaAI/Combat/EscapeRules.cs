@@ -218,6 +218,53 @@ public static class EscapeRules
     }
 
     /// <summary>
+    /// The direction of the step to a better stand for a melee fight against several foes, or
+    /// <see cref="NoChoice"/> when here is as good: the neighbouring tile with the fewest open
+    /// neighbours of its own that <see cref="MeleeTacticsRules.BetterStand"/> takes, a wall or a
+    /// rock at the fighter's back, so fewer foes find a tile to swing from. The foe at
+    /// <paramref name="foe"/> stays within <paramref name="reach"/> of it. Open neighbours are
+    /// counted with the engine's own step check, the way a run reads the ground (<see cref="Exits"/>).
+    /// </summary>
+    public static int ChooseStand(TileStep step, Point3D from, Point3D foe, int reach, IReadOnlyList<Point3D> idleFoes)
+    {
+        var hereSlots = Exits(step, from.X, from.Y, from.Z);
+        var idleHere = IdleFoesNear(idleFoes, from);
+        var best = NoChoice;
+        var bestSlots = int.MaxValue;
+
+        for (var d = 0; d < DirectionCount; d++)
+        {
+            var x = from.X + StepX[d];
+            var y = from.Y + StepY[d];
+
+            if (!step(from.X, from.Y, from.Z, x, y, out var z))
+            {
+                continue;
+            }
+
+            var stand = new Point3D(x, y, z);
+            var slots = Exits(step, x, y, z);
+
+            if (slots >= bestSlots ||
+                !MeleeTacticsRules.BetterStand(
+                    hereSlots,
+                    slots,
+                    NavMetric.Chebyshev(stand, foe) <= reach,
+                    idleHere,
+                    IdleFoesNear(idleFoes, stand)
+                ))
+            {
+                continue;
+            }
+
+            best = d;
+            bestSlots = slots;
+        }
+
+        return best;
+    }
+
+    /// <summary>
     /// How good a goal is: farther from the pack than here by at least <see cref="MinGainTiles"/>,
     /// then open ground, known ground (walked in by, or on the road net), the way to safety, and
     /// no idle hostile beside it. A goal that gains too little is no option.

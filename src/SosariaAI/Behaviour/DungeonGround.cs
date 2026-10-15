@@ -7,6 +7,7 @@ using SosariaAI.Combat;
 using SosariaAI.Configuration;
 using SosariaAI.Mobiles;
 using SosariaAI.Navigation;
+using SosariaAI.Navigation.Generation;
 using SosariaAI.Skills;
 
 namespace SosariaAI.Behaviour;
@@ -35,7 +36,8 @@ public readonly record struct DungeonReach(string Dungeon, int TripTiles, bool B
 /// data records, so Khaldun, the Britain Sewer and the Trinsic Passage have theirs too. A hall
 /// is as hard as its floor (<see cref="GroundRating"/>), and the power it is judged against is
 /// the fighter's own with its pets and party (<see cref="FightingPower"/>). A floor the fighter
-/// lost on lately is no pick for it (<see cref="TooHard"/>).
+/// lost on lately is no pick for it (<see cref="TooHard"/>), and a tamer takes no floor whose
+/// strongest monster is past it and its pets (<see cref="StrongestFits"/>).
 /// </summary>
 public static class DungeonGround
 {
@@ -64,6 +66,9 @@ public static class DungeonGround
     private const uint RollPrime = 0x9E3779B1;
 
     private static readonly ConditionalWeakTable<PlaceBook, List<DungeonDoor>> DoorsByBook = new();
+
+    /// <summary>The strongest foe of each floor of a facet's floors (<see cref="StrongestByFloor"/>), built once per build of them.</summary>
+    private static readonly ConditionalWeakTable<DungeonMap, Dictionary<int, int>> StrongestByMap = new();
 
     /// <summary>
     /// The hall a fighter goes to, or null when no dungeon it can get to has a hall in its
@@ -185,15 +190,16 @@ public static class DungeonGround
     public static IReadOnlySet<string> UsualFor(SosariaCharacter character)
     {
         var map = FacetMaps.Resolve(character.HomeFacet);
+        var power = FightingPower(character);
         var halls = FittingHalls(
             NavWorld.DestinationsFor(character.HomeFacet),
-            FightingPower(character),
+            power,
             character.PersonProfile.Tier,
             character.CurrentAmbition().Prey,
-            Navigation.Generation.CreatureStatsLookup.IsLandEnemy,
+            CreatureStatsLookup.IsLandEnemy,
             RegionNames(map),
             counts: null,
-            FloorBarred(character)
+            FloorBarred(character, power)
         );
         return new HashSet<string>(halls.Keys, StringComparer.OrdinalIgnoreCase);
     }
@@ -278,9 +284,9 @@ public static class DungeonGround
             character.PersonProfile.Tier,
             prey,
             seed,
-            Navigation.Generation.CreatureStatsLookup.IsLandEnemy,
+            CreatureStatsLookup.IsLandEnemy,
             RegionNames(map),
-            FloorBarred(character)
+            FloorBarred(character, power)
         );
         return WithPowerBar(hall);
     }
@@ -413,17 +419,86 @@ public static class DungeonGround
     public static void MarkTooHard(SosariaCharacter character, DungeonFloor floor, DateTime now) =>
         character?.StartClock(RuleClock.FloorTooHard(floor.Dungeon, floor.Level), now);
 
-    /// <summary>A floor this person takes: it fits the power and the person did not lose on it lately.</summary>
+    /// <summary>
+    /// A floor this person takes: it fits the power, its strongest monster is no more than a
+    /// tamer and its pets take on (<see cref="StrongestFits"/>), and the person did not lose on
+    /// it lately.
+    /// </summary>
     public static bool Takes(SosariaCharacter character, DungeonFloor floor, int power, DateTime now) =>
-        DungeonCrawlRules.FloorFits(floor.Difficulty, power) && !TooHard(character, floor, now);
+        DungeonCrawlRules.FloorFits(floor.Difficulty, power) &&
+        StrongestFits(character, character?.Map?.Name, floor, power, TamerTacticsRules.NoSlack) &&
+        !TooHard(character, floor, now);
 
-    /// <summary>The halls on floors this person lost on lately, for the pick to pass over. Main thread.</summary>
-    private static Func<Point3D, bool> FloorBarred(SosariaCharacter character)
+    /// <summary>
+    /// The halls on floors this person lost on lately, and for a tamer of <paramref name="power"/>
+    /// on floors whose strongest monster is past it (<see cref="StrongestFits"/>), for the pick to
+    /// pass over. Main thread.
+    /// </summary>
+    private static Func<Point3D, bool> FloorBarred(SosariaCharacter character, int power)
     {
-        var floors = DungeonAtlas.For(character.HomeFacet);
+        var facet = character.HomeFacet;
+        var floors = DungeonAtlas.For(facet);
         var now = Core.Now;
-        return hall => floors.FloorAt(hall) is { } floor && TooHard(character, floor, now);
+        return hall => floors.FloorAt(hall) is { } floor &&
+                       (TooHard(character, floor, now) || !StrongestFits(character, facet, floor, power, TamerTacticsRules.NoSlack));
     }
+
+    /// <summary>
+    /// True when the floor holds nothing a tamer and its pets cannot take on
+    /// (<see cref="TamerTacticsRules.TakesOn"/>), its strongest monster against the reach of
+    /// <paramref name="power"/> times <paramref name="slack"/>. Any other fighter goes by the
+    /// floor's rating alone: its power is its own body. Main thread.
+    /// </summary>
+    public static bool StrongestFits(SosariaCharacter character, string facet, DungeonFloor floor, int power, double slack) =>
+        character == null || !PetRules.KeepsPets(character.PersonProfile.Class) ||
+        TamerTacticsRules.TakesOn(StrongestOn(facet, floor), power, slack);
+
+    /// <summary>The threat of the strongest monster on a floor of the facet's floors; zero when none is known. Main thread.</summary>
+    public static int StrongestOn(string facet, DungeonFloor floor)
+    {
+        var catalog = NavWorld.DestinationsFor(facet);
+        var strongest = StrongestByMap.GetValue(
+            DungeonAtlas.For(facet),
+            floors => StrongestByFloor(catalog, at => floors.FloorAt(at)?.Id, ThreatOfKind)
+        );
+        return strongest.GetValueOrDefault(floor.Id);
+    }
+
+    /// <summary>
+    /// The strongest foe of each floor on the threat scale: the highest <paramref name="threatOf"/>
+    /// among the creatures the catalog's hunt spots on it name as their spawn, by floor id
+    /// (<paramref name="floorAt"/>; null off every floor). The catalog lists every spawner spot
+    /// with its creature, so the one dragon of a floor of drakes is there too. Pure.
+    /// </summary>
+    public static Dictionary<int, int> StrongestByFloor(DestinationCatalog catalog, Func<Point3D, int?> floorAt, Func<string, int> threatOf)
+    {
+        var strongest = new Dictionary<int, int>();
+
+        for (var i = 0; i < (catalog?.All.Count ?? 0) && floorAt != null && threatOf != null; i++)
+        {
+            var place = catalog.All[i];
+
+            if (place.ParsedKind != DestinationKind.Hunt || floorAt(place.Arrival) is not { } floor)
+            {
+                continue;
+            }
+
+            var threat = threatOf(place.Role);
+
+            if (threat > strongest.GetValueOrDefault(floor))
+            {
+                strongest[floor] = threat;
+            }
+        }
+
+        return strongest;
+    }
+
+    /// <summary>What one creature of the named kind rates on the threat scale: zero for a kind that is no foe on land, or unknown.</summary>
+    private static int ThreatOfKind(string kind) =>
+        !string.IsNullOrWhiteSpace(kind) && CreatureStatsLookup.IsLandEnemy(kind) && CreatureStatsLookup.TryLive(kind) is { } stats
+            ? ThreatRating.OfOne(stats)
+            : 0;
 
     /// <summary>
     /// The fit note of a log line for a fighter at a place (<see cref="HuntGround.FitNote"/>):

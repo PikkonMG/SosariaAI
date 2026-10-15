@@ -18,7 +18,9 @@ public enum SpellKind
     Cure,
     GreaterHeal,
     ReactiveArmor,
-    Protection
+    Protection,
+    Invisibility,
+    Resurrection
 }
 
 /// <summary>
@@ -35,7 +37,7 @@ public readonly record struct SpellEntry(
 );
 
 /// <summary>
-/// The fighting mage's book, first to seventh circle, and how a 1999 mage picked from it.
+/// The fighting mage's book, first to eighth circle, and how a 1999 mage picked from it.
 /// Pre-AOS any blow ruins a cast above the first circle, so a spell is picked only when its
 /// words finish before the next blow can land (the safe circle); bigger spells wait for the
 /// footwork to open the gap. A mage throws its best few spells, not the whole book, with the
@@ -70,6 +72,17 @@ public static class SpellBook
     public static readonly SpellEntry ReactiveArmor = new(SpellKind.ReactiveArmor, 6, 1, 20, 4, 0);
     public static readonly SpellEntry Protection = new(SpellKind.Protection, 14, 2, 30, 6, 0);
 
+    /// <summary>
+    /// Invisibility (InvisibilitySpell, bloodmoss and nightshade): the target is hidden and its
+    /// combatant dropped, and a monster drops a foe it cannot see at its next swing
+    /// (Mobile.CheckCombatTime). Sixth circle, so the T2A table holds it about half the time at
+    /// Magery 70 (MagerySpell.GetCastSkills).
+    /// </summary>
+    public static readonly SpellEntry Invisibility = new(SpellKind.Invisibility, 43, 6, 70, 20, 0);
+
+    /// <summary>Resurrection (ResurrectionSpell): eighth circle, on a ghost one tile off (its TargetRange).</summary>
+    public static readonly SpellEntry Resurrection = new(SpellKind.Resurrection, 58, 8, 90, 50, 0);
+
     /// <summary>Damage spells, weakest first.</summary>
     public static readonly SpellEntry[] Attacks =
         [MagicArrow, Harm, Fireball, Lightning, MindBlast, EnergyBolt, Explosion, FlameStrike];
@@ -92,8 +105,13 @@ public static class SpellBook
             SpellKind.GreaterHeal => GreaterHeal,
             SpellKind.ReactiveArmor => ReactiveArmor,
             SpellKind.Protection => Protection,
+            SpellKind.Invisibility => Invisibility,
+            SpellKind.Resurrection => Resurrection,
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
         };
+
+    /// <summary>A spell cast on a ghost: its cursor is answered on a body that is not alive, and no other is.</summary>
+    public static bool RaisesDead(SpellKind kind) => kind == SpellKind.Resurrection;
 
     /// <summary>A character fights with spells once its magery holds the first attack.</summary>
     public static bool IsCaster(double magery) => magery >= MagicArrow.MinMagery;

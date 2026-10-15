@@ -473,6 +473,40 @@ public class DungeonGroundTests
         point == SewerHall ? Sewer :
         null;
 
+    [Fact]
+    public void StrongestByFloor_TakesTheStrongestSpawnOfEachFloor()
+    {
+        var catalog = Catalog(
+            Hall(Harpy, ShameHall, EasyDifficulty),
+            Hall(EarthElemental, ShameDeepHall, EasyDifficulty),
+            Hall(Harpy, CovetousHall, EasyDifficulty),
+            Hall(Guildmaster, CovetousHall, EasyDifficulty),
+            Hall(EarthElemental, Outdoors, EasyDifficulty)
+        );
+        var floors = new Dictionary<Point3D, int> { [ShameHall] = ShameFloor, [ShameDeepHall] = ShameFloor, [CovetousHall] = CovetousFloor };
+        var threats = new Dictionary<string, int> { [Harpy] = HarpyThreat, [EarthElemental] = ElementalThreat };
+
+        var strongest = DungeonGround.StrongestByFloor(
+            catalog,
+            at => floors.TryGetValue(at, out var floor) ? floor : null,
+            kind => threats.GetValueOrDefault(kind)
+        );
+
+        Assert.Equal(ElementalThreat, strongest[ShameFloor]);
+        Assert.Equal(HarpyThreat, strongest[CovetousFloor]);
+        Assert.Equal(FloorsWithSpawn, strongest.Count);
+    }
+
+    [Fact]
+    public void StrongestByFloor_NoCatalog_IsEmpty() =>
+        Assert.Empty(DungeonGround.StrongestByFloor(null, _ => ShameFloor, _ => HarpyThreat));
+
+    private const int ShameFloor = 3;
+    private const int CovetousFloor = 7;
+    private const int HarpyThreat = 60;
+    private const int ElementalThreat = 180;
+    private const int FloorsWithSpawn = 2;
+
     private static DestinationCatalog Catalog(params Destination[] places) => new(places);
 
     private static Destination Hall(string role, Point3D at, int difficulty) =>

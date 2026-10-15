@@ -835,9 +835,9 @@ public sealed class DungeonTripSkill : Skill, IHuntingSkill
         Watch(floor);
         var power = DungeonGround.FightingPower(_character);
 
-        if (!Stays(floor, power))
+        if (WhyNotStay(floor, power) is { } offFloor)
         {
-            return LeaveFloor(floor, power, DungeonCrawlRules.TooHardWhy, lost: false) || StartWalkHome() == SkillStatus.Running;
+            return LeaveFloor(floor, power, offFloor, lost: false) || StartWalkHome() == SkillStatus.Running;
         }
 
         if (!DungeonCrawlRules.CampsAtHall(camps, HallOn(floor)))
@@ -1012,9 +1012,9 @@ public sealed class DungeonTripSkill : Skill, IHuntingSkill
         Watch(here);
         var power = DungeonGround.FightingPower(_character);
 
-        if (!Stays(here, power))
+        if (WhyNotStay(here, power) is { } offFloor)
         {
-            return LeaveFloor(here, power, DungeonCrawlRules.TooHardWhy, lost: false);
+            return LeaveFloor(here, power, offFloor, lost: false);
         }
 
         var bare = DungeonCrawlRules.FloorIsBare(_bareRooms);
@@ -1064,9 +1064,18 @@ public sealed class DungeonTripSkill : Skill, IHuntingSkill
         }
     }
 
-    /// <summary>The crawler may stay on the floor: within its reach, and not one it lost on lately.</summary>
-    private bool Stays(DungeonFloor floor, int power) =>
-        DungeonCrawlRules.StaysOn(floor.Difficulty, power) && !DungeonGround.TooHard(_character, floor, Core.Now);
+    /// <summary>
+    /// Why the crawler may not stay on the floor (<see cref="DungeonCrawlRules.KeepOffWhy"/>), or
+    /// null while it may: within its reach, not one it lost on lately, and for a tamer nothing on
+    /// it past the tamer and its pets. A fresh Master tamer tamed its drake on Destard's first
+    /// level, a dragon's floor, started its crawl there at power 549 against a floor of 588, and
+    /// stayed until the dragon killed it four minutes later.
+    /// </summary>
+    private string WhyNotStay(DungeonFloor floor, int power) =>
+        DungeonCrawlRules.KeepOffWhy(
+            DungeonCrawlRules.StaysOn(floor.Difficulty, power) && !DungeonGround.TooHard(_character, floor, Core.Now),
+            DungeonGround.StrongestFits(_character, _character.Map.Name, floor, power, DungeonCrawlRules.StaySlack)
+        );
 
     /// <summary>
     /// The stairs that land on a floor this crawler takes (<see cref="DungeonGround.Takes"/>) and

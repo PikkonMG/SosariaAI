@@ -1,5 +1,6 @@
 using Server;
 using Server.Mobiles;
+using SosariaAI.Combat;
 using SosariaAI.Configuration;
 using SosariaAI.Mobiles;
 using SosariaAI.Navigation;
@@ -91,7 +92,8 @@ public sealed class ProvokeSkill : Skill
     {
         foreach (var mobile in bard.GetMobilesInRange(MusicRules.BardRange(bard.Skills.Provocation.Value)))
         {
-            if (mobile != foe && IsTarget(bard, mobile) &&
+            // A rabbit set on a troll does nothing: the partner is never a harmless creature.
+            if (mobile != foe && IsTarget(bard, mobile) && !HarmlessCreatures.LooksNamed(mobile.GetType().Name) &&
                 NavMetric.Chebyshev(foe.Location, mobile.Location) <= ProvokeRules.PartnerReachTiles)
             {
                 return mobile;

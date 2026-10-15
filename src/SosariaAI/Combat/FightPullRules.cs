@@ -35,6 +35,16 @@ public static class FightPullRules
     public static bool KeepsDrawing(bool targetFollows, long drawingMs, int hostilesNear, int tilesFromGroup) =>
         targetFollows && drawingMs < DrawMs && hostilesNear > SoleTarget && tilesFromGroup < DrawClearTiles;
 
+    /// <summary>
+    /// A bow or a spell does not pull a foe with a packmate near it out of a group too strong to
+    /// take: it never shoots into a pack it cannot handle. It fights from where it stands and
+    /// cannot draw the one foe off, and a creature takes up the nearest foe it perceives
+    /// (BaseAI.AcquireFocusMob, sixteen tiles by default: BaseCreature.DefaultRangePerception),
+    /// so a shooter four to eight tiles from a foe brings in every packmate within
+    /// <see cref="IsolateRange"/> of it. Melee draws the one foe off first (<see cref="KeepsDrawing"/>).
+    /// </summary>
+    public static bool ShootsIntoPack(bool melee, int packmates) => !melee && packmates > 0;
+
     public static bool CanPullOne(
         int power,
         int focusThreat,

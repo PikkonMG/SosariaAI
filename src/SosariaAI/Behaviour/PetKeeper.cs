@@ -323,7 +323,8 @@ public static class PetKeeper
                 continue;
             }
 
-            if (PetRules.NeedsVet(pet.Hits, pet.HitsMax, pet.Poisoned) && Tend(owner, pet, fighting))
+            if (PetRules.NeedsVet(pet.Hits, pet.HitsMax, pet.Poisoned) && PetRules.TendsOnScan(fighting, owner.Hidden) &&
+                Tend(owner, pet, fighting))
             {
                 return;
             }
@@ -671,13 +672,20 @@ public static class PetKeeper
     }
 
     /// <summary>
-    /// A pet in reach gets a bandage now; one farther off gets a heal or cure spell, in a fight
-    /// too (<see cref="CombatBrain.CastOnPet"/>); out of a fight, an idle tamer with no spell for
-    /// it walks over with a bandage.
+    /// A pet in reach gets a bandage now (the engine's reach, Bandage.Range: one tile before AOS,
+    /// two after); one farther off gets a heal or cure spell, in a fight too
+    /// (<see cref="CombatBrain.CastOnPet"/>). True while the care is on.
+    /// </summary>
+    public static bool TendNow(SosariaCharacter owner, BaseCreature pet) =>
+        VetBandage.IsTending(owner, pet) || VetBandage.TryApply(owner, pet) || CombatBrain.CastOnPet(owner, pet);
+
+    /// <summary>
+    /// The care of <see cref="TendNow"/>; out of a fight, an idle tamer with no spell for the pet
+    /// walks over with a bandage.
     /// </summary>
     private static bool Tend(SosariaCharacter owner, BaseCreature pet, bool fighting)
     {
-        if (VetBandage.IsTending(owner, pet) || VetBandage.TryApply(owner, pet) || CombatBrain.CastOnPet(owner, pet))
+        if (TendNow(owner, pet))
         {
             return true;
         }

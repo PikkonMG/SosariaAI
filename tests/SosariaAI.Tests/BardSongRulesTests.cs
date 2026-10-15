@@ -1,4 +1,5 @@
 using SosariaAI.Combat;
+using SosariaAI.Skills;
 using Xunit;
 
 namespace SosariaAI.Tests;
@@ -71,6 +72,35 @@ public class BardSongRulesTests
         Assert.True(BardSongRules.GoingBadly(FightOutlook.Losing, Healthy, StartLine, OneAttacker));
         Assert.True(BardSongRules.GoingBadly(FightOutlook.Winning, Hurt, StartLine, OneAttacker));
         Assert.True(BardSongRules.GoingBadly(FightOutlook.Even, Healthy, StartLine, TwoAttackers));
+    }
+
+    [Fact]
+    public void FightPartner_AnotherAttackerOnTheBardInReach()
+    {
+        const int Near = 3;
+        const int SongReach = 12;
+
+        Assert.True(BardSongRules.FightPartner(attacksBard: true, harmless: false, Near, Near, SongReach));
+        Assert.False(BardSongRules.FightPartner(attacksBard: false, harmless: false, Near, Near, SongReach));
+        Assert.False(BardSongRules.FightPartner(attacksBard: true, harmless: true, Near, Near, SongReach));
+        Assert.False(BardSongRules.FightPartner(attacksBard: true, harmless: false, ProvokeRules.PartnerReachTiles + 1, Near, SongReach));
+        Assert.False(BardSongRules.FightPartner(attacksBard: true, harmless: false, Near, SongReach + 1, SongReach));
+        Assert.True(BardSongRules.FightPartner(attacksBard: true, harmless: false, ProvokeRules.PartnerReachTiles, SongReach, SongReach));
+    }
+
+    [Fact]
+    public void CanCalm_AtTheSongBar()
+    {
+        Assert.True(BardSongRules.CanCalm(BardSongRules.MinSongSkill));
+        Assert.False(BardSongRules.CanCalm(Unskilled));
+    }
+
+    [Fact]
+    public void CalmsChaser_WithAnInstrumentOnACalmableChaser()
+    {
+        Assert.True(BardSongRules.CalmsChaser(hasInstrument: true, chaserCalmable: true));
+        Assert.False(BardSongRules.CalmsChaser(hasInstrument: false, chaserCalmable: true));
+        Assert.False(BardSongRules.CalmsChaser(hasInstrument: true, chaserCalmable: false));
     }
 
     private static CombatSong Pick(

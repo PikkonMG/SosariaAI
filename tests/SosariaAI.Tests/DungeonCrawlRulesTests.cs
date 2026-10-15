@@ -409,4 +409,12 @@ public class DungeonCrawlRulesTests
     private const int CrawlerPower = 150;
     private static readonly FloorWays TooDeepUp = new(Down: false, DownBarred: true, Up: true);
     private static readonly FloorWays TooDeep = new(Down: false, DownBarred: true, Up: false);
+
+    [Fact]
+    public void KeepOffWhy_TheRatingFirst_ThenTheStrongestMonster()
+    {
+        Assert.Null(DungeonCrawlRules.KeepOffWhy(staysOnRating: true, strongestFits: true));
+        Assert.Equal(DungeonCrawlRules.TooHardWhy, DungeonCrawlRules.KeepOffWhy(staysOnRating: false, strongestFits: false));
+        Assert.Equal(DungeonCrawlRules.StrongestWhy, DungeonCrawlRules.KeepOffWhy(staysOnRating: true, strongestFits: false));
+    }
 }

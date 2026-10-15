@@ -171,4 +171,13 @@ public class SelfCareRulesTests
             Healing: Grandmaster,
             Anatomy: Grandmaster
         );
+
+    [Fact]
+    public void TreatsNow_HiddenInAFight_OnlyForPoison()
+    {
+        Assert.False(SelfCareRules.TreatsNow(hidden: true, inFight: true, poisoned: false));
+        Assert.True(SelfCareRules.TreatsNow(hidden: true, inFight: true, poisoned: true));
+        Assert.True(SelfCareRules.TreatsNow(hidden: true, inFight: false, poisoned: false));
+        Assert.True(SelfCareRules.TreatsNow(hidden: false, inFight: true, poisoned: false));
+    }
 }

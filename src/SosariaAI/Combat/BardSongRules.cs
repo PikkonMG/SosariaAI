@@ -1,3 +1,5 @@
+using SosariaAI.Skills;
+
 namespace SosariaAI.Combat;
 
 /// <summary>A song a bard plays in a fight, or none.</summary>
@@ -14,9 +16,12 @@ public enum CombatSong
 
 /// <summary>
 /// A bard fights with its songs as well as its blade. With the skill for it, it sets the
-/// monster on it against another monster standing near, and when the fight goes badly it
-/// calms the one on it for a breath, long enough to bandage or step away. One song, then a
-/// rest before the next, the way a player waits on the skill timer. Pure.
+/// monster on it against another monster of the same fight first (<see cref="FightPartner"/>),
+/// else against one standing near, and when the fight goes badly it calms the one on it and
+/// slips away while it stands calm; on the run it calms the creature still on it
+/// (<see cref="CalmsChaser"/>). One song, then a rest before the next, the way a player waits
+/// on the skill timer. Live, a 9.5 hour log held no provoke and one calm, after which the bard
+/// turned on the next monster of the same pack and ran from three. Pure.
 /// </summary>
 public static class BardSongRules
 {
@@ -68,7 +73,7 @@ public static class BardSongRules
             return CombatSong.Provoke;
         }
 
-        return peacemaking >= MinSongSkill && attackerCalmable && goingBadly ? CombatSong.Peace : CombatSong.None;
+        return CanCalm(peacemaking) && attackerCalmable && goingBadly ? CombatSong.Peace : CombatSong.None;
     }
 
     /// <summary>A calmed attacker stays calm this long: four seconds and a tenth of the skill.</summary>
@@ -77,4 +82,24 @@ public static class BardSongRules
     /// <summary>Losing the trade, below the line to start this fight, or more than one on the bard.</summary>
     public static bool GoingBadly(FightOutlook outlook, double hitsFraction, double startLine, int attackers) =>
         outlook == FightOutlook.Losing || hitsFraction < startLine || attackers > RetreatRules.SingleAttacker;
+
+    /// <summary>
+    /// A creature of the bard's own fight to set its foe on: another attacker on the bard, not
+    /// a harmless one, within <see cref="ProvokeRules.PartnerReachTiles"/> of the foe and in the
+    /// song's reach of the bard (both targets of Provocation are picked in bard range). Provoked,
+    /// each turns on the other for thirty seconds (BaseCreature.Provoke), so both leave the bard;
+    /// a creature that was not in the fight takes only one off it.
+    /// </summary>
+    public static bool FightPartner(bool attacksBard, bool harmless, int tilesFromFoe, int tilesFromBard, int songReach) =>
+        attacksBard && !harmless && tilesFromFoe <= ProvokeRules.PartnerReachTiles && tilesFromBard <= songReach;
+
+    /// <summary>Enough Peacemaking to calm a creature in a fight or on the run.</summary>
+    public static bool CanCalm(double peacemaking) => peacemaking >= MinSongSkill;
+
+    /// <summary>
+    /// A bard on the run (<see cref="CanCalm"/>) calms the creature still on it, with an
+    /// instrument and when the engine lets that creature be calmed: a calmed creature takes no
+    /// new foe until the calm ends (BaseAI.AcquireFocusMob), and the run gains the ground meanwhile.
+    /// </summary>
+    public static bool CalmsChaser(bool hasInstrument, bool chaserCalmable) => hasInstrument && chaserCalmable;
 }

@@ -19,10 +19,12 @@ namespace SosariaAI.Combat;
 /// reads the room on the danger scan pace, keeps its own nerve, judges the fight by the
 /// trade of blows, fights by its gear (melee, bow or spells) in a stance (its own rules, or
 /// Jev's in a fight that matters), steps clear of blows before a cast or a shot onto open
-/// ground, looks after its wounds, sings a bard's songs, draws one foe off a group, retreats
-/// by walkable ground away from the pack when the fight turns, hides once out of sight, turns
-/// on a lone chaser when the pack strings out or on a person once healed or outrun, and ends
-/// the fight when the foe is gone.
+/// ground, looks after its wounds, sings a bard's songs, draws one foe off a group, fights
+/// melee with a wall at its back (<see cref="MeleeTacticsRules"/>), takes up its party tank's
+/// foe (<see cref="PartyTacticsRules"/>), retreats by walkable ground away from the pack when
+/// the fight turns, hides once no chaser in hide range sees it, turns on a lone chaser when
+/// the pack strings out, on a chaser once healed or on a person once outrun, and ends the
+/// fight when the foe is gone.
 /// </summary>
 public static partial class CombatBrain
 {
@@ -172,20 +174,7 @@ public static partial class CombatBrain
             }
             default:
             {
-                // Jev's "dip away, heal up, come back": a step out of reach while the bandage
-                // or the potion works, and back in when the stance says press again.
-                if (stance == CombatStance.Heal && JevHolds(memory, CombatStance.Heal) && memory.Threats.Adjacent > 0)
-                {
-                    OpenGap(character, memory, foe, FootworkRules.SingleStep);
-                    break;
-                }
-
-                if (Draws(character, memory, foe))
-                {
-                    break;
-                }
-
-                Approach(character, memory, foe, Math.Max(MeleeRange, character.Weapon?.MaxRange ?? MeleeRange));
+                FightAsMelee(character, memory, foe, stance, scanned);
                 break;
             }
         }
@@ -405,7 +394,7 @@ public static partial class CombatBrain
         }
 
         var nerve = NerveOf(character, memory);
-        var dare = NerveRules.DarePower(CharacterPower.For(character), nerve, AlliesOn(memory, foe));
+        var dare = NerveRules.DarePower(CharacterPower.For(character), nerve, AlliesOn(character, memory, foe));
         var multiple = ThreatMultiple();
         var hits = Vitals.HitsFraction(character);
         var outnumbered = memory.PickingOff
@@ -525,7 +514,7 @@ public static partial class CombatBrain
     public static bool Overwhelms(SosariaCharacter character, Mobile attacker)
     {
         var memory = MemoryOf(character);
-        var dare = NerveRules.DarePower(CharacterPower.For(character), NerveOf(character, memory), AlliesOn(memory, attacker));
+        var dare = NerveRules.DarePower(CharacterPower.For(character), NerveOf(character, memory), AlliesOn(character, memory, attacker));
         return DangerRules.Overwhelms(SoloThreatOf(memory, attacker), dare, Party.AlliesPower(character), ThreatMultiple());
     }
 
@@ -642,16 +631,19 @@ public static partial class CombatBrain
             return;
         }
 
-        // Casting stops the feet, so a runner drinks and bandages but does not cast; a red's
-        // recall home once it broke contact is the one cast a run makes. A hidden runner does
-        // neither: a bandage or a potion shows it again.
+        // Casting stops the feet, so a runner drinks and bandages but casts only to get away: a
+        // red's recall home once it broke contact, and a caster's Invisibility once its lead lets
+        // the words finish. A bard plays on the run to calm the creature on it. A hidden runner
+        // does none of it: a bandage or a potion shows it again.
         if (!character.Hidden)
         {
             Care(character, memory, inFight: true, CastTiming.NoCircle, spellsAllowed: false);
+            CalmChaser(character, memory);
         }
 
         if (TryRecallOut(character, memory, scanned) || TryFaceChaser(character, memory, picture, scanned) ||
-            HidesFromChasers(character, memory, scanned) || TryTurnOnChaser(character, memory, picture))
+            HidesFromChasers(character, memory, scanned) || VanishesOnTheRun(character, memory, scanned) ||
+            TryTurnOnChaser(character, memory, picture))
         {
             return;
         }
@@ -745,21 +737,33 @@ public static partial class CombatBrain
     }
 
     /// <summary>
-    /// A runner out of every chaser's sight hides if it can, as a player ducked round a corner
-    /// so the chaser thought it gone. The chaser loses a foe it cannot see and gives it up
-    /// (<see cref="GiveUpIfLost"/>). True while the runner stands hidden.
+    /// A runner no chaser can spoil the hide of hides if it can, as a player ducked round a
+    /// corner, or a thief with the skill hid in the open once the chase fell far enough behind.
+    /// The chaser loses a foe it cannot see and gives it up (<see cref="GiveUpIfLost"/>). True
+    /// while the runner stands hidden.
     /// </summary>
     private static bool HidesFromChasers(SosariaCharacter character, Memory memory, bool scanned) =>
         (character.Hidden ||
          scanned && RecallOutRules.HidesOut(character.Skills.Hiding.Value) && !SeenByChasers(character, memory)) &&
         HideOut(character);
 
-    /// <summary>True while a foe on this runner has it in its line of sight: hiding fails then (Hiding.OnUse).</summary>
+    /// <summary>
+    /// True while a foe on this runner, within the engine's hide range of it, has it in its line
+    /// of sight: hiding fails then (<see cref="RetreatRules.SpoilsHide"/>, Hiding.OnUse).
+    /// </summary>
     private static bool SeenByChasers(SosariaCharacter character, Memory memory)
     {
+        var hideTiles = RetreatRules.HideSpoilTiles(character.Skills.Hiding.Value);
+
         foreach (var sighting in memory.Foes)
         {
-            if (sighting.AttacksSelf && sighting.Mobile.InLOS(character))
+            var chaser = sighting.Mobile;
+
+            if (RetreatRules.SpoilsHide(
+                    sighting.AttacksSelf,
+                    chaser.InLOS(character),
+                    NavMetric.Chebyshev(character.Location, chaser.Location),
+                    hideTiles))
             {
                 return true;
             }
@@ -804,16 +808,18 @@ public static partial class CombatBrain
         memory.FleeFrom is { Deleted: false, Alive: true } chaser && chaser.Combatant == character ? chaser : null;
 
     /// <summary>
-    /// A fighter a person keeps chasing turns on that person, as a player did: once it healed
-    /// up on the way to a fight it would hold (<see cref="RetreatRules.ComesBackHealed"/>), or
-    /// once the chase went on so long it cannot outrun the person (<see cref="RetreatRules.CannotOutrun"/>).
-    /// A worker, a runner without its arms and a hidden runner keep to the run. Without it a run
-    /// the person stayed on went on for <see cref="RetreatRules.MaxChasedRunMs"/>, at full hits too.
+    /// A fighter a person or a monster keeps chasing turns on that same foe, as a player did:
+    /// once it healed up on the way to a fight it would hold (<see cref="RetreatRules.ComesBackHealed"/>),
+    /// or, chased by a person, once the chase went on so long it cannot outrun the person
+    /// (<see cref="RetreatRules.CannotOutrunChaser"/>). A worker, a runner without its arms and a
+    /// hidden runner keep to the run. Without it a run the person stayed on went on for
+    /// <see cref="RetreatRules.MaxChasedRunMs"/>, at full hits too, and a runner healed on the
+    /// run from a monster still on it ran on and picked a fresh fight.
     /// </summary>
     private static bool TryFaceChaser(SosariaCharacter character, Memory memory, RoomPicture picture, bool scanned)
     {
         if (!scanned || character.Hidden || !IsFighter(character) || !SpareKit.Armed(character) ||
-            ChaserOnRunner(character, memory) is not { } chaser || !People.IsLivingPlayer(chaser))
+            ChaserOnRunner(character, memory) is not { } chaser)
         {
             return false;
         }
@@ -821,7 +827,7 @@ public static partial class CombatBrain
         var why = RetreatRules.ComesBackHealed(memory.RunStartHits, Vitals.HitsFraction(character)) &&
                   HoldsGround(character, memory, picture)
             ? HealedUp
-            : RetreatRules.CannotOutrun(Core.TickCount - memory.LastFleeAt, picture.Attackers)
+            : RetreatRules.CannotOutrunChaser(People.IsLivingPlayer(chaser), Core.TickCount - memory.LastFleeAt, picture.Attackers)
                 ? CannotOutrun
                 : null;
 
@@ -921,7 +927,7 @@ public static partial class CombatBrain
             BaseLineOf(character),
             nerve,
             picture.Attackers,
-            NerveRules.DarePower(CharacterPower.For(character), nerve, AlliesOn(memory, memory.FleeFrom)),
+            NerveRules.DarePower(CharacterPower.For(character), nerve, AlliesOn(character, memory, memory.FleeFrom)),
             picture.Threat,
             HuntSkill.HasHealing(character),
             Party.AlliesPower(character),

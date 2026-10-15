@@ -1,3 +1,4 @@
+using SosariaAI.Behaviour;
 using SosariaAI.Combat;
 using Xunit;
 
@@ -159,5 +160,30 @@ public class SpellBookTests
     {
         Assert.Null(SpellBook.PickUtility(Novice, FullMana, ClosingDistance, TopCircle, false, false, AlwaysRoll, AlwaysRoll));
         Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, false, false, NeverRoll, NeverRoll));
+    }
+
+    [Fact]
+    public void Invisibility_IsTheSixthCircleSpellFortyThree()
+    {
+        Assert.Equal(SpellBook.Invisibility, SpellBook.EntryOf(SpellKind.Invisibility));
+        Assert.Equal(SpellBook.Explosion.Circle, SpellBook.Invisibility.Circle);
+        Assert.Equal(PreAosManaByCircle[SpellBook.Invisibility.Circle - FirstCircle], SpellBook.Invisibility.Mana);
+    }
+
+    [Fact]
+    public void Resurrection_IsTheEighthCircle_WithTheRaiseMana()
+    {
+        Assert.Equal(SpellBook.Resurrection, SpellBook.EntryOf(SpellKind.Resurrection));
+        Assert.Equal(TopCircle, SpellBook.Resurrection.Circle);
+        Assert.Equal(PreAosManaByCircle[SpellBook.Resurrection.Circle - FirstCircle], SpellBook.Resurrection.Mana);
+        Assert.Equal(ResurrectAid.ResurrectMana, SpellBook.Resurrection.Mana);
+    }
+
+    [Fact]
+    public void RaisesDead_OnlyResurrection()
+    {
+        Assert.True(SpellBook.RaisesDead(SpellKind.Resurrection));
+        Assert.False(SpellBook.RaisesDead(SpellKind.GreaterHeal));
+        Assert.False(SpellBook.RaisesDead(SpellKind.Invisibility));
     }
 }

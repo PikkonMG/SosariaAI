@@ -210,7 +210,8 @@ public sealed class FollowSkill : Skill
         ClearWalk();
         _character.Motor.MoveTo(leader, _range);
 
-        if (!_holdsFire && leader.Combatant is { } target && TakesLeadersFoe(_character, target) &&
+        // The party's tank foe first (CombatBrain.TankFoe), so a follower hits what the party hits.
+        if (!_holdsFire && (CombatBrain.TankFoe(leader) ?? leader.Combatant) is { } target && TakesLeadersFoe(_character, target) &&
             _character.GetDistanceToSqrt(target) <= _character.RangePerception)
         {
             _character.Combatant = target;

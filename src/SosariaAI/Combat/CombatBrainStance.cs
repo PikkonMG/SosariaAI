@@ -162,7 +162,7 @@ public static partial class CombatBrain
 
         var index = IndexOf(memory, foe);
         var threat = index >= 0 ? memory.Foes[index].SoloThreat : 0;
-        var dare = NerveRules.DarePower(CharacterPower.For(character), NerveOf(character, memory), AlliesOn(memory, foe));
+        var dare = NerveRules.DarePower(CharacterPower.For(character), NerveOf(character, memory), AlliesOn(character, memory, foe));
 
         return StanceRules.WorthAsking(situation.FoeIsPerson, threat, dare, situation.HitsFraction);
     }

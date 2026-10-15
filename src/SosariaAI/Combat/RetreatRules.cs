@@ -11,8 +11,9 @@ namespace SosariaAI.Combat;
 /// not left, whatever the count of foes (<see cref="FightTrendRules"/>). A run is over when
 /// the pack and the thing it ran from are both well off; the same thing chasing it off
 /// twice in a minute is a hunt, and then only twice that gap is clear. The ground it ran
-/// from is left alone for a while after. A fighter a person keeps chasing turns on it once
-/// it healed up, or once the chase shows it cannot outrun the person.
+/// from is left alone for a while after. A fighter a person or a monster keeps chasing turns
+/// on it once it healed up, and on a person also once the chase shows it cannot outrun it. A
+/// runner hides once no chaser in the engine's hide range sees it (<see cref="SpoilsHide"/>).
 /// </summary>
 public static class RetreatRules
 {
@@ -177,6 +178,42 @@ public static class RetreatRules
     /// </summary>
     public static bool ComesBackHealed(double hitsAtRunStart, double hitsNow) =>
         hitsAtRunStart < ComeBackFraction && hitsNow >= ComeBackFraction;
+
+    /// <summary>
+    /// Only a person cannot be outrun (<see cref="CannotOutrun"/>): a bot runs at the client's
+    /// pace and outruns nearly every monster, whose chase the run's own clock ends. Turning on
+    /// a monster comes only with healing up (<see cref="ComesBackHealed"/>).
+    /// </summary>
+    public static bool CannotOutrunChaser(bool chaserIsPerson, long runMs, int attackers) =>
+        chaserIsPerson && CannotOutrun(runMs, attackers);
+
+    /// <summary>The hide range at full Hiding (Hiding.OnUse).</summary>
+    public const int HideRangeBaseTiles = 8;
+
+    /// <summary>The engine's hide range is never more than this.</summary>
+    public const int HideRangeCapTiles = 18;
+
+    public const double HideRangeFullSkill = 100;
+
+    /// <summary>Hiding points under full skill for each tile of hide range past the base.</summary>
+    public const int HideRangeSkillPerTile = 2;
+
+    /// <summary>
+    /// How far a foe on the hider spoils its hiding: (100 - Hiding) / 2 + 8 tiles, at most 18
+    /// (Hiding.OnUse; no era changes it). A Grandmaster hider hides eight tiles from a chaser
+    /// that sees it; a novice needs eighteen.
+    /// </summary>
+    public static int HideSpoilTiles(double hiding) =>
+        Math.Min((int)((HideRangeFullSkill - hiding) / HideRangeSkillPerTile) + HideRangeBaseTiles, HideRangeCapTiles);
+
+    /// <summary>
+    /// A foe spoils a hide when it is on the hider, has it in its line of sight and stands within
+    /// <see cref="HideSpoilTiles"/>: the engine then refuses it. A runner that waited for every
+    /// chaser to lose sight of it, however far, hid only round a corner: 21 hides in a 9.5 hour
+    /// log, while a thief with the skill to hide in the open ran on.
+    /// </summary>
+    public static bool SpoilsHide(bool onHider, bool seesHider, int distance, int hideTiles) =>
+        onHider && seesHider && distance <= hideTiles;
 
     /// <summary>A lone person still on the runner this long after the run began cannot be outrun.</summary>
     public const int LoneChaserMs = 10000;

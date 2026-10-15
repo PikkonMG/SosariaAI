@@ -327,4 +327,37 @@ public class RetreatRulesTests
         Assert.True(RetreatRules.CannotOutrun(RetreatRules.LoneChaserMs, OneAttacker));
         Assert.True(RetreatRules.LoneChaserMs < RetreatRules.MaxPersonChaseMs);
     }
+
+    [Fact]
+    public void CannotOutrunChaser_OnlyAPerson()
+    {
+        Assert.True(RetreatRules.CannotOutrunChaser(chaserIsPerson: true, RetreatRules.LoneChaserMs, OneAttacker));
+        Assert.False(RetreatRules.CannotOutrunChaser(chaserIsPerson: false, RetreatRules.MaxChasedRunMs, OneAttacker));
+        Assert.False(RetreatRules.CannotOutrunChaser(chaserIsPerson: true, RetreatRules.LoneChaserMs - 1, OneAttacker));
+    }
+
+    [Fact]
+    public void HideSpoilTiles_TheEngineRange()
+    {
+        const double Grandmaster = 100;
+        const double Adept = 90;
+        const double Novice = 30;
+        const int GrandmasterTiles = 8;
+        const int AdeptTiles = 13;
+
+        Assert.Equal(GrandmasterTiles, RetreatRules.HideSpoilTiles(Grandmaster));
+        Assert.Equal(AdeptTiles, RetreatRules.HideSpoilTiles(Adept));
+        Assert.Equal(RetreatRules.HideRangeCapTiles, RetreatRules.HideSpoilTiles(Novice));
+    }
+
+    [Fact]
+    public void SpoilsHide_AFoeOnTheHiderThatSeesItInRange()
+    {
+        const int HideTiles = 8;
+
+        Assert.True(RetreatRules.SpoilsHide(onHider: true, seesHider: true, HideTiles, HideTiles));
+        Assert.False(RetreatRules.SpoilsHide(onHider: true, seesHider: true, HideTiles + 1, HideTiles));
+        Assert.False(RetreatRules.SpoilsHide(onHider: true, seesHider: false, HideTiles, HideTiles));
+        Assert.False(RetreatRules.SpoilsHide(onHider: false, seesHider: true, HideTiles, HideTiles));
+    }
 }

@@ -4,11 +4,13 @@ using Server;
 using Server.Logging;
 using Server.Mobiles;
 using SosariaAI.Behaviour;
+using SosariaAI.Combat;
 using SosariaAI.Common;
 using SosariaAI.Configuration;
 using SosariaAI.Logging;
 using SosariaAI.Mobiles;
 using SosariaAI.Navigation;
+using SosariaAI.Navigation.Generation;
 using SosariaAI.Social;
 
 namespace SosariaAI.Skills;
@@ -27,7 +29,10 @@ namespace SosariaAI.Skills;
 /// kept beast that outdoes the tamer's fighter sends the old one back to the wild
 /// (<see cref="PetKeeper.LetGoSparePets"/>). A ground with nothing on it is marked dry and the
 /// next ground is tried. A trip holds its area (<see cref="TamingGrounds.Claim"/>) and starts
-/// on no beast in an area other tamers already fill.
+/// on no beast in an area other tamers already fill. It goes to no ground, and works no beast
+/// in sight, where another monster stands that the tamer and its pets cannot take on
+/// (<see cref="TamerTacticsRules.TakesOn"/>): a fresh Master tamer went to Destard for a drake,
+/// among the dragons, and a dragon killed it there.
 /// </summary>
 public sealed class TameSkill : Skill
 {
@@ -119,8 +124,103 @@ public sealed class TameSkill : Skill
     /// </summary>
     public static bool CanSeek(SosariaCharacter tamer) =>
         People.InWorld(tamer) && tamer.Followers < tamer.FollowersMax &&
-        (!TamingGrounds.IsCrowded(tamer, tamer.Location) && BestQuarry(tamer, SightTiles, null) != null ||
-         TamingGrounds.Pick(tamer) != null);
+        (!TamingGrounds.IsCrowded(tamer, tamer.Location) && SafeQuarryInSight(tamer, null) != null ||
+         TamingGrounds.Pick(tamer) is { } ground && GroundSafe(tamer, ground));
+
+    /// <summary>
+    /// The best quarry in sight (<see cref="BestQuarry"/>) when nothing else in sight is past the
+    /// tamer and its pets (<see cref="TamerTacticsRules.TakesOn"/>); null otherwise.
+    /// </summary>
+    public static BaseCreature SafeQuarryInSight(SosariaCharacter tamer, ISet<Serial> passed) =>
+        BestQuarry(tamer, SightTiles, passed) is { } quarry &&
+        TamerTacticsRules.TakesOn(
+            StrongestNear(tamer.Map, tamer.Location, SightTiles, quarry.GetType().Name).Threat,
+            DungeonGround.FightingPower(tamer)
+        )
+            ? quarry
+            : null;
+
+    /// <summary>True when no monster at the ground but its own beasts is past the tamer and its pets.</summary>
+    public static bool GroundSafe(SosariaCharacter tamer, TamingGround ground) =>
+        TamerTacticsRules.TakesOn(
+            StrongestNear(tamer.Map, ground.Place.Arrival, GroundSightTiles, ground.Beast.Kind).Threat,
+            DungeonGround.FightingPower(tamer)
+        );
+
+    /// <summary>
+    /// The best ground for a trip (<see cref="TamingGrounds.Ranked"/>) whose other monsters the
+    /// tamer and its pets take on, each passed-over ground written to the log; null when none.
+    /// Main thread: it reads the live mobiles at each ground.
+    /// </summary>
+    public static TamingGround SafeGround(SosariaCharacter tamer)
+    {
+        if (!People.InWorld(tamer))
+        {
+            return null;
+        }
+
+        var power = DungeonGround.FightingPower(tamer);
+
+        foreach (var ground in TamingGrounds.Ranked(tamer, tamer.Map, tamer.HomeSpot, TamingGrounds.MaxReachLooks, liveOnly: true))
+        {
+            var (threat, monster) = StrongestNear(tamer.Map, ground.Place.Arrival, GroundSightTiles, ground.Beast.Kind);
+
+            if (TamerTacticsRules.TakesOn(threat, power))
+            {
+                return ground;
+            }
+
+            if (SosariaSettings.LogActivity)
+            {
+                logger.Information(
+                    "{Name} passes over the {Beast} ground at {Location}: a {Monster} there (threat {Threat}) is past it and its pets (power {Power})",
+                    tamer.Name,
+                    ground.Beast.Kind,
+                    ground.Place.Arrival,
+                    monster.GetType().Name,
+                    threat,
+                    power
+                );
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The strongest wild monster within <paramref name="range"/> of a spot, on the threat scale
+    /// (<see cref="ThreatRating.OfOne"/>), the beasts of <paramref name="quarryKind"/> aside: the
+    /// tamer works those and takes their blows (<see cref="TakesBlowFrom"/>). Zero and null when
+    /// none stands there.
+    /// </summary>
+    public static (int Threat, BaseCreature Monster) StrongestNear(Map map, Point3D at, int range, string quarryKind)
+    {
+        var strongest = (Threat: 0, Monster: (BaseCreature)null);
+
+        if (map == null || map == Map.Internal)
+        {
+            return strongest;
+        }
+
+        foreach (var mobile in map.GetMobilesInRange(at, range))
+        {
+            if (mobile is not BaseCreature { Deleted: false, Alive: true, Controlled: false, Summoned: false } creature ||
+                string.Equals(creature.GetType().Name, quarryKind, StringComparison.Ordinal) ||
+                !CreatureStatsLookup.IsLandEnemy(creature.GetType().Name))
+            {
+                continue;
+            }
+
+            var threat = ThreatRating.OfOne(HostileRead.Of(creature));
+
+            if (threat > strongest.Threat)
+            {
+                strongest = (threat, creature);
+            }
+        }
+
+        return strongest;
+    }
 
     /// <summary>
     /// True when the tamer taking a blow from <paramref name="aggressor"/> keeps taming instead of
@@ -178,7 +278,7 @@ public sealed class TameSkill : Skill
         _practiced = 0;
         _endsAt = Core.Now + TripTime;
 
-        if (!TamingGrounds.IsCrowded(character, character.Location) && BestQuarry(character, SightTiles, _passed) is { } near)
+        if (!TamingGrounds.IsCrowded(character, character.Location) && SafeQuarryInSight(character, _passed) is { } near)
         {
             TamingGrounds.Claim(character, character.Location);
             StartApproach(near);
@@ -268,7 +368,7 @@ public sealed class TameSkill : Skill
 
     private bool StartTrip()
     {
-        var ground = TamingGrounds.Pick(_tamer);
+        var ground = SafeGround(_tamer);
 
         if (ground == null)
         {
@@ -296,7 +396,7 @@ public sealed class TameSkill : Skill
         if (_walk != null && _walk.Tick() == SkillStatus.Running)
         {
             // A beast met on the road is as good as one on the ground.
-            return BestQuarry(_tamer, SightTiles, _passed) is { } met ? Approach(met) : SkillStatus.Running;
+            return SafeQuarryInSight(_tamer, _passed) is { } met ? Approach(met) : SkillStatus.Running;
         }
 
         _walk?.Abort();

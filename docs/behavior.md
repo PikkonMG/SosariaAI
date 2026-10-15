@@ -367,6 +367,68 @@ the default, replaces the member's job at once; `"planner"` raises a plan
 trigger and the goal loop picks the order skill at the top score, where a flee
 or a fight may still win.
 
+## Fighter tactics
+
+Each class fights with its own tactics, on top of the press, step back and run
+every fighter has.
+
+- **Warrior and fencer.** A fighter draws one monster off a group it would not
+  take whole. With two or more foes close, it steps to a tile with a wall or a
+  rock at its back (at least two fewer open tiles around it, never a dead end,
+  the foe still in reach). With its own bandage on and the fight lost, it steps
+  out of reach until the bandage is done, then goes back in on the same foe.
+  Before AOS every blow slips a bandage, so there it also steps out below 45% of
+  its hits. A runner a monster still chases turns on it once healed to 80%, when
+  it would hold that fight. A
+  fighter healed to 80% within 45 seconds of a run goes back for the monster it
+  ran from when that monster stands alone and is more hurt than the fighter.
+- **Archer and ranger.** An archer keeps its range and stands still to shoot. It
+  does not open on a monster with another hostile within 8 tiles of it out of a
+  group too strong to take: the shot brings the pack. Mages follow the same rule.
+- **Bard.** A bard provokes the monster on it onto another monster on it first
+  (the strongest), else onto any monster near. When the fight goes badly it
+  calms the monster on it and runs. On the run it calms the nearest monster on
+  it after each song rest.
+- **Thief and every hider.** A runner hides once no chaser that sees it stands
+  within the engine's hide range: 8 tiles at Hiding 100, up to 18 tiles.
+- **Party tank.** In a party, the strongest melee fighter within 14 tiles is the
+  tank. The others take up the tank's foe when their own foe is not on them and
+  nothing is in melee with them. While a hunting tank (or a player tank in war
+  mode) is near, the others open no fresh fight; they still fight a foe on them
+  or on a mate. A bot leader's attack order names the tank's foe.
+
+## Caster tactics
+
+Mages, healers, tamers and bards fight with spells. The timings are the
+engine's own for the running era.
+
+- **Mage.** Its first spell on a free melee foe is Paralyze. Then it walks off
+  the frozen foe and casts from range. With the mana for both, it casts
+  Explosion and then Flame Strike, or Energy Bolt, at once. The two land
+  within 750 ms of each other: before AOS the blast waits 2.5 seconds and the
+  bolt follows 0.75 seconds after the last words; from AOS on, 3 and 1.5
+  seconds. It heals with Greater Heal when hurt and cures when poisoned. At
+  15% of its hits above the line where it would run, or below 60% when it is
+  losing the trade, it recalls home when a recall would take. Otherwise it
+  casts Invisibility on itself. A monster drops a foe it cannot see. A hidden
+  caster stands still and casts nothing but a cure. After the fight it
+  meditates.
+- **Healer.** Before it attacks, it casts Cure or Greater Heal on the worst
+  off of its party and of the people fighting its foe. It raises a fallen party
+  mate within 8 tiles with Resurrection when nothing attacks the healer and the
+  killer has left the ghost.
+- **Tamer.** The pets go in first ("all kill"). The tamer holds back for up to
+  4 seconds until a pet is on the foe. When the foe turns on the tamer, the
+  tamer casts Invisibility. It hides instead when no foe that sees it stands
+  within the engine's hide range. It stays hidden for at least 3 seconds, then
+  comes out by healing the hurt pet (a spell from range, or a bandage beside
+  it), and steps back out of reach. A pet below 25% of its hits is called off:
+  the tamer runs, and the pets follow. It does not recall, because a recall
+  leaves an unbonded pet behind. A tamer takes no dungeon floor and no taming
+  ground where a monster stands that is stronger than the reach of the tamer
+  and its pets together. A floor's rating counts only part of its strongest
+  monster, so the tamer checks that monster too.
+
 ## Guilds, Order and Chaos
 
 Guilds are real engine guilds. A guild war is a real war: enemies show orange,

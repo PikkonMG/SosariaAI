@@ -124,6 +124,17 @@ public class FightPullRulesTests
     }
 
     [Fact]
+    public void ShootsIntoPack_ABowOrASpellAtAFoeWithAPackmate()
+    {
+        const int Alone = 0;
+        const int OnePackmate = 1;
+
+        Assert.True(FightPullRules.ShootsIntoPack(melee: false, OnePackmate));
+        Assert.False(FightPullRules.ShootsIntoPack(melee: false, Alone));
+        Assert.False(FightPullRules.ShootsIntoPack(melee: true, OnePackmate));
+    }
+
+    [Fact]
     public void WaitsForFirstBlow_OnlyBeforeTheDrawWithTheTargetNotYetOnTheDrawer()
     {
         Assert.True(FightPullRules.WaitsForFirstBlow(drawStarted: false, targetFollows: false));

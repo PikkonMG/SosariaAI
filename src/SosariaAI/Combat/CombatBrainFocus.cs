@@ -14,10 +14,16 @@ namespace SosariaAI.Combat;
 /// <summary>Target choice and the room survey. One paced map scan feeds both.</summary>
 public static partial class CombatBrain
 {
+    private const string TankWaitLine = "tank wait";
+    private const string TankJoinLine = "tank join";
+
     /// <summary>
     /// Scans perception range for the best foe the fight mode and IsEnemy allow, reads the
     /// room around it, and sets FocusMob when this character dares the fight or can pull one
-    /// foe out of it. Between scans the last answer stands.
+    /// foe out of it. In a party the tank's foe comes first, and a member opens no fresh fight
+    /// while a ready tank is near (<see cref="PartyTacticsRules"/>); a melee fighter healed
+    /// since its run goes back for the lone monster it ran from (<see cref="MeleeTacticsRules.ComesBackFor"/>).
+    /// Between scans the last answer stands.
     /// </summary>
     public static bool AcquireFocus(SosariaCharacter character)
     {
@@ -41,22 +47,142 @@ public static partial class CombatBrain
                    character.CanSee(focus);
         }
 
-        var best = PickVisible(character, memory, byIsolation: false);
+        var tankIndex = TankTargetIndex(character, memory, ownFoeOnSelf: false, out var tank);
 
-        if (best < 0)
+        if (tankIndex >= 0)
         {
-            character.FocusMob = null;
-            return false;
+            character.FocusMob = memory.Foes[tankIndex].Mobile;
+            NoteJoinTank(character, tank, character.FocusMob);
+            return true;
         }
 
-        if (DecideEngage(character, memory, best, out var pick) == EngageChoice.Decline)
+        var comeBack = ComeBackIndex(character, memory);
+        var best = comeBack >= 0 ? comeBack : PickVisible(character, memory, byIsolation: false);
+
+        if (best < 0 || WaitsForTank(character, memory, tank, best) ||
+            DecideEngage(character, memory, best, out var pick) == EngageChoice.Decline)
         {
             character.FocusMob = null;
             return false;
         }
 
         character.FocusMob = memory.Foes[pick].Mobile;
+
+        if (comeBack == pick)
+        {
+            NoteComeBack(character, character.FocusMob);
+        }
+
         return true;
+    }
+
+    /// <summary>
+    /// The party's tank: the strongest melee fighter of <paramref name="member"/>'s party near
+    /// it, the member itself included (<see cref="PartyTacticsRules.CanTank"/>, <see cref="PartyTacticsRules.StrongerTank"/>).
+    /// Null outside a party or with no one fit to tank.
+    /// </summary>
+    public static Mobile PartyTank(Mobile member)
+    {
+        var party = member == null ? null : GameParty.Of(member);
+
+        if (party == null || party.Count < PartyTacticsRules.MinPartySize)
+        {
+            return null;
+        }
+
+        Mobile best = null;
+        var bestPower = 0;
+
+        for (var i = 0; i < party.Members.Count; i++)
+        {
+            var mate = party.Members[i].Mobile;
+
+            if (mate == null || mate.Deleted ||
+                !PartyTacticsRules.CanTank(
+                    mate.Alive,
+                    mate.Map == member.Map,
+                    NavMetric.Chebyshev(member.Location, mate.Location),
+                    StyleOfFoe(mate) == CombatStyle.Melee,
+                    mate is not SosariaCharacter bot || IsFighter(bot),
+                    mate is SosariaCharacter { Motor.Action: CharacterAction.Flee }))
+            {
+                continue;
+            }
+
+            var power = CharacterPower.Healthy(mate);
+
+            if (best == null || PartyTacticsRules.StrongerTank(power, mate.Serial.Value, bestPower, best.Serial.Value))
+            {
+                best = mate;
+                bestPower = power;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>The live foe the party's tank fights, the party's focus; null when the tank fights nothing or there is none.</summary>
+    public static Mobile TankFoe(Mobile member) => FoeOfTank(member, PartyTank(member));
+
+    /// <summary>The live foe <paramref name="tank"/> fights outside <paramref name="member"/>'s party, or null.</summary>
+    private static Mobile FoeOfTank(Mobile member, Mobile tank) =>
+        tank?.Combatant is { Deleted: false, Alive: true } foe && GameParty.Of(member)?.Contains(foe) != true ? foe : null;
+
+    /// <summary>
+    /// The index in the last scan of the foe this member's tank fights, when the member takes it
+    /// up (<see cref="PartyTacticsRules.TakesTankTarget"/>); else -1. <paramref name="tank"/> is
+    /// the party's tank, or null.
+    /// </summary>
+    private static int TankTargetIndex(SosariaCharacter character, Memory memory, bool ownFoeOnSelf, out Mobile tank)
+    {
+        tank = PartyTank(character);
+
+        if (tank == null || tank == character || FoeOfTank(character, tank) is not { } target)
+        {
+            return -1;
+        }
+
+        var index = IndexOf(memory, target);
+        var inSight = index >= 0 && memory.Foes[index].Acquirable && !memory.Foes[index].OutOfSight && character.InLOS(target);
+
+        return PartyTacticsRules.TakesTankTarget(inSight, ownFoeOnSelf, memory.Picture.CloseAttackers) ? index : -1;
+    }
+
+    /// <summary>
+    /// True when this member leaves the foe at <paramref name="best"/> for its tank to pull
+    /// (<see cref="PartyTacticsRules.WaitsForTank"/>): a bot tank is ready while it hunts, a
+    /// person while in war mode.
+    /// </summary>
+    private static bool WaitsForTank(SosariaCharacter character, Memory memory, Mobile tank, int best)
+    {
+        if (tank == null || tank == character)
+        {
+            return false;
+        }
+
+        var ready = tank is SosariaCharacter bot ? RoutineDriver.IsHunting(bot) : tank.Warmode;
+        var foe = memory.Foes[best].Mobile;
+
+        if (!PartyTacticsRules.WaitsForTank(ready, memory.Foes[best].Tier))
+        {
+            return false;
+        }
+
+        if (LogsOnce(character, TankWaitLine, foe))
+        {
+            logger.Information("{Name} leaves {Foe} for its tank {Tank} to pull", character.Name, foe.Name, tank.Name);
+        }
+
+        return true;
+    }
+
+    /// <summary>Logs a member taking up its tank's foe, once.</summary>
+    private static void NoteJoinTank(SosariaCharacter character, Mobile tank, Mobile foe)
+    {
+        if (LogsOnce(character, TankJoinLine, foe))
+        {
+            logger.Information("{Name} joins its tank {Tank} on {Foe}", character.Name, tank.Name, foe.Name);
+        }
     }
 
     /// <summary>True when <paramref name="mobile"/> stands in the group the last engage call left alone (<see cref="FocusRules.InDeclinedGroup"/>).</summary>
@@ -437,8 +563,9 @@ public static partial class CombatBrain
 
     /// <summary>
     /// Reads the room around the chosen foe and asks nerve whether to take it on, pull the
-    /// most isolated foe out of it, or leave it alone. <paramref name="pick"/> is the foe to
-    /// fight when the answer is not Decline.
+    /// most isolated foe out of it, or leave it alone. A bow or a spell leaves a pull alone when
+    /// that foe has a packmate near (<see cref="FightPullRules.ShootsIntoPack"/>). <paramref name="pick"/>
+    /// is the foe to fight when the answer is not Decline.
     /// </summary>
     private static EngageChoice DecideEngage(SosariaCharacter character, Memory memory, int best, out int pick)
     {
@@ -470,7 +597,7 @@ public static partial class CombatBrain
         pull = pull < 0 ? best : pull;
         var nerve = NerveOf(character, memory);
         var power = CharacterPower.For(character);
-        var alliesOnFoe = AlliesOn(memory, focus.Mobile);
+        var alliesOnFoe = AlliesOn(character, memory, focus.Mobile);
         var facts = new EngageFacts(
             power,
             nerve,
@@ -485,7 +612,14 @@ public static partial class CombatBrain
             extras,
             memory.Picture.Attackers > 0 || character.Combatant is { Deleted: false, Alive: true }
         );
+        var melee = StyleOf(character, IsSpellFighter(character)) == CombatStyle.Melee;
         var choice = NerveRules.Decide(facts);
+
+        if (choice == EngageChoice.PullStraggler && FightPullRules.ShootsIntoPack(melee, foes[pull].Packmates))
+        {
+            choice = EngageChoice.Decline;
+        }
+
         memory.DeclinedAt = choice == EngageChoice.Decline ? Core.TickCount : 0;
         memory.DeclinedNear = focus.Mobile.Location;
 
@@ -496,10 +630,8 @@ public static partial class CombatBrain
                 pick = pull;
 
                 // Melee must close to swing, so it draws the foe off the group first; bow and
-                // spell already fight from range.
-                memory.PullFrom = StyleOf(character, IsSpellFighter(character)) == CombatStyle.Melee
-                    ? new Point3D(room.CenterX, room.CenterY, character.Z)
-                    : null;
+                // spell already fight from range, at a foe that stands apart.
+                memory.PullFrom = melee ? new Point3D(room.CenterX, room.CenterY, character.Z) : null;
                 memory.PullSince = 0;
 
                 if (!Changed(memory, Decision.Pull))
@@ -564,13 +696,29 @@ public static partial class CombatBrain
     }
 
     /// <summary>People in sight already fighting <paramref name="foe"/>.</summary>
-    private static int AlliesOn(Memory memory, Mobile foe)
+    /// <summary>
+    /// The friends this character counts beside it against <paramref name="foe"/>: the people
+    /// already on it, and its own pets fit to fight (<see cref="TamerTacticsRules.PetReady"/>),
+    /// which it sends in. Counting only the people on the foe, a master tamer with a fresh drake
+    /// saw a dare of 232 against a dragon, held back and ran, and the dragon killed it.
+    /// </summary>
+    private static int AlliesOn(SosariaCharacter character, Memory memory, Mobile foe)
     {
         var allies = 0;
 
         for (var i = 0; i < memory.AllyTargets.Count; i++)
         {
             if (memory.AllyTargets[i] == foe)
+            {
+                allies++;
+            }
+        }
+
+        var pets = PetKeeper.PetsOut(character);
+
+        for (var i = 0; i < pets.Count; i++)
+        {
+            if (TamerTacticsRules.PetReady(pets[i].Hits, pets[i].HitsMax))
             {
                 allies++;
             }
@@ -634,18 +782,30 @@ public static partial class CombatBrain
     }
 
     /// <summary>
-    /// Mid-fight: a red or a gray attacking people takes the fight from a monster, one hitting
-    /// this character from one hitting a friend, that from the rest, and an attacker much
-    /// nearer than a foe that is not hitting back takes it too. A nearly beaten foe keeps the
-    /// fight (<see cref="FocusRules.ShouldSwitch"/>). Rate-limited.
+    /// Mid-fight: a party member takes up its tank's foe while its own is not on it
+    /// (<see cref="PartyTacticsRules.TakesTankTarget"/>). Else a red or a gray attacking people
+    /// takes the fight from a monster, one hitting this character from one hitting a friend,
+    /// that from the rest, and an attacker much nearer than a foe that is not hitting back takes
+    /// it too. A nearly beaten foe keeps the fight (<see cref="FocusRules.ShouldSwitch"/>), and so
+    /// does the foe a melee fighter steps out of reach of to heal: it goes back in on that one.
+    /// Rate-limited.
     /// </summary>
     private static Mobile ReconsiderTarget(SosariaCharacter character, Memory memory, Mobile foe)
     {
         var now = Core.TickCount;
 
-        if (now - memory.NextSwitchAt < 0)
+        if (now - memory.NextSwitchAt < 0 || HoldsTargetToHeal(character, memory, foe))
         {
             return foe;
+        }
+
+        var tankIndex = TankTargetIndex(character, memory, ownFoeOnSelf: foe.Combatant == character, out var tank);
+
+        if (tankIndex >= 0 && memory.Foes[tankIndex].Mobile != foe)
+        {
+            var tankFoe = SwitchTo(character, memory, memory.Foes[tankIndex].Mobile, now);
+            NoteJoinTank(character, tank, tankFoe);
+            return tankFoe;
         }
 
         var current = IndexOf(memory, foe);
@@ -685,18 +845,24 @@ public static partial class CombatBrain
             return foe;
         }
 
-        var next = memory.Foes[best].Mobile;
-        memory.NextSwitchAt = now + FocusRules.SwitchCooldownMs;
-        memory.FoeLostSince = 0;
-        memory.Unreachable = false;
-        character.Combatant = next;
-        character.FocusMob = next;
+        var next = SwitchTo(character, memory, memory.Foes[best].Mobile, now);
 
         if (Changed(memory, Decision.Switch) && SosariaSettings.LogActivity)
         {
             logger.Information("{Name} turns from {Old} to {New}", character.Name, foe.Name, next.Name);
         }
 
+        return next;
+    }
+
+    /// <summary>Makes <paramref name="next"/> the foe, found and in reach until shown otherwise, and starts the switch cooldown.</summary>
+    private static Mobile SwitchTo(SosariaCharacter character, Memory memory, Mobile next, long now)
+    {
+        memory.NextSwitchAt = now + FocusRules.SwitchCooldownMs;
+        memory.FoeLostSince = 0;
+        memory.Unreachable = false;
+        character.Combatant = next;
+        character.FocusMob = next;
         return next;
     }
 

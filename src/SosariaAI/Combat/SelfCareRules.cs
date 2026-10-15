@@ -72,6 +72,14 @@ public static class SelfCareRules
     /// <summary>True when something at hand would treat this wound now: the heal line and cooldowns apply.</summary>
     public static bool HasRemedy(CareFacts facts) => Choose(facts) != CareChoice.None;
 
+    /// <summary>
+    /// A fighter hidden in a fight treats only poison: a cast, a drink or a bandage shows it
+    /// again (Spell.Cast reveals the caster), and it hid so the foe would lose it
+    /// (<see cref="MageTacticsRules.Escape"/>, <see cref="TamerTacticsRules"/>). Poison keeps eating its hits while
+    /// it stands hidden, so that one is worth the cover.
+    /// </summary>
+    public static bool TreatsNow(bool hidden, bool inFight, bool poisoned) => !hidden || !inFight || poisoned;
+
     /// <summary>Cheap gate before any backpack search: nothing to do when clean and above the line.</summary>
     public static bool NeedsCare(bool poisoned, double hitsFraction, bool inFight) =>
         poisoned || hitsFraction < HealLine(inFight);

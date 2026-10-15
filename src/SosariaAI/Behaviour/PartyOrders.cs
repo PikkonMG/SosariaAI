@@ -4,6 +4,7 @@ using Server;
 using Server.Logging;
 using Server.Mobiles;
 using EngineParty = Server.Engines.PartySystem.Party;
+using SosariaAI.Combat;
 using SosariaAI.Common;
 using SosariaAI.Configuration;
 using SosariaAI.Deliberation;
@@ -394,9 +395,14 @@ public static class PartyOrders
         }
     }
 
+    /// <summary>
+    /// The party's fight, the tank's foe before the leader's (<see cref="CombatBrain.TankFoe"/>):
+    /// the members are sent onto the foe the strongest melee fighter pulled, so the party does
+    /// not split onto many monsters. Its end, with a member far off, is a moment to regroup.
+    /// </summary>
     private static void NoticeFight(SosariaCharacter leader, EngineParty party, List<Mobile> members, DateTime now)
     {
-        var foe = leader.Combatant;
+        var foe = CombatBrain.TankFoe(leader) ?? leader.Combatant;
 
         if (foe is { Deleted: false, Alive: true })
         {

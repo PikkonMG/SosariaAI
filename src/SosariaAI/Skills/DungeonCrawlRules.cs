@@ -193,6 +193,7 @@ public static class DungeonCrawlRules
     public const string FloorEmptyWhy = "the floor offers nothing more";
     public const string OffFloorWhy = "it stands on no mapped floor";
     public const string TooHardWhy = "the floor is too hard for it";
+    public const string StrongestWhy = "its strongest monster is past it and its pets";
     public const string RunsWhy = "it keeps running from the fights here";
     public const string PetLostWhy = "it lost a pet here";
     public const string MateLostWhy = "it lost a party mate here";
@@ -215,6 +216,17 @@ public static class DungeonCrawlRules
     /// Destard's third level is from Fire and Despise, is left at once.
     /// </summary>
     public static bool StaysOn(int difficulty, int power) => difficulty <= HuntGround.Reach(power) * StaySlack;
+
+    /// <summary>
+    /// Why a crawler may not stay on its floor, or null while it may: the floor is past its
+    /// reach or one it lost on lately (<see cref="TooHardWhy"/>), or, for a tamer, its strongest
+    /// monster is past the tamer and its pets (<see cref="StrongestWhy"/>,
+    /// <see cref="TamerTacticsRules.TakesOn"/>).
+    /// </summary>
+    public static string KeepOffWhy(bool staysOnRating, bool strongestFits) =>
+        !staysOnRating ? TooHardWhy
+        : !strongestFits ? StrongestWhy
+        : null;
 
     /// <summary>True while a floor marked too hard at <paramref name="markedAt"/> is still too hard.</summary>
     public static bool StillTooHard(DateTime markedAt, DateTime now) =>

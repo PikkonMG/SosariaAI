@@ -11,6 +11,7 @@ public class PetRulesTests
     private const int FullHits = 100;
     private const int HurtHits = 50;
     private const int ScratchedHits = 90;
+    private const int NoHitsMax = 0;
     private const int OneStabled = 1;
     private const int NoneStabled = 0;
     private const int LoyaltyHappy = 100;
@@ -202,5 +203,22 @@ public class PetRulesTests
         Assert.Equal(SpellKind.Heal, PetRules.PetSpell(poisoned: false, wounded: true, Grandmaster, LowMana));
         Assert.Null(PetRules.PetSpell(poisoned: false, wounded: false, Grandmaster, FullMana));
         Assert.Null(PetRules.PetSpell(poisoned: false, wounded: true, NoMagery, FullMana));
+    }
+
+    [Fact]
+    public void Wounded_UnderTheVetLine()
+    {
+        Assert.True(PetRules.Wounded(HurtHits, FullHits));
+        Assert.False(PetRules.Wounded(ScratchedHits, FullHits));
+        Assert.False(PetRules.Wounded(HurtHits, NoHitsMax));
+        Assert.Equal(PetRules.Wounded(HurtHits, FullHits), PetRules.NeedsVet(HurtHits, FullHits, poisoned: false));
+    }
+
+    [Fact]
+    public void TendsOnScan_WaitsWhileTheTamerHidesInAFight()
+    {
+        Assert.False(PetRules.TendsOnScan(fighting: true, hidden: true));
+        Assert.True(PetRules.TendsOnScan(fighting: true, hidden: false));
+        Assert.True(PetRules.TendsOnScan(fighting: false, hidden: true));
     }
 }

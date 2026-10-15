@@ -39,6 +39,36 @@ public class EscapeRulesTests
         "####......"
     );
 
+    private const int StandReach = 1;
+    private const int North = 0;
+    private const int NorthWest = 7;
+
+    // A wall along the north edge.
+    private static readonly Grid Wall = new(
+        "##########",
+        "..........",
+        "..........",
+        "..........",
+        ".........."
+    );
+
+    // A corner of walls to the north and the west.
+    private static readonly Grid Corner = new(
+        "#####",
+        "#....",
+        "#....",
+        "#...."
+    );
+
+    // A one-tile nook north of (2,2): the way in plus one more is a dead end.
+    private static readonly Grid Nook = new(
+        "#####",
+        "##.##",
+        "##...",
+        ".....",
+        "....."
+    );
+
     private static readonly Grid Field = new(
         "....................",
         "....................",
@@ -235,6 +265,40 @@ public class EscapeRulesTests
         var options = new List<EscapeOption> { new(new Point3D(12, 10, 0), Exits: 8, Known: true) };
 
         Assert.Equal(EscapeRules.NoChoice, EscapeRules.PickGoal(options, from, 13, 10, safety: null, EscapeRules.NoIdleFoes));
+    }
+
+    [Fact]
+    public void ChooseStand_StepsToTheWallWithTheFoeInReach()
+    {
+        var from = new Point3D(5, 2, 0);
+        var foe = new Point3D(6, 2, 0);
+
+        Assert.Equal(North, EscapeRules.ChooseStand(Wall.Step, from, foe, StandReach, EscapeRules.NoIdleFoes));
+    }
+
+    [Fact]
+    public void ChooseStand_TheCornerBeatsTheWall()
+    {
+        var from = new Point3D(2, 2, 0);
+        var foe = new Point3D(2, 1, 0);
+
+        Assert.Equal(NorthWest, EscapeRules.ChooseStand(Corner.Step, from, foe, StandReach, EscapeRules.NoIdleFoes));
+    }
+
+    [Fact]
+    public void ChooseStand_NotOutOfReachNotIntoADeadEnd()
+    {
+        Assert.Equal(EscapeRules.NoChoice, EscapeRules.ChooseStand(Wall.Step, new Point3D(5, 2, 0), new Point3D(5, 3, 0), StandReach, EscapeRules.NoIdleFoes));
+        Assert.Equal(EscapeRules.NoChoice, EscapeRules.ChooseStand(Nook.Step, new Point3D(2, 2, 0), new Point3D(3, 2, 0), StandReach, EscapeRules.NoIdleFoes));
+        Assert.Equal(EscapeRules.NoChoice, EscapeRules.ChooseStand(Field.Step, new Point3D(5, 5, 0), new Point3D(6, 5, 0), StandReach, EscapeRules.NoIdleFoes));
+    }
+
+    [Fact]
+    public void ChooseStand_NotTowardAnIdleHostile()
+    {
+        var idle = new List<Point3D> { new(5, -3, 0) };
+
+        Assert.Equal(EscapeRules.NoChoice, EscapeRules.ChooseStand(Wall.Step, new Point3D(5, 2, 0), new Point3D(6, 2, 0), StandReach, idle));
     }
 
     [Fact]

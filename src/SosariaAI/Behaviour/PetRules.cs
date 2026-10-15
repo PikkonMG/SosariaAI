@@ -152,8 +152,17 @@ public static class PetRules
 
     private static bool Casts(SpellEntry spell, double magery, int mana) => magery >= spell.MinMagery && mana >= spell.Mana;
 
-    public static bool NeedsVet(int hits, int hitsMax, bool poisoned) =>
-        poisoned || hitsMax > 0 && hits < hitsMax * VetBelowFraction;
+    public static bool NeedsVet(int hits, int hitsMax, bool poisoned) => poisoned || Wounded(hits, hitsMax);
+
+    /// <summary>A body under <see cref="VetBelowFraction"/> of its hits: a heal spell or a bandage is worth it.</summary>
+    public static bool Wounded(int hits, int hitsMax) => hitsMax > 0 && hits < hitsMax * VetBelowFraction;
+
+    /// <summary>
+    /// The pet care on the world scan waits while the tamer stands hidden in a fight: a cast or
+    /// a bandage shows it again, and the tamer's fight (<see cref="TamerTacticsRules"/>) picks
+    /// the moment it comes out.
+    /// </summary>
+    public static bool TendsOnScan(bool fighting, bool hidden) => !(fighting && hidden);
 
     public static bool NeedsFeed(int loyalty) => loyalty < FeedBelowLoyalty;
 
