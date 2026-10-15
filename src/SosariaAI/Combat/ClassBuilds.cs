@@ -31,6 +31,19 @@ public static class ClassBuilds
     public const int KryssShare = 70;
     public const int SpearShare = 30;
 
+    /// <summary>
+    /// The share of mages that are provoke mages, out of <see cref="PercentBase"/>: musicianship and
+    /// provocation in place of the scribe's and brewer's crafts. Only the rare bard sang in a fight,
+    /// eleven provokes in an hour and a half of 800 people.
+    /// </summary>
+    public const int ProvokeMageShare = 25;
+
+    /// <summary>
+    /// The share of tamers that tame with peacemaking, out of <see cref="PercentBase"/>: musicianship
+    /// and peacemaking in place of evaluate and meditation, to calm the beast that turns on them.
+    /// </summary>
+    public const int PeaceTamerShare = 25;
+
     public const string ThiefDagger = "Dagger";
     public const string MinerPick = "Pickaxe";
     public const string TailorKnife = "SkinningKnife";
@@ -40,6 +53,7 @@ public static class ClassBuilds
     private const int PrimaryJitterSalt = 607;
     private const int SecondaryJitterSalt = 613;
     private const int PercentBase = 100;
+    private const int SongSalt = 619;
 
     // Full stat lines at 225, the era's stat cap, each stat at most 100.
     public static readonly (int Strength, int Dexterity, int Intelligence) DexxerStats = (100, 100, 25);
@@ -119,7 +133,7 @@ public static class ClassBuilds
         {
             PersonClass.Warrior => Warrior(role, uniqueId),
             PersonClass.Fencer => Fencer(uniqueId),
-            PersonClass.Mage => Mage(),
+            PersonClass.Mage => Mage(uniqueId),
             PersonClass.Archer => new ClassBuildTemplate
             {
                 Primary = SkillName.Archery,
@@ -156,14 +170,7 @@ public static class ClassBuilds
                 Armor = KitArmor.Light,
                 ClassPieces = [KitVariation.Instrument]
             },
-            PersonClass.Tamer => new ClassBuildTemplate
-            {
-                Primary = SkillName.AnimalTaming,
-                Secondary = TamerCore,
-                Stats = CasterStats,
-                Style = CombatStyle.Mage,
-                Armor = KitArmor.Light
-            },
+            PersonClass.Tamer => Tamer(uniqueId),
             PersonClass.Thief => new ClassBuildTemplate
             {
                 Primary = SkillName.Stealing,
@@ -278,19 +285,48 @@ public static class ClassBuilds
 
     /// <summary>
     /// A mage is a mage: magery, evaluate, meditation, resist and wrestling, and the scribe's
-    /// and brewer's crafts beside them. It holds its spellbook, never a weapon (the engine puts
-    /// a weapon in the pack at every cast), and wears leather, the only armor that lets it
-    /// meditate in full.
+    /// and brewer's crafts beside them, or, for a provoke mage (<see cref="ProvokeMageShare"/>),
+    /// musicianship and provocation and an instrument in the pack. It holds its spellbook, never
+    /// a weapon (the engine puts a weapon in the pack at every cast), and wears leather, the only
+    /// armor that lets it meditate in full.
     /// </summary>
-    private static ClassBuildTemplate Mage() =>
-        new()
+    private static ClassBuildTemplate Mage(string uniqueId)
+    {
+        var provokes = PersonDice.Chance(uniqueId, SongSalt, ProvokeMageShare);
+
+        return new ClassBuildTemplate
         {
             Primary = SkillName.Magery,
-            Secondary = [.. MageCore, SkillName.Inscribe, SkillName.Alchemy],
+            Secondary = provokes
+                ? [.. MageCore, SkillName.Musicianship, SkillName.Provocation]
+                : [.. MageCore, SkillName.Inscribe, SkillName.Alchemy],
             Stats = CasterStats,
             Style = CombatStyle.Mage,
-            Armor = KitArmor.Light
+            Armor = KitArmor.Light,
+            ClassPieces = provokes ? [KitVariation.Instrument] : []
         };
+    }
+
+    /// <summary>
+    /// The mage-tamer (<see cref="TamerCore"/>), or, for a peace tamer (<see cref="PeaceTamerShare"/>),
+    /// musicianship and peacemaking in place of evaluate and meditation, with an instrument in the pack.
+    /// </summary>
+    private static ClassBuildTemplate Tamer(string uniqueId)
+    {
+        var peaces = PersonDice.Chance(uniqueId, SongSalt, PeaceTamerShare);
+
+        return new ClassBuildTemplate
+        {
+            Primary = SkillName.AnimalTaming,
+            Secondary = peaces
+                ? [SkillName.AnimalLore, SkillName.Veterinary, SkillName.Magery, SkillName.MagicResist, SkillName.Musicianship, SkillName.Peacemaking]
+                : TamerCore,
+            Stats = CasterStats,
+            Style = CombatStyle.Mage,
+            Armor = KitArmor.Light,
+            ClassPieces = peaces ? [KitVariation.Instrument] : []
+        };
+    }
 
     private static ClassBuildTemplate Worker(
         SkillName craft,

@@ -98,8 +98,35 @@ public class ClassBuildsTests
             Assert.Equal(KitArmor.Light, template.Armor);
             Assert.Equal(CombatStyle.Mage, template.Style);
             Assert.Contains(SkillName.Meditation, template.Secondary);
-            Assert.Contains(SkillName.Inscribe, template.Secondary);
+            Assert.True(template.Trains(SkillName.Inscribe) || template.Trains(SkillName.Provocation));
         }
+    }
+
+    [Theory]
+    [InlineData(PersonClass.Mage, SkillName.Provocation, ClassBuilds.ProvokeMageShare)]
+    [InlineData(PersonClass.Tamer, SkillName.Peacemaking, ClassBuilds.PeaceTamerShare)]
+    public void SomeCasters_SingInAFight_AtTheirShare(PersonClass caster, SkillName song, int percent)
+    {
+        // Only the rare bard sang: eleven provokes in an hour and a half of 800 people.
+        const int people = 400;
+        const double slack = 0.08;
+        var singers = 0;
+
+        for (var i = 0; i < people; i++)
+        {
+            var template = ClassBuilds.TemplateFor(caster, CharacterRole.Fighter, "Felucca:song#" + i);
+
+            if (!template.Trains(song))
+            {
+                continue;
+            }
+
+            singers++;
+            Assert.True(template.Trains(SkillName.Musicianship));
+            Assert.Contains(KitVariation.Instrument, template.ClassPieces);
+        }
+
+        Assert.InRange((double)singers / people, percent / 100.0 - slack, percent / 100.0 + slack);
     }
 
     [Theory]
@@ -304,7 +331,7 @@ public class ClassBuildsTests
             PersonClass.Tamer, SkillTier.Grandmaster, PersonTrait.None, PersonWealth.Modest, ActivityTendencies.Even,
             PersonProfile.NeutralPhaseLength, female: false
         );
-        var build = ClassBuilds.For(profile, CharacterRole.Fighter, "Felucca:osric#2", EraBand.T2A);
+        var build = ClassBuilds.For(profile, CharacterRole.Fighter, MageTamerId(), EraBand.T2A);
 
         Assert.Equal(EraBuildCaps.SkillCap, build.Skills[nameof(SkillName.AnimalTaming)]);
         Assert.All(
@@ -314,5 +341,19 @@ public class ClassBuildsTests
         Assert.Contains(ClassKits.Spellbook, build.Kit);
         Assert.Contains(ClassKits.RecallRune, build.Kit);
         Assert.All(ClassKits.AllReagents, reagent => Assert.Contains(reagent, build.Kit));
+    }
+
+    /// <summary>The first copy id that rolls the classic mage-tamer, not a peace tamer.</summary>
+    private static string MageTamerId()
+    {
+        for (var i = 0; ; i++)
+        {
+            var id = "Felucca:osric#" + i;
+
+            if (!ClassBuilds.TemplateFor(PersonClass.Tamer, CharacterRole.Fighter, id).Trains(SkillName.Peacemaking))
+            {
+                return id;
+            }
+        }
     }
 }
