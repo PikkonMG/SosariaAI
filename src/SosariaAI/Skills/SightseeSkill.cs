@@ -36,7 +36,7 @@ public sealed class SightseeSkill : Skill
     {
         _character = character;
         _stay.Prepare(character);
-        _chosen = PickPlace(character);
+        _chosen = PickPlace(character, _fallback);
 
         if (_chosen == null)
         {
@@ -97,7 +97,14 @@ public sealed class SightseeSkill : Skill
         _walk?.Resume(held);
     }
 
-    private string PickPlace(SosariaCharacter character)
+    /// <summary>
+    /// True when a sightseer has a place to look at near home (<see cref="SkillFactory.DefaultSightseeDestination"/>
+    /// as the fallback): with none, the job fails at its start, as 89 did in forty minutes.
+    /// </summary>
+    public static bool HasPlace(SosariaCharacter character) =>
+        PickPlace(character, SkillFactory.DefaultSightseeDestination) != null;
+
+    private static string PickPlace(SosariaCharacter character, string fallbackPlace)
     {
         var catalog = NavWorld.DestinationsFor(character.HomeFacet);
         var graph = NavWorld.GraphFor(character.HomeFacet);
@@ -139,7 +146,7 @@ public sealed class SightseeSkill : Skill
         var prefer = character.CurrentAmbition().Kind == SosariaAI.Behaviour.AmbitionKind.Place
             ? character.CurrentAmbition().Target
             : null;
-        var fallback = MayPick(catalog?.Resolve(_fallback, home)) ? _fallback : null;
+        var fallback = MayPick(catalog?.Resolve(fallbackPlace, home)) ? fallbackPlace : null;
         return SightseeRules.PickUnseen(
                    names,
                    character.Memory.PlacesSeen(),
