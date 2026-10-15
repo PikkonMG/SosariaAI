@@ -34,6 +34,14 @@ public static class PersonClassRules
     public const int SamuraiShare = 10;
     public const int NinjaShare = 8;
 
+    /// <summary>
+    /// The pure mage's share among the melee fighters' rolls. Copies take the fighter templates
+    /// of the roster, and the only mage template is a party follower that no copy takes: one
+    /// shard of 800 people spawned one mage, where mages were among the most played templates
+    /// of the era.
+    /// </summary>
+    public const int FighterMageShare = 40;
+
     /// <param name="career">The trade of the person's craft routine, or null (<see cref="CraftCareerRules.CareerOf"/>).</param>
     public static PersonClass Pick(
         string job,
@@ -132,7 +140,8 @@ public static class PersonClassRules
                 bard,
                 Share(PersonClass.Paladin, PaladinShare, expansion),
                 Share(PersonClass.Samurai, SamuraiShare, expansion),
-                Share(PersonClass.Ninja, NinjaShare, expansion)
+                Share(PersonClass.Ninja, NinjaShare, expansion),
+                FighterMageShare
             ) switch
             {
                 0 => PersonClass.Warrior,
@@ -141,7 +150,8 @@ public static class PersonClassRules
                 3 => PersonClass.Bard,
                 4 => PersonClass.Paladin,
                 5 => PersonClass.Samurai,
-                _ => PersonClass.Ninja
+                6 => PersonClass.Ninja,
+                _ => PersonClass.Mage
             };
     }
 

@@ -12,6 +12,7 @@ namespace SosariaAI.Tests;
 public class PersonProfileRulesTests
 {
     private const int People = 400;
+    private const double MageShareSlack = 0.08;
 
     private static CharacterDefinition Template(string preset, string role, params string[] work) =>
         new()
@@ -104,6 +105,23 @@ public class PersonProfileRulesTests
             Assert.DoesNotContain(PersonProfileRules.Roll(id, mage, Expansion.LBR).Class, later);
             Assert.Equal(PersonProfileRules.Roll(id, fighter, Expansion.None).Class, PersonProfileRules.Roll(id, fighter, Expansion.LBR).Class);
         }
+    }
+
+    [Fact]
+    public void MeleeFighterCopies_RollMages_AtTheirShare()
+    {
+        // One shard of 800 spawned one mage: the only mage template is a follower no copy takes.
+        var fighter = Template(BuildPresets.Swordsman, null, SkillKinds.Hunt);
+        var mages = 0;
+
+        for (var i = 0; i < People; i++)
+        {
+            mages += PersonProfileRules.Roll($"Felucca:p#{i}", fighter, Expansion.T2A).Class == PersonClass.Mage ? 1 : 0;
+        }
+
+        var share = (double)PersonClassRules.FighterMageShare /
+                    (PersonClassRules.WarriorShare + PersonClassRules.FencerShare + PersonClassRules.MeleeHealerShare + PersonClassRules.FighterMageShare);
+        Assert.InRange((double)mages / People, share - MageShareSlack, share + MageShareSlack);
     }
 
     [Fact]

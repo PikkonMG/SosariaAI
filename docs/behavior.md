@@ -61,8 +61,9 @@ the same person:
 - experience: veteran or green;
 - a name, face, clothes, home town, work patch, and ambition of their own.
 
-Armor follows the build, and so do weapons and spells. Mages, healers, bards,
-and tamers are casters: they hold only a spellbook, never a weapon, and wear
+Armor follows the build, and so do weapons and spells. About two in seven
+fighters who are not archers roll a pure mage. Mages, healers, bards, and
+tamers are casters: they hold only a spellbook, never a weapon, and wear
 leather, because the engine puts a held weapon in the pack at every cast and
 any armor heavier than leather cuts meditation. Only casters cast spells in a
 fight or to heal. Fighters (warriors, fencers, archers, rangers, thieves, and
