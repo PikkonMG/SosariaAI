@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Server;
+using Server.Mobiles;
 using SosariaAI.Navigation;
 using SosariaAI.Skills;
 using Xunit;
@@ -36,5 +37,14 @@ public class VendorSellSkillTests
         Assert.Equal(
             fallback,
             VendorSellSkill.StallSpot(candidates, _ => false, fallback));
+    }
+
+    [Fact]
+    public void HarvestShop_AGuildmasterNeverCounts()
+    {
+        // The town check skipped a guildmaster and the stall check counted it: a town served
+        // only by the smiths' guildmaster had its shop spawners wiped and refilled on every scan.
+        Assert.False(VendorSellSkill.CountsAsHarvestShop(nameof(BlacksmithGuildmaster), true, ShopFinder.SmithToken));
+        Assert.True(VendorSellSkill.CountsAsHarvestShop(nameof(Blacksmith), false, ShopFinder.SmithToken));
     }
 }

@@ -18,8 +18,9 @@ public static class LawfulRules
     /// </summary>
     public const double CautiousOdds = 1.5;
 
-    public static bool ShouldWarn(DispositionKind disposition, bool seesRedOrGrey, bool victimNamed) =>
-        disposition == DispositionKind.Lawful && seesRedOrGrey && victimNamed;
+    /// <summary>A lawful character that sees an outlaw warns its victim, when the victim has a name to call.</summary>
+    public static bool ShouldWarn(DispositionKind disposition, bool victimNamed) =>
+        disposition == DispositionKind.Lawful && victimNamed;
 
     /// <summary>A red is always an outlaw; a gray is one while it is hurting a person.</summary>
     public static bool IsOutlaw(bool isRed, bool isCriminal, bool attackingPerson) =>
@@ -34,15 +35,14 @@ public static class LawfulRules
         (disposition == DispositionKind.Lawful || inParty || hunting);
 
     /// <summary>
-    /// A hunter draws when the guards reach neither side and its side is strong enough: an
-    /// anti-PK (<paramref name="antiPk"/>) at <see cref="HuntOdds"/>, any other blue only at
+    /// A hunter out of the guards' reach draws when its side is strong enough: an anti-PK
+    /// (<paramref name="antiPk"/>) at <see cref="HuntOdds"/>, any other blue only at
     /// <see cref="CautiousOdds"/>. A red caught hurting this hunter's friend is fought whatever
     /// the odds. In one night every passing blue drew on every red at 0.8: blues going home
     /// killed reds 634 times and dungeon crews 458 times, 1,879 of them reds that had hurt no one.
     /// </summary>
-    public static bool ShouldHunt(bool underGuards, int sidePower, int outlawPower, bool outlawOnFriend, bool antiPk) =>
-        !underGuards &&
-        (outlawOnFriend || outlawPower <= 0 || sidePower >= outlawPower * (antiPk ? HuntOdds : CautiousOdds));
+    public static bool ShouldHunt(int sidePower, int outlawPower, bool outlawOnFriend, bool antiPk) =>
+        outlawOnFriend || outlawPower <= 0 || sidePower >= outlawPower * (antiPk ? HuntOdds : CautiousOdds);
 
     /// <summary>
     /// A blue starts a new fight in Buccaneer's Den only when it rides against the reds there: on

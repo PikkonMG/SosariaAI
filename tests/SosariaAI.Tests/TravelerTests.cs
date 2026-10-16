@@ -785,11 +785,9 @@ public class TravelerTests
 
         var proof = Traveler.PrepareClearStart(graph, new Point3D(10, 10, 0), TestWalkers.Flat);
 
-        Assert.Equal(1, proof.PlanSearches);
         Assert.True(proof.At(new Point3D(10, 10, 0)));
         Assert.True(proof.At(new Point3D(11, 10, 0)));
         Assert.True(proof.At(new Point3D(12, 10, 0)));
-        Assert.Equal(1, proof.PlanSearches);
     }
 
     [Fact]
@@ -807,7 +805,6 @@ public class TravelerTests
 
         var proof = Traveler.PrepareClearStart(graph, new Point3D(10, 10, 0), TestWalkers.Ground(Stand, null));
 
-        Assert.Equal(1, proof.PlanSearches);
         Assert.False(proof.At(new Point3D(10, 10, 0)));
         Assert.False(proof.At(new Point3D(11, 10, 0)));
     }
@@ -854,6 +851,50 @@ public class TravelerTests
     [Fact]
     public void HasClearStart_UnderARoofWithNoWayOut_IsNotClear() =>
         Assert.False(Traveler.HasClearStart(BankGraph(), BankFloor, TestWalkers.Ground(BankDoorShut, null), UnderBankRoof));
+
+    [Fact]
+    public void PrepareStreetProof_UnderARoof_ProvesTheGroundOutside()
+    {
+        // The walk out of a building proves each tile it reaches against one search. A proof
+        // that had to hold on the bank floor found no straight walk out, called the bank sealed,
+        // and the walk out found no tile.
+        var walker = TestWalkers.Ground(BankWalls, null);
+        var yard = new Point3D(26, BankDoorY, 0);
+
+        Assert.False(Traveler.PrepareClearStart(BankGraph(), BankFloor, walker).At(yard));
+
+        var street = Traveler.PrepareStreetProof(BankGraph(), BankFloor, walker);
+
+        Assert.True(street.At(yard));
+        Assert.NotEmpty(BuildingExit.Find(BankFloor, walker, UnderBankRoof, (x, y, z) => street.At(new Point3D(x, y, z))));
+    }
+
+    [Fact]
+    public void PlanNames_IndoorStarts_ShareOneSearch_AndKeepEachRoadOutOfTheOtherRooms()
+    {
+        // An indoor start's road passes under no roof but its own and the goal's. One search
+        // from the goal serves every indoor start; the road it finds from roomA runs through
+        // roomB, so it is searched again from roomA alone and goes round by the yard.
+        var roomA = Node("roomA", 10, 10, 0, "roomB", "yard");
+        var roomB = Node("roomB", 14, 10, 0, "street");
+        roomA.Indoor = true;
+        roomB.Indoor = true;
+        var graph = new NavGraph(
+            FacetNames.Felucca,
+            [
+                roomA,
+                roomB,
+                Node("street", 20, 10, 0, "goal"),
+                Node("yard", 10, 30, 0, "far"),
+                Node("far", 30, 30, 0, "goal"),
+                Node("goal", 30, 10, 0)
+            ]
+        );
+
+        Assert.Equal(["roomA", "yard", "far", "goal"], Plan(graph, new Point3D(10, 11, 0), "goal", Open, UnderTheRooms));
+    }
+
+    private static bool UnderTheRooms(int x, int y, int z) => x <= 15 && y <= 12;
 
     // A roofed room (y <= 16) walled off from the street except a door gap at
     // x = 10 between y 15 and 16. room and door sit inside; mid and street out.

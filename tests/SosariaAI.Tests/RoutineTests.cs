@@ -11,11 +11,10 @@ namespace SosariaAI.Tests;
 public class RoutineTests
 {
     [Fact]
-    public void Tick_Done_SetsNeedsNextAndDoesNotBeginTheNextStep()
+    public void Tick_Done_SetsNeedsNextAndDoesNotBeginAgain()
     {
         var first = new ScriptedSkill("first", [SkillStatus.Running, SkillStatus.Done]);
-        var second = new ScriptedSkill("second", [SkillStatus.Running]);
-        var routine = new Routine([first, second]);
+        var routine = new Routine(first);
 
         routine.Tick();
         routine.Tick();
@@ -23,24 +22,21 @@ public class RoutineTests
         Assert.True(routine.NeedsNext);
         Assert.Same(first, routine.CurrentSkill);
         Assert.Equal(1, first.BeginCount);
-        Assert.Equal(0, second.BeginCount);
 
         routine.Tick();
-        Assert.Equal(0, second.BeginCount);
+        Assert.Equal(1, first.BeginCount);
     }
 
     [Fact]
-    public void Tick_SkipsFailedStepAfterPauseThenStartsNext()
+    public void Tick_Failed_PausesAndWaitsForTheNextChoice()
     {
         var first = new ScriptedSkill("first", [SkillStatus.Failed]);
-        var second = new ScriptedSkill("second", [SkillStatus.Running]);
-        var routine = new Routine([first, second]);
+        var routine = new Routine(first);
         var ended = new List<SkillStatus>();
         routine.SkillEnded += (_, _, status) => ended.Add(status);
 
         routine.Tick();
         Assert.True(routine.NeedsNext);
-        Assert.Equal(0, second.BeginCount);
         Assert.Equal([SkillStatus.Failed], ended);
 
         for (var i = 0; i < Routine.FailedPauseTicks; i++)
@@ -48,7 +44,7 @@ public class RoutineTests
             routine.Tick();
         }
 
-        Assert.Equal(0, second.BeginCount);
+        Assert.Equal(1, first.BeginCount);
         Assert.True(routine.NeedsNext);
     }
 
@@ -59,7 +55,7 @@ public class RoutineTests
         // as standing about. Practice now runs as a session; a step that still ends at once
         // waits a single think before the next choice.
         var instant = new ScriptedSkill("recall", [SkillStatus.Done]);
-        var routine = new Routine([instant]);
+        var routine = new Routine(instant);
         var ended = new List<SkillStatus>();
         routine.SkillEnded += (_, _, status) => ended.Add(status);
 
@@ -81,37 +77,10 @@ public class RoutineTests
     }
 
     [Fact]
-    public void Tick_Done_DoesNotRestartTheList()
-    {
-        var first = new ScriptedSkill("first", [SkillStatus.Running, SkillStatus.Done]);
-        var second = new ScriptedSkill("second", [SkillStatus.Done]);
-        var routine = new Routine([first, second]);
-        routine.Tick();
-        routine.Tick();
-        Assert.True(routine.NeedsNext);
-        Assert.Same(first, routine.CurrentSkill);
-        Assert.Equal(0, second.BeginCount);
-    }
-
-    [Fact]
-    public void Constructor_ResumesAtSavedIndex()
-    {
-        var first = new ScriptedSkill("first", [SkillStatus.Running]);
-        var second = new ScriptedSkill("second", [SkillStatus.Running]);
-        var routine = new Routine([first, second], startIndex: 1);
-
-        routine.Tick();
-
-        Assert.Same(second, routine.CurrentSkill);
-        Assert.Equal(0, first.BeginCount);
-        Assert.Equal(1, second.BeginCount);
-    }
-
-    [Fact]
     public void Tick_RaisesStartedAndEndedEvents()
     {
         var skill = new ScriptedSkill("only", [SkillStatus.Running, SkillStatus.Done]);
-        var routine = new Routine([skill, new ScriptedSkill("next", [SkillStatus.Running])]);
+        var routine = new Routine(skill);
         var started = new List<string>();
         var ended = new List<(string Name, SkillStatus Status)>();
         routine.SkillStarted += (_, s) => started.Add(s.Name);
@@ -130,7 +99,7 @@ public class RoutineTests
     public void AbortActive_StopsCurrentSkillAndWaitsForTheNextChoice()
     {
         var skill = new ScriptedSkill("walk", [SkillStatus.Running, SkillStatus.Running]);
-        var routine = new Routine([skill]);
+        var routine = new Routine(skill);
 
         routine.Tick();
         routine.AbortActive();
@@ -150,7 +119,7 @@ public class RoutineTests
         // stalled sale again the next second.
         const string why = FleetWatchdog.StalledWhy;
         var skill = new ScriptedSkill(SkillKinds.VendorSell, [SkillStatus.Running, SkillStatus.Running]);
-        var routine = new Routine([skill]);
+        var routine = new Routine(skill);
         var ended = new List<SkillStatus>();
         routine.SkillEnded += (_, _, status) => ended.Add(status);
 
@@ -168,7 +137,7 @@ public class RoutineTests
     public void FailActive_BeforeBegin_OnlyAborts()
     {
         var skill = new ScriptedSkill(SkillKinds.VendorSell, [SkillStatus.Running]);
-        var routine = new Routine([skill]);
+        var routine = new Routine(skill);
         var ended = new List<SkillStatus>();
         routine.SkillEnded += (_, _, status) => ended.Add(status);
 
@@ -186,7 +155,7 @@ public class RoutineTests
         var ticks = new SkillStatus[8];
         Array.Fill(ticks, SkillStatus.Running);
         var skill = new ScriptedSkill(SkillKinds.IdleWander, ticks);
-        var routine = new Routine([skill]);
+        var routine = new Routine(skill);
         var started = 0;
         routine.SkillStarted += (_, _) => started++;
 
@@ -210,7 +179,7 @@ public class RoutineTests
     public void ContinueAfterAbort_AfterDone_DoesNotResume()
     {
         var skill = new ScriptedSkill(SkillKinds.IdleWander, [SkillStatus.Running, SkillStatus.Done]);
-        var routine = new Routine([skill]);
+        var routine = new Routine(skill);
 
         routine.Tick();
         routine.Tick();
@@ -230,7 +199,7 @@ public class RoutineTests
         }
 
         var skill = new ScriptedSkill("work", ticks);
-        var routine = new Routine([skill]);
+        var routine = new Routine(skill);
 
         for (var i = 0; i < 60; i++)
         {
@@ -242,20 +211,34 @@ public class RoutineTests
     }
 
     [Fact]
-    public void Constructor_RejectsEmptySteps()
+    public void Constructor_RejectsNoSkill()
     {
-        Assert.Throws<ArgumentException>(() => new Routine(Array.Empty<Skill>()));
+        Assert.Throws<ArgumentNullException>(() => new Routine(null));
     }
 
     [Fact]
-    public void Replace_AbortsAndStartsAtZero()
+    public void HasSkill_NamesOnlyTheRunningSkill()
+    {
+        var routine = new Routine(new ScriptedSkill(SkillKinds.Mine, [SkillStatus.Running]));
+
+        Assert.True(routine.HasSkill(SkillKinds.Mine));
+        Assert.False(routine.HasSkill(SkillKinds.VendorSell));
+        Assert.False(routine.HasSkill(null));
+
+        routine.Replace(new ScriptedSkill(SkillKinds.VendorSell, [SkillStatus.Running]));
+        Assert.False(routine.HasSkill(SkillKinds.Mine));
+        Assert.True(routine.HasSkill(SkillKinds.VendorSell));
+    }
+
+    [Fact]
+    public void Replace_AbortsAndRunsTheNewSkill()
     {
         var first = new ScriptedSkill("first", [SkillStatus.Running]);
         var next = new ScriptedSkill("next", [SkillStatus.Running]);
-        var routine = new Routine([first]);
+        var routine = new Routine(first);
         routine.Tick();
 
-        routine.Replace([next]);
+        routine.Replace(next);
         Assert.Same(next, routine.CurrentSkill);
         Assert.Equal(1, first.AbortCount);
 
@@ -264,19 +247,19 @@ public class RoutineTests
     }
 
     [Fact]
-    public void Tick_SkillThatReplacesRoutineDuringBegin_BeginsNewStepNext()
+    public void Tick_SkillThatReplacesItselfDuringBegin_BeginsTheNewSkillNext()
     {
         var replacement = new ScriptedSkill("moved", [SkillStatus.Running]);
         Routine routine = null;
-        var decider = new ReplacingSkill("decide", () => routine.Replace([replacement]));
-        routine = new Routine([decider]);
+        var decider = new ReplacingSkill("decide", () => routine.Replace(replacement));
+        routine = new Routine(decider);
 
-        // First tick: decider.Begin replaces the routine. The stale decider must not tick.
+        // First tick: decider.Begin replaces the skill. The stale decider must not tick.
         routine.Tick();
         Assert.Equal(0, decider.TickCount);
         Assert.Equal(0, replacement.BeginCount);
 
-        // Second tick: the new step begins cleanly, no exception.
+        // Second tick: the new skill begins cleanly, no exception.
         routine.Tick();
         Assert.Equal(1, replacement.BeginCount);
         Assert.Same(replacement, routine.CurrentSkill);
@@ -287,10 +270,10 @@ public class RoutineTests
     {
         var walk = new ScriptedSkill(SkillKinds.GoTo, [SkillStatus.Failed]);
         var mine = new ScriptedSkill(SkillKinds.Mine, [SkillStatus.Running, SkillStatus.Done]);
-        var routine = new Routine([walk]);
+        var routine = new Routine(walk);
         routine.Tick();
 
-        routine.Replace([mine], keepFailPause: true);
+        routine.Replace(mine, keepFailPause: true);
         for (var i = 0; i < Routine.FailedPauseTicks; i++)
         {
             routine.Tick();
@@ -339,7 +322,7 @@ public class RoutineTests
     {
         var start = new DateTime(2026, 1, 1, 12, 0, 0);
         var skill = new ScriptedSkill("walk", [SkillStatus.Running]);
-        var routine = new Routine([skill]);
+        var routine = new Routine(skill);
         routine.Tick();
 
         routine.Pause(start);
@@ -359,7 +342,7 @@ public class RoutineTests
         var start = new DateTime(2026, 9, 25, 9, 0, 0);
         var fight = TimeSpan.FromSeconds(20);
         var skill = new ScriptedSkill("GoHome", [SkillStatus.Running, SkillStatus.Running, SkillStatus.Done]);
-        var routine = new Routine([skill]);
+        var routine = new Routine(skill);
         var starts = 0;
         routine.SkillStarted += (_, _) => starts++;
         routine.Tick();
@@ -380,7 +363,7 @@ public class RoutineTests
     {
         var start = new DateTime(2026, 1, 1, 12, 0, 0);
         var skill = new ScriptedSkill("walk", [SkillStatus.Running]);
-        var routine = new Routine([skill]);
+        var routine = new Routine(skill);
 
         routine.Pause(start);
         routine.Resume(start.AddSeconds(30));

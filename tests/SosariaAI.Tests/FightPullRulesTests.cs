@@ -50,19 +50,6 @@ public class FightPullRulesTests
     }
 
     [Fact]
-    public void CanPullOne_AlreadyAttacked_IsFalse()
-    {
-        Assert.False(
-            Pull(
-                ArcherVeteranPower,
-                OneTrollThreat,
-                TwoTrollThreat,
-                alreadyAttacked: true
-            )
-        );
-    }
-
-    [Fact]
     public void CanPullOne_FocusTooHard_IsFalse()
     {
         Assert.False(
@@ -85,8 +72,7 @@ public class FightPullRulesTests
     private static bool Pull(
         int power,
         int focusThreat,
-        int groupThreat,
-        bool alreadyAttacked = false
+        int groupThreat
     ) =>
         FightPullRules.CanPullOne(
             power,
@@ -96,8 +82,7 @@ public class FightPullRulesTests
             hasHealing: true,
             NoAlliesPower,
             ThreatRating.DefaultThreatMultiple,
-            ThreatRating.OpenFightHitsFraction,
-            alreadyAttacked
+            ThreatRating.OpenFightHitsFraction
         );
 
     [Fact]

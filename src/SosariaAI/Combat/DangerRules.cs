@@ -29,8 +29,7 @@ public static class DangerRules
             hasHealing,
             alliesPower,
             threatMultiple,
-            ThreatRating.OpenFightHitsFraction,
-            alreadyAttacked: false
+            ThreatRating.OpenFightHitsFraction
         );
 
     /// <summary>
@@ -53,8 +52,7 @@ public static class DangerRules
             hasHealing,
             alliesPower,
             threatMultiple * FightBackMultiple,
-            RetreatRules.FighterLine,
-            alreadyAttacked: false
+            RetreatRules.FighterLine
         );
 
     /// <summary>

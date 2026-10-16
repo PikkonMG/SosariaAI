@@ -488,6 +488,9 @@ public static class GateTravel
     private static DateTime LastHopAt(Serial serial) =>
         LastHop.TryGetValue(serial, out var at) ? at : default;
 
+    /// <summary>Drops the last hop of a person that left the world for good.</summary>
+    public static void Forget(Serial serial) => LastHop.Remove(serial);
+
     /// <summary>One think of stepping through a graph gate. Refused moves nobody.</summary>
     public static GateStep Apply(
         SosariaCharacter character,

@@ -1,5 +1,6 @@
 using SosariaAI.Configuration;
 using SosariaAI.Deliberation;
+using SosariaAI.Skills;
 using Xunit;
 
 namespace SosariaAI.Tests;
@@ -51,6 +52,16 @@ public class DecisionEventsTests
         Assert.True(DecisionEvents.MayReplaceJob(BrainEventKind.Plan, SkillKinds.Hunt));
         Assert.True(DecisionEvents.MayReplaceJob(BrainEventKind.Plan, SkillKinds.Mine));
         Assert.False(DecisionEvents.MayReplaceJob(BrainEventKind.Plan, SkillKinds.Flee));
+    }
+
+    [Fact]
+    public void MayReplaceJob_Attacked_DoesNotPullAFleeingOrDeadCharacterBack()
+    {
+        // The attacked answer replaced the job even after the character had turned to run.
+        Assert.False(DecisionEvents.MayReplaceJob(BrainEventKind.Attacked, SkillKinds.Flee));
+        Assert.False(DecisionEvents.MayReplaceJob(BrainEventKind.Attacked, GhostSkill.SkillName));
+        Assert.True(DecisionEvents.MayReplaceJob(BrainEventKind.Attacked, SkillKinds.Mine));
+        Assert.True(DecisionEvents.MayReplaceJob(BrainEventKind.Attacked, null));
     }
 
     [Fact]

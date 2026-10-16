@@ -277,6 +277,11 @@ public sealed class BrainConfiguration
             JevMaxConcurrentRequests = DefaultJevMaxConcurrentRequests;
         }
 
+        if (MaxConcurrentRequests <= 0)
+        {
+            MaxConcurrentRequests = DefaultMaxConcurrentRequests;
+        }
+
         Budget ??= new BrainBudgetSettings();
 
         if (Budget.MaxPaidCallsPerDay <= 0)

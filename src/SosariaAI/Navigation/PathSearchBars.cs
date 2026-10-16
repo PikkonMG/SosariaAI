@@ -113,7 +113,16 @@ public sealed class PathSearchBars
     /// every road out ran through Yew, and 68 red ghosts in two hours stood up with no way back.
     /// Nobody raises it under the guards (<see cref="SosariaAI.Behaviour.ResurrectAid.WantedUnderGuards"/>).
     /// </summary>
-    public bool MayCrossGuards => (OpenAroundStart || Ghost) && !CrossesGuards;
+    public bool MayCrossGuards => MayCrossGuardsOn(lastWayHome: false);
+
+    /// <summary>
+    /// <see cref="MayCrossGuards"/>, and also from open ground on <paramref name="lastWayHome"/>:
+    /// the walk home of a red with no road clear of the guards and no recall left. Three reds
+    /// stood at Destard all morning, their only clear road home over dungeon floors above their
+    /// reach; the guards that may cut one down send it home as a ghost, standing there sends it
+    /// nowhere.
+    /// </summary>
+    public bool MayCrossGuardsOn(bool lastWayHome) => (OpenAroundStart || Ghost || lastWayHome) && !CrossesGuards;
 
     /// <summary>These bars with the guarded nodes open at a price: the road of a red with no road clear of the guards that may cross them.</summary>
     public PathSearchBars CrossingGuards() => new(Nodes, Start, NoMoongates, OpenAroundStart, crossesGuards: true, Legs, Pads, Ghost);
@@ -198,9 +207,10 @@ public sealed class PathSearchBars
             );
 
     /// <summary>
-    /// Reads the guarded nodes and legs of a red facet's graph, where reds walk, whenever the
-    /// graph loads (<see cref="NavWorld"/>). The legs are read tile by tile, near a million tiles
-    /// on Felucca, and the first red plan of the day paid for it on the world thread mid-play.
+    /// Reads the guarded nodes and legs of a facet's graph whenever the graph loads
+    /// (<see cref="NavWorld"/>): a red keeps off the guards on every map, open PvP or not. The
+    /// legs are read tile by tile, near a million tiles on Felucca, and the first red plan of
+    /// the day paid for it on the world thread mid-play.
     /// Returns the guarded node and leg counts for the log; none for a facet with no graph or map.
     /// </summary>
     public static (int Nodes, int Legs) WarmGuards(string facet)

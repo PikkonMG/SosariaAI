@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Server;
 using Server.Items;
 using Server.Misc;
@@ -80,7 +81,9 @@ public static class TravelSpells
 
     private static readonly ILogger logger = SosariaLog.For(typeof(TravelSpells));
     private static readonly Dictionary<Serial, Pending> Answering = new();
-    private static readonly Dictionary<Serial, TravelCastOutcome> Outcomes = new();
+
+    /// <summary>How each caster's last cast ended, until read. Held weakly: a caster gone from the world takes its entry with it.</summary>
+    private static readonly ConditionalWeakTable<Mobile, StrongBox<TravelCastOutcome>> Outcomes = new();
 
     public static bool IsCasting(Mobile caster) => caster != null && Answering.ContainsKey(caster.Serial);
 
@@ -97,7 +100,7 @@ public static class TravelSpells
             return TravelCastOutcome.Casting;
         }
 
-        return Outcomes.Remove(caster.Serial, out var outcome) ? outcome : TravelCastOutcome.None;
+        return Outcomes.TryGetValue(caster, out var outcome) && Outcomes.Remove(caster) ? outcome.Value : TravelCastOutcome.None;
     }
 
     /// <summary>
@@ -113,7 +116,7 @@ public static class TravelSpells
             return;
         }
 
-        Outcomes.Remove(caster.Serial);
+        Outcomes.Remove(caster);
 
         if (Answering.Remove(caster.Serial, out var pending))
         {
@@ -339,7 +342,7 @@ public static class TravelSpells
         }
 
         mark.Book?.OnTravel();
-        Outcomes.Remove(caster.Serial);
+        Outcomes.Remove(caster);
         var pending = new Pending(caster, kind, spell, mark, from);
         Timer.StartTimer(
             TimeSpan.FromMilliseconds(AnswerPollMilliseconds),
@@ -476,7 +479,7 @@ public static class TravelSpells
     {
         pending.Token.Cancel();
         Answering.Remove(pending.Caster.Serial);
-        Outcomes[pending.Caster.Serial] = outcome;
+        Outcomes.AddOrUpdate(pending.Caster, new StrongBox<TravelCastOutcome>(outcome));
 
         if (SosariaSettings.LogActivity)
         {

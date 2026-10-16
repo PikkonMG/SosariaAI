@@ -183,7 +183,7 @@ public class SelfCareRulesTests
             HasBandage: true,
             Healing: Grandmaster,
             Anatomy: Grandmaster,
-            Stock: SpellStock.All
+            Stock: TestSpellStock.Every
         );
 
     [Fact]

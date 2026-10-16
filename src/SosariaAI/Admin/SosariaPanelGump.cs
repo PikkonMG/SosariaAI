@@ -11,7 +11,9 @@ namespace SosariaAI.Admin;
 /// [SosariaPanel: the staff panel. Live counts for the whole shard and the ground around
 /// the staff member, staff travel to towns and dungeon entrances, a status page write, and
 /// First Time Setup on a new world, which asks first. Nothing here deletes a character or a
-/// file.
+/// file. The panel redraws after every button, so the shard counts and the travel spots are
+/// kept a while (<see cref="FleetStatus.CountsLife"/>, <see cref="PanelRules.SpotsLife"/>)
+/// and only the ground around the staff member is looked at each time.
 /// </summary>
 public sealed class SosariaPanelGump : DynamicGump
 {
@@ -65,15 +67,7 @@ public sealed class SosariaPanelGump : DynamicGump
     private SosariaPanelGump(Mobile staff) : base(OriginX, OriginY)
     {
         _map = staff.Map;
-        var live = FleetStatus.InWorld();
-        var samples = new List<CharacterSample>(live.Count);
-
-        for (var i = 0; i < live.Count; i++)
-        {
-            samples.Add(FleetStatus.Sample(live[i]));
-        }
-
-        var counts = FleetCounts.Of(samples);
+        var counts = FleetStatus.Counts();
         _lines = [PanelRules.WhereLine(staff.Location.ToString(), _map.Name, counts.Live)];
 
         foreach (var (facet, facetLive) in counts.LiveByFacet)
@@ -82,7 +76,7 @@ public sealed class SosariaPanelGump : DynamicGump
         }
 
         _lines.Add(PanelRules.StateLine(counts));
-        _lines.Add(PanelRules.NearLine(PanelActions.LiveNear(staff).Count));
+        _lines.Add(PanelRules.NearLine(PanelActions.CountNear(staff)));
         _lines.Add(PanelRules.WatchdogLine(FleetStatus.StuckCount, FleetWatchdog.RoadMoves, FleetWatchdog.Rescores));
         _setupNeeded = WorldSetup.Waiting;
         _setupRunning = WorldSetup.IsRunning;
@@ -92,8 +86,9 @@ public sealed class SosariaPanelGump : DynamicGump
             _lines.Add(SetupDoneLine);
         }
 
-        _towns = PanelActions.TownSpots(_map);
-        _dungeons = PanelActions.DungeonSpots(_map);
+        var spots = PanelActions.TravelSpots(_map);
+        _towns = spots.Towns;
+        _dungeons = spots.Dungeons;
     }
 
     [Usage(CharacterCommands.PanelCommand)]

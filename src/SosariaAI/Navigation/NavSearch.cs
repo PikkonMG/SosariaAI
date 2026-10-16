@@ -10,15 +10,19 @@ public static class NavSearch
 {
     public const double DefaultGateCost = NavSettings.DefaultGateCost;
 
+    /// <summary>A gate cost that asks for <see cref="DefaultGateCost"/>: any negative one does.</summary>
+    public const double AskDefaultGateCost = -1;
+
+    /// <summary>
+    /// Whole-graph searches kept for reuse, the latest used first. A clear-start proof tries up
+    /// to six probes in turn, and a rescue proves up to three nodes near each other with the
+    /// same probes: with one search kept, each probe pushed out the last, and a rescue ran up to
+    /// 36 whole-graph searches on the world thread.
+    /// </summary>
+    public const int CachedSearches = 8;
+
     private static readonly object CacheGate = new();
-    private static NavGraph _cachedGraph;
-    private static PathSearchBars _cachedBars;
-    private static string _cachedSource;
-    private static double _cachedGateCost;
-    private static int _cachedHealthVersion;
-    private static long _cachedValidUntil;
-    private static Dictionary<string, double> _cachedCost;
-    private static Dictionary<string, string> _cachedPrev;
+    private static readonly LinkedList<CachedSearch> Cached = new();
 
     /// <summary>A node this close to a place the character fled is steered round.</summary>
     public const int AvoidRadiusTiles = 24;
@@ -29,18 +33,17 @@ public static class NavSearch
     /// </summary>
     public const double AvoidPenaltyTiles = 2000;
 
-    public static IReadOnlyList<string> FindPath(NavGraph graph, string from, string to) =>
-        FindPath(graph, from, to, -1);
-
-    public static IReadOnlyList<string> FindPath(NavGraph graph, string from, string to, double gateCost) =>
-        FindPath(graph, from, to, gateCost, avoid: null);
-
+    /// <summary>
+    /// The road a walk from <paramref name="from"/> takes to <paramref name="to"/>, steered round
+    /// <paramref name="avoid"/>; a gate weighs <paramref name="gateCost"/> tiles, or
+    /// <see cref="DefaultGateCost"/> when it is negative. Empty when there is none.
+    /// </summary>
     public static IReadOnlyList<string> FindPath(
         NavGraph graph,
         string from,
         string to,
-        double gateCost,
-        IReadOnlyList<Point3D> avoid
+        double gateCost = AskDefaultGateCost,
+        IReadOnlyList<Point3D> avoid = null
     )
     {
         if (graph == null || string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(to))
@@ -114,15 +117,10 @@ public static class NavSearch
         var now = Environment.TickCount64;
         var healthVersion = health?.Version ?? 0;
 
-        if (cacheable)
+        if (cacheable && TryCached(graph, source, resolvedGateCost, bars, healthVersion, now) is { } hit)
         {
-            lock (CacheGate)
-            {
-                if (TryCopyCache(graph, source, resolvedGateCost, bars, healthVersion, now, cost, prev))
-                {
-                    return;
-                }
-            }
+            Publish(graph, source, hit.Best, hit.Parent, cost, prev);
+            return;
         }
 
         var src = graph.SearchIndex(source);
@@ -217,18 +215,22 @@ public static class NavSearch
                 }
             }
 
-            cost[source] = 0;
+            Publish(graph, source, best, parent, cost, prev);
 
-            for (var i = 0; i < count; i++)
+            if (cacheable)
             {
-                if (parent[i] < 0)
-                {
-                    continue;
-                }
-
-                var node = graph.NodeAt(i);
-                cost[node.Name] = best[i];
-                prev[node.Name] = graph.NodeAt(parent[i]).Name;
+                Store(
+                    new CachedSearch(
+                        graph,
+                        source,
+                        resolvedGateCost,
+                        bars,
+                        healthVersion,
+                        health?.NextExpiryAfter(now) ?? long.MaxValue,
+                        best[..count],
+                        parent[..count]
+                    )
+                );
             }
         }
         finally
@@ -236,13 +238,30 @@ public static class NavSearch
             ArrayPool<double>.Shared.Return(best);
             ArrayPool<int>.Shared.Return(parent);
         }
+    }
 
-        if (cacheable)
+    /// <summary>Writes one search's result, by search index, into the caller's cost and route maps.</summary>
+    private static void Publish(
+        NavGraph graph,
+        string source,
+        double[] best,
+        int[] parent,
+        Dictionary<string, double> cost,
+        Dictionary<string, string> prev
+    )
+    {
+        cost[source] = 0;
+
+        for (var i = 0; i < graph.NodeCount; i++)
         {
-            lock (CacheGate)
+            if (parent[i] < 0)
             {
-                StoreCache(graph, source, resolvedGateCost, bars, healthVersion, health?.NextExpiry ?? long.MaxValue, cost, prev);
+                continue;
             }
+
+            var node = graph.NodeAt(i);
+            cost[node.Name] = best[i];
+            prev[node.Name] = graph.NodeAt(parent[i]).Name;
         }
     }
 
@@ -269,62 +288,90 @@ public static class NavSearch
         return true;
     }
 
-    private static bool TryCopyCache(
+    /// <summary>The kept search that answers this one, moved to the front, or null. A stale one is dropped.</summary>
+    private static CachedSearch TryCached(
         NavGraph graph,
         string source,
         double gateCost,
         PathSearchBars bars,
         int healthVersion,
-        long now,
-        Dictionary<string, double> cost,
-        Dictionary<string, string> prev
+        long now
     )
     {
-        if (!ReferenceEquals(graph, _cachedGraph) ||
-            !ReferenceEquals(bars, _cachedBars) ||
-            _cachedPrev == null ||
-            _cachedCost == null ||
-            _cachedGateCost != gateCost ||
-            _cachedHealthVersion != healthVersion ||
-            now >= _cachedValidUntil ||
-            _cachedSource == null ||
-            !_cachedSource.Equals(source, StringComparison.OrdinalIgnoreCase))
+        lock (CacheGate)
         {
-            return false;
-        }
+            for (var entry = Cached.First; entry != null; entry = entry.Next)
+            {
+                var search = entry.Value;
 
-        foreach (var pair in _cachedCost)
-        {
-            cost[pair.Key] = pair.Value;
-        }
+                if (!search.Same(graph, source, gateCost, bars))
+                {
+                    continue;
+                }
 
-        foreach (var pair in _cachedPrev)
-        {
-            prev[pair.Key] = pair.Value;
-        }
+                Cached.Remove(entry);
 
-        return true;
+                if (!search.FreshAt(healthVersion, now))
+                {
+                    return null;
+                }
+
+                Cached.AddFirst(entry);
+                return search;
+            }
+
+            return null;
+        }
     }
 
-    private static void StoreCache(
-        NavGraph graph,
-        string source,
-        double gateCost,
-        PathSearchBars bars,
-        int healthVersion,
-        long validUntil,
-        Dictionary<string, double> cost,
-        Dictionary<string, string> prev
+    /// <summary>Keeps a search at the front, in place of the same search kept before, and drops the least used past <see cref="CachedSearches"/>.</summary>
+    private static void Store(CachedSearch search)
+    {
+        lock (CacheGate)
+        {
+            for (var entry = Cached.First; entry != null; entry = entry.Next)
+            {
+                if (entry.Value.Same(search.Graph, search.Source, search.GateCost, search.Bars))
+                {
+                    Cached.Remove(entry);
+                    break;
+                }
+            }
+
+            Cached.AddFirst(search);
+
+            while (Cached.Count > CachedSearches)
+            {
+                Cached.RemoveLast();
+            }
+        }
+    }
+
+    /// <summary>
+    /// One whole-graph search kept for reuse: its best cost and previous node by search index,
+    /// on one graph from one source, with the gate cost, bars and edge health it ran under. Never
+    /// changed once kept, so a path worker reads it outside the lock.
+    /// </summary>
+    private sealed record CachedSearch(
+        NavGraph Graph,
+        string Source,
+        double GateCost,
+        PathSearchBars Bars,
+        int HealthVersion,
+        long ValidUntil,
+        double[] Best,
+        int[] Parent
     )
     {
-        _cachedGraph = graph;
-        _cachedBars = bars;
-        _cachedSource = source;
-        _cachedGateCost = gateCost;
-        _cachedHealthVersion = healthVersion;
-        _cachedValidUntil = validUntil;
-        _cachedCost = new Dictionary<string, double>(cost, StringComparer.OrdinalIgnoreCase);
-        _cachedPrev = new Dictionary<string, string>(prev, StringComparer.OrdinalIgnoreCase);
+        /// <summary>True when this is the search on that graph from that source, with that gate cost and those bars.</summary>
+        public bool Same(NavGraph graph, string source, double gateCost, PathSearchBars bars) =>
+            ReferenceEquals(graph, Graph) &&
+            ReferenceEquals(bars, Bars) &&
+            gateCost == GateCost &&
+            source.Equals(Source, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>True while no walk failed on the graph since and no mark the search paid for has faded.</summary>
+        public bool FreshAt(int healthVersion, long now) => healthVersion == HealthVersion && now < ValidUntil;
     }
 
     public static IReadOnlyList<string> Reconstruct(

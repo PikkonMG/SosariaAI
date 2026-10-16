@@ -9,8 +9,10 @@ namespace SosariaAI.Navigation;
 /// (<see cref="GatePad.FiringZ"/>), so the engine sets them off for walkers and players alike.
 /// The server data lays some pads a tile or two under their floor, and no step ever fired
 /// them: the pad off the south Jhelom island at (1406,3996), the Shame exits at (5686,385..387).
-/// The nav check then dropped their gates, and the places behind them had no way out.
-/// World thread only: it reads the map and moves items.
+/// The nav check then dropped their gates, and the places behind them had no way out. The
+/// walker must judge the lasting ground alone (<see cref="Standable.GroundWalker"/>): a pad
+/// moved here stays moved in the world save, so a reading made by a movable item or a door
+/// standing open must never move one. World thread only: it reads the map and moves items.
 /// </summary>
 public static class TeleporterRepair
 {
@@ -24,10 +26,9 @@ public static class TeleporterRepair
 
         var dead = new List<(Teleporter Pad, int Z)>();
 
-        foreach (var item in World.Items.Values)
+        foreach (var pad in GatePad.ActivePads(map))
         {
-            if (item is Teleporter { Deleted: false, Active: true, Parent: null } pad && pad.Map == map &&
-                GatePad.FiringZ(walker, pad.Location, pad.ItemData.Height) is { } z)
+            if (GatePad.FiringZ(walker, pad.Location, pad.ItemData.Height) is { } z)
             {
                 dead.Add((pad, z));
             }

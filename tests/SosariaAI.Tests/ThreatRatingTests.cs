@@ -11,7 +11,6 @@ public class ThreatRatingTests
     private const int VeteranPower = 120;
     private const int FreshPower = 70;
     private const int NoAlliesPower = 0;
-    private const int HugeThreat = 10_000;
     private const int CoinFlipSlack = 15;
     private const double FullHitsFraction = 1.0;
     private const double HitsBelowOpen = 0.01;
@@ -44,20 +43,6 @@ public class ThreatRatingTests
         var expected = (int)(one * (ThreatRating.SingleFoeFactor + ThreatRating.ExtraFoeShare));
         Assert.Equal(expected, two);
         Assert.True(two > VeteranPower * ThreatRating.DefaultThreatMultiple);
-    }
-
-    [Fact]
-    public void ShouldEngage_AlreadyAttacked_IsTrueEvenIfThreatHuge()
-    {
-        Assert.True(
-            Engage(
-                FreshPower,
-                HugeThreat,
-                hitsFraction: ThreatRating.OpenFightHitsFraction - HitsBelowOpen,
-                hasHealing: false,
-                alreadyAttacked: true
-            )
-        );
     }
 
     [Fact]
@@ -117,8 +102,7 @@ public class ThreatRatingTests
         int threat,
         double hitsFraction = FullHitsFraction,
         bool hasHealing = true,
-        int alliesPower = NoAlliesPower,
-        bool alreadyAttacked = false
+        int alliesPower = NoAlliesPower
     ) =>
         ThreatRating.ShouldEngage(
             power,
@@ -127,8 +111,7 @@ public class ThreatRatingTests
             hasHealing,
             alliesPower,
             ThreatRating.DefaultThreatMultiple,
-            ThreatRating.OpenFightHitsFraction,
-            alreadyAttacked
+            ThreatRating.OpenFightHitsFraction
         );
 
     [Fact]
@@ -161,8 +144,7 @@ public class ThreatRatingTests
             hasHealing: true,
             alliesPower: 0,
             ThreatRating.DefaultThreatMultiple,
-            ThreatRating.OpenFightHitsFraction,
-            alreadyAttacked: false
+            ThreatRating.OpenFightHitsFraction
         );
 
     [Fact]

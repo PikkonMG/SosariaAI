@@ -7,17 +7,21 @@ namespace SosariaAI.Combat;
 /// loses any spell a blow lands on while the words are still being said (Spell.OnCasterHurt);
 /// once the words are done and the target cursor is up, a blow ruins nothing. So a cast holds
 /// when the soonest blow lands after its cast delay. Pre-AOS a first circle spell shrugs off
-/// the blow altogether (Spell.Disturb).
+/// the blow altogether (Spell.Disturb), and the cast delay is one tick shorter and is not
+/// slowed by Protection (MagerySpell.GetCastDelay).
 /// </summary>
 public static class CastTiming
 {
     /// <summary>One cast tick (Spell.CastDelaySecondsPerTick).</summary>
     public const int CastTickMs = 250;
 
-    /// <summary>A magery spell takes three ticks at the first circle and one more per circle (MagerySpell.CastDelayBase).</summary>
-    public const int CastBaseTicks = 2;
+    /// <summary>Before AOS a magery spell takes two ticks at the first circle and one more per circle (MagerySpell.GetCastDelay).</summary>
+    public const int PreAosCastBaseTicks = 1;
 
-    /// <summary>From UOR on, Protection costs two points of cast speed (Spell.GetCastDelay).</summary>
+    /// <summary>From AOS on a magery spell takes three ticks at the first circle and one more per circle (MagerySpell.CastDelayBase).</summary>
+    public const int AosCastBaseTicks = 2;
+
+    /// <summary>From AOS on, Protection costs two points of cast speed (Spell.GetCastDelay).</summary>
     public const int ProtectionSlowMs = 2 * CastTickMs;
 
     /// <summary>Slack for the swing and step clocks landing a little early.</summary>
@@ -30,9 +34,14 @@ public static class CastTiming
     public const int FirstCircle = 1;
     public const int TopCircle = 8;
 
-    /// <summary>How long the words of a spell of this circle take.</summary>
-    public static int CastDelayMs(int circle, bool slowedByProtection) =>
-        (CastBaseTicks + circle) * CastTickMs + (slowedByProtection ? ProtectionSlowMs : 0);
+    /// <summary>
+    /// How long the words of a spell of this circle take in this era. Before AOS the engine
+    /// returns the bare delay, so Protection slows nothing.
+    /// </summary>
+    public static int CastDelayMs(int circle, bool aos, bool slowedByProtection) =>
+        aos
+            ? (AosCastBaseTicks + circle) * CastTickMs + (slowedByProtection ? ProtectionSlowMs : 0)
+            : (PreAosCastBaseTicks + circle) * CastTickMs;
 
     /// <summary>
     /// When this foe can land its next blow: after it walks into its weapon reach, and not
@@ -54,16 +63,16 @@ public static class CastTiming
         soonestBlowMs == NoBlowMs || soonestBlowMs - BlowMarginMs >= needMs;
 
     /// <summary>
-    /// The highest circle whose words finish before the soonest blow. When the first circle
-    /// shrugs off a blow (pre-AOS) it is always safe; otherwise nothing may be safe.
+    /// The highest circle whose words finish before the soonest blow in this era. Before AOS
+    /// the first circle shrugs off a blow, so it is always safe; from AOS on nothing may be safe.
     /// </summary>
-    public static int SafeCircle(long soonestBlowMs, bool slowedByProtection, bool firstCircleShrugsHits)
+    public static int SafeCircle(long soonestBlowMs, bool aos, bool slowedByProtection)
     {
         var safe = NoCircle;
 
         for (var circle = FirstCircle; circle <= TopCircle; circle++)
         {
-            if (!Holds(CastDelayMs(circle, slowedByProtection), soonestBlowMs))
+            if (!Holds(CastDelayMs(circle, aos, slowedByProtection), soonestBlowMs))
             {
                 break;
             }
@@ -71,6 +80,6 @@ public static class CastTiming
             safe = circle;
         }
 
-        return firstCircleShrugsHits ? Math.Max(safe, FirstCircle) : safe;
+        return aos ? safe : Math.Max(safe, FirstCircle);
     }
 }

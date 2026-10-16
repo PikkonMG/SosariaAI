@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Server;
 using SosariaAI.Configuration;
 using SosariaAI.Navigation;
@@ -56,6 +57,23 @@ public class EdgeHealthTests
 
         Assert.Equal(["A", "C", "D"], NavSearch.FindPath(graph, "A", "D"));
         Assert.NotNull(EdgeHealth.For(graph));
+    }
+
+    [Fact]
+    public void NextExpiryAfter_LeavesOutTheMarksThatFadedAlready()
+    {
+        // A faded mark costs a search nothing. Counted as the soonest expiry, it stored every
+        // cached search stale, until the next failed walk.
+        const long faded = Now - 1;
+        const long soon = Now + 10;
+        const long later = Now + 20;
+        var snapshot = new EdgeHealthSnapshot(
+            new Dictionary<long, EdgeMark> { [1] = new(1, faded), [2] = new(2, later), [3] = new(1, soon) },
+            version: 1
+        );
+
+        Assert.Equal(soon, snapshot.NextExpiryAfter(Now));
+        Assert.Equal(long.MaxValue, snapshot.NextExpiryAfter(later));
     }
 
     [Fact]

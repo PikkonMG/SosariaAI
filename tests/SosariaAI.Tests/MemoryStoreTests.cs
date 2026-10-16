@@ -257,6 +257,31 @@ public sealed class MemoryStoreTests : IDisposable
     }
 
     [Fact]
+    public void WriteSoon_ALockedFile_ReturnsAtOnceAndCloseWritesTheChange()
+    {
+        var store = OpenStore();
+        var busyWait = TimeSpan.FromSeconds(MemoryDatabase.BusyTimeoutSeconds);
+        TimeSpan waited;
+
+        using (var holder = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = DatabasePath, Pooling = false }.ToString()))
+        {
+            holder.Open();
+            using var hold = holder.CreateCommand();
+            hold.CommandText = "BEGIN IMMEDIATE";
+            hold.ExecuteNonQuery();
+
+            store.NoteMet(Halvard, Bryn, "Britain", Now);
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            store.WriteSoon();
+            waited = clock.Elapsed;
+        }
+
+        Assert.True(waited < busyWait, $"WriteSoon waited {waited} for a locked file");
+        store.Close();
+        Assert.NotNull(OpenStore().BondOf(Halvard.Id, Bryn.Id));
+    }
+
+    [Fact]
     public void Record_ManyPeopleOnTheGameThread_KeepsTheRamViewAndWritesItAll()
     {
         var store = OpenStore();
@@ -320,6 +345,29 @@ public sealed class MemoryStoreTests : IDisposable
         store.Open(DatabasePath);
         Assert.True(store.IsOpen);
         return store;
+    }
+
+    [Fact]
+    public void HasFirstKill_SurvivesAReopenThatLeavesItOutOfTheWindow()
+    {
+        var store = OpenStore();
+        store.Record(Adventure(AdventureKinds.FirstKill, Now, (Grim, AdventureRoles.Killer), (Bryn, AdventureRoles.Against)));
+        var heavierKills = MemoryStore.RecentAdventuresKept + MemoryStore.HeaviestAdventuresKept;
+
+        for (var i = 1; i <= heavierKills; i++)
+        {
+            store.Record(Adventure(AdventureKinds.RedKill, Now.AddMinutes(i), (Grim, AdventureRoles.Killer), (Halvard, AdventureRoles.Against)));
+        }
+
+        Assert.True(store.HasFirstKill(Grim.Id));
+        Assert.False(store.HasFirstKill(Bryn.Id));
+        store.Close();
+
+        var again = OpenStore();
+
+        Assert.DoesNotContain(again.AdventuresOf(Grim.Id), a => a.Kind == AdventureKinds.FirstKill);
+        Assert.True(again.HasFirstKill(Grim.Id));
+        Assert.False(again.HasFirstKill(Bryn.Id));
     }
 
     private static Adventure Adventure(string kind, DateTime endedAt, params (PersonRef Person, string Role)[] members)

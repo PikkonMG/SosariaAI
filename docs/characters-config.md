@@ -39,7 +39,7 @@ not in this file.
 |---|---|---|
 | `threatMultiple` | `1.15` | A character starts a fight only when the foe's threat is at most its own power times this value. Its party adds to its power, and no healing takes some away. The same multiple sets which hunt spots are in reach. |
 | `minThreatToFlee` | `40` | The threat that makes a character run. A worker runs from it. A fighter runs only when the fight is also too much for it. A creature below it counts as harmless. A hunter does not go onto hunt ground this dangerous when the ground is too much for it. 0 or less uses 40. |
-| `goldReserve` | `200` | Gold a character keeps back when it buys gear. Bank gold counts toward it first. 0 or less uses 200. |
+| `goldReserve` | `200` | Gold a character keeps back when it buys gear. Bank gold counts toward it first. 0 keeps none. A negative value uses 200. |
 | `ignorePriceLimits` | `false` | Test switch. `true` lets a character spend all its gold on gear and ignores `goldReserve`. Vendor prices still apply. |
 | `vendorSearchRange` | `8` | How far, in tiles, a character looks from its stall spot for a vendor that buys its goods. 0 or less uses 8. |
 | `houseGold` | `43800` | Gold, in the pack and the bank, a character needs before it buys a house. |

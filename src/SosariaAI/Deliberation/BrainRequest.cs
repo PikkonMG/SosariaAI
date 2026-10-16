@@ -14,7 +14,6 @@ public sealed record BrainRequest(
     bool HighPriority = false,
     bool FromParty = false,
     string CharacterId = null,
-    int PlanRevision = 0,
     JevDecision Jev = null,
     JevAsk Ask = JevAsk.Plain,
     JevKind JevKind = JevKind.Decision

@@ -60,4 +60,28 @@ public class ModelPlanTests
         Assert.DoesNotContain(lines, line => line.StartsWith("created=", StringComparison.Ordinal));
         Assert.Equal(plan.Expires, ModelPlan.FromLines(lines).Expires);
     }
+
+    [Theory]
+    [InlineData("", "the north mine")]
+    [InlineData("ore || more", "mine|north")]
+    [InlineData("|lead and trail|", "back\\slash|")]
+    public void StepsAndResults_RoundTripEveryField(string why, string target)
+    {
+        var plan = new ModelPlan
+        {
+            Id = PlanId,
+            Goal = "sell | ore",
+            Steps = [new ModelPlanStep(SkillKinds.Mine, why, target)],
+            Results = [new PlanResultRecord(SkillKinds.Mine, StepResultKind.AttemptFailed, why + target)],
+            State = PlanState.Waiting,
+            Expires = Noon + ModelPlan.DefaultLife
+        };
+
+        var loaded = ModelPlan.FromLines(plan.ToLines());
+
+        Assert.NotNull(loaded);
+        Assert.Equal(plan.Goal, loaded.Goal);
+        Assert.Equal(plan.Steps[0], loaded.Steps[0]);
+        Assert.Equal(plan.Results[0], loaded.Results[0]);
+    }
 }

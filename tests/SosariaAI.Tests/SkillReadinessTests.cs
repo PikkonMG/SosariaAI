@@ -62,11 +62,19 @@ public class SkillReadinessTests
     }
 
     [Fact]
+    public void GatedKinds_CoverMagery()
+    {
+        // Mages practised magery in town with no hurt and nothing to shoot, and every try failed.
+        Assert.Contains(SkillKinds.Mage, SkillReadiness.GatedKinds);
+    }
+
+    [Fact]
     public void HasWork_NoneOutOfTheWorld()
     {
         Assert.False(DetectHiddenSkill.HasWork(null));
         Assert.False(RemoveTrapSkill.HasWork(null));
         Assert.False(LockpickSkill.HasWork(null));
+        Assert.False(MageSkill.HasWork(null));
     }
 
     [Fact]

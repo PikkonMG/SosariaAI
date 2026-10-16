@@ -1,4 +1,3 @@
-using System;
 using SosariaAI.Population;
 using Xunit;
 
@@ -10,8 +9,6 @@ public class LifecycleClockTests
     private const int DayStartHour = 8;
     private const int DayEndHour = 23;
     private const int EveningHour = 19;
-    private const int HalfPastMinute = 30;
-    private const double HalfHour = 0.5;
     private const uint Serial = 0x51;
 
     [Fact]
@@ -40,14 +37,5 @@ public class LifecycleClockTests
     {
         Assert.False(LifecycleClock.LogsIn(inWorld: false, returnFromDeathSet: true));
         Assert.False(LifecycleClock.LogsIn(inWorld: true, returnFromDeathSet: true));
-    }
-
-    [Fact]
-    public void HourOfDay_CountsTheMinutes()
-    {
-        var at = new DateTime(2026, 9, 23, EveningHour, HalfPastMinute, 0, DateTimeKind.Utc);
-        var hour = LifecycleClock.HourOfDay(at);
-
-        Assert.Equal(HalfHour, hour - Math.Floor(hour), precision: 6);
     }
 }

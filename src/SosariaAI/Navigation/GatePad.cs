@@ -328,6 +328,27 @@ public static class GatePad
         return dead;
     }
 
+    /// <summary>The active teleporter pads that lie on <paramref name="map"/> itself. World thread only: it scans the world's items.</summary>
+    public static List<Teleporter> ActivePads(Map map)
+    {
+        var pads = new List<Teleporter>();
+
+        if (map == null || map == Map.Internal)
+        {
+            return pads;
+        }
+
+        foreach (var item in World.Items.Values)
+        {
+            if (item is Teleporter { Deleted: false, Active: true, Parent: null } pad && pad.Map == map)
+            {
+                pads.Add(pad);
+            }
+        }
+
+        return pads;
+    }
+
     public static bool IsUnder(Map map, Point3D at, NavGateKind kind)
     {
         if (map == null || map == Map.Internal)

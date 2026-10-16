@@ -246,6 +246,19 @@ public class JevPromptTests
     }
 
     [Fact]
+    public void BuildGateAndIntent_DoNotSendTheWordsAsAStatus()
+    {
+        // The heard words went out a second time, labelled as the listener's status.
+        var line = DecideEvent() with { Kind = BrainEventKind.Spoken, SpeakerName = "Hope", Text = "well met, Connor" };
+        var gate = (Dictionary<string, object>)JevPrompt.BuildGate(Persona.CreateNeutral(), line, new LifePrompt()).State;
+        var intent = (Dictionary<string, object>)JevPrompt.BuildIntent(Persona.CreateNeutral(), line).State;
+
+        Assert.DoesNotContain("well met", JsonSerializer.Serialize(gate["situation"]));
+        Assert.DoesNotContain("well met", JsonSerializer.Serialize(intent["situation"]));
+        Assert.Equal("Britain", ((Dictionary<string, object>)gate["situation"])["place"]);
+    }
+
+    [Fact]
     public void Build_DescribesTheEventWithoutRoutineText()
     {
         var noticed = DecideEvent() with { Kind = BrainEventKind.PlayerNoticed, SpeakerName = "Hope" };

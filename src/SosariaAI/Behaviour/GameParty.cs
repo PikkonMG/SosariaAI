@@ -318,6 +318,7 @@ public static class GameParty
         leader.InviteAskPlayer = player.Name;
         leader.InviteAskedAt = Core.Now;
         leader.InviteTarget = player.Serial;
+        FactionWar.Sweep(PlayerAskedAt, Core.Now, InviteAskRules.PlayerAskGap);
         PlayerAskedAt[player.Serial] = Core.Now;
         Log(InviteAskRules.LogAsk(leader.Name, player.Name));
     }
@@ -442,7 +443,7 @@ public static class GameParty
                 CharacterPower.For(inviter)
             ),
             opinionScore: Recall.ScoreOf(MemoryStore.Shared, character, inviter),
-            night: false,
+            night: character.DayPartAt(Core.Now) == DayPart.Night,
             busyBanking: character.Routine?.CurrentSkill is BankDepositSkill
         );
 

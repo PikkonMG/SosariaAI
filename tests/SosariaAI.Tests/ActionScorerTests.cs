@@ -18,6 +18,7 @@ public class ActionScorerTests
     private const int BarredFighterPower = 80;
     private const int BarredHuntSeed = 4;
     private const string OffPlanWhy = "off the current plan";
+    private const string DiedThereWhy = "died there today";
     private const int HallBar = 90;
     [Fact]
     public void Rank_PackedWorkerOutOfTown_DoesNotPickSell()
@@ -970,7 +971,8 @@ public class ActionScorerTests
             Location = CharactersFile.DefaultBankSpot,
             InTownRegion = true,
             Role = CharacterRole.Fighter,
-            AvoidHuntPlace = true,
+            AvoidHuntGround = true,
+            AvoidDungeon = true,
             NothingToBank = true,
             CurrentActionId = currentActionId,
             RecentSkillKinds = recentSkillKinds
@@ -1257,6 +1259,32 @@ public class ActionScorerTests
 
         Assert.Null(ActionScorer.Unavailable(hunt, situation, catalog: null, JobRules.GoalFor(JobKind.Hunt)));
         Assert.Null(ActionScorer.Unavailable(Candidate(SkillKinds.Tavern), situation, catalog: null, JobRules.GoalFor(JobKind.Travel)));
+    }
+
+    [Fact]
+    public void Unavailable_ADeathInTheDungeon_LeavesTheHuntGroundOpen()
+    {
+        var diedInDungeon = new Situation
+        {
+            Needs = new NeedsSnapshot { HitsFraction = FullHits, Power = 40 },
+            Location = new Point3D(840, 331, 0),
+            Role = CharacterRole.Fighter,
+            AvoidDungeon = true
+        };
+
+        Assert.Equal(DiedThereWhy, ActionScorer.Unavailable(Candidate(SkillKinds.Dungeon), diedInDungeon, catalog: null, JobRules.GoalFor(JobKind.Dungeon)));
+        Assert.Null(ActionScorer.Unavailable(Candidate(SkillKinds.Hunt), diedInDungeon, catalog: null, JobRules.GoalFor(JobKind.Hunt)));
+
+        var diedOnTheGround = new Situation
+        {
+            Needs = new NeedsSnapshot { HitsFraction = FullHits, Power = 40 },
+            Location = new Point3D(840, 331, 0),
+            Role = CharacterRole.Fighter,
+            AvoidHuntGround = true
+        };
+
+        Assert.Equal(DiedThereWhy, ActionScorer.Unavailable(Candidate(SkillKinds.Hunt), diedOnTheGround, catalog: null, JobRules.GoalFor(JobKind.Hunt)));
+        Assert.Null(ActionScorer.Unavailable(Candidate(SkillKinds.Dungeon), diedOnTheGround, catalog: null, JobRules.GoalFor(JobKind.Dungeon)));
     }
 
     [Fact]

@@ -41,7 +41,7 @@ public static class CraftStations
     /// </summary>
     public const int SupplySearchRadius = 24;
 
-    /// <summary>How long a shop's station survey, a place list and the anvil list are trusted.</summary>
+    /// <summary>How long a shop's station survey and a place list are trusted.</summary>
     public static readonly TimeSpan SurveyLife = TimeSpan.FromMinutes(10);
 
     /// <summary>Characters on one cell of 16 by 16 tiles share a place list.</summary>
@@ -471,7 +471,13 @@ public static class CraftStations
         return crowd;
     }
 
-    // Every anvil standing loose in the world on this map: decoration anvils are world items.
+    /// <summary>
+    /// Every anvil standing loose on this map: decoration anvils are world items. They are
+    /// read from the items on the map's ground, not from every item of the world, so no pick
+    /// waits on a scan of each bank box and pack, and read again only after
+    /// <see cref="SurveyLife"/>, so an anvil placed later is found. An anvil taken away in
+    /// between is no harm: the survey of its place finds no anvil there.
+    /// </summary>
     private static List<Point3D> Anvils(Map map)
     {
         var now = Core.Now;
@@ -483,9 +489,9 @@ public static class CraftStations
 
         var anvils = new List<Point3D>();
 
-        foreach (var item in World.Items.Values)
+        foreach (var item in map.GetItemsInBounds(new Rectangle2D(0, 0, map.Width, map.Height)))
         {
-            if (item is { Deleted: false, Parent: null } && item.Map == map && IsAnvil(item))
+            if (item is { Deleted: false } && IsAnvil(item))
             {
                 anvils.Add(item.Location);
             }

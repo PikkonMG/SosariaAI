@@ -10,8 +10,6 @@ public class RecoveryRulesTests
     private const double HurtHitsFraction = RecoveryRules.RecoverBelowHitsFraction / 2;
     private const double RecoveringHitsFraction =
         (RecoveryRules.RecoverBelowHitsFraction + RecoveryRules.FitHitsFraction) / 2;
-    private const int EmptySupply = 0;
-    private const int HasSupply = 1;
 
     [Fact]
     public void NeedsRecovery_InCombat_IsFalse()
@@ -52,35 +50,6 @@ public class RecoveryRulesTests
         Assert.False(RecoveryRules.IsFit(HurtHitsFraction));
         Assert.False(RecoveryRules.IsFit(RecoveryRules.RecoverBelowHitsFraction));
         Assert.False(RecoveryRules.IsFit(RecoveringHitsFraction));
-    }
-
-    [Fact]
-    public void ShouldSeekHealer_HurtAndEmpty_IsTrue()
-    {
-        Assert.True(RecoveryRules.ShouldSeekHealer(EmptyHitsFraction, EmptySupply, EmptySupply));
-        Assert.True(RecoveryRules.ShouldSeekHealer(HurtHitsFraction, EmptySupply, EmptySupply));
-    }
-
-    [Fact]
-    public void ShouldSeekHealer_HasBandageOrPotion_IsFalse()
-    {
-        Assert.False(RecoveryRules.ShouldSeekHealer(HurtHitsFraction, HasSupply, EmptySupply));
-        Assert.False(RecoveryRules.ShouldSeekHealer(HurtHitsFraction, EmptySupply, HasSupply));
-        Assert.False(RecoveryRules.ShouldSeekHealer(HurtHitsFraction, HasSupply, HasSupply));
-    }
-
-    [Fact]
-    public void ShouldSeekHealer_FitEnough_IsFalse()
-    {
-        Assert.False(
-            RecoveryRules.ShouldSeekHealer(
-                RecoveryRules.RecoverBelowHitsFraction,
-                EmptySupply,
-                EmptySupply
-            )
-        );
-        Assert.False(RecoveryRules.ShouldSeekHealer(RecoveringHitsFraction, EmptySupply, EmptySupply));
-        Assert.False(RecoveryRules.ShouldSeekHealer(FullHitsFraction, EmptySupply, EmptySupply));
     }
 
     [Fact]

@@ -119,6 +119,38 @@ public class NavSearchTests
         Assert.Equal("FarPad", prev["FarLanding"]);
     }
 
+    [Fact]
+    public void Explore_KeptSearches_ServeEachSourceUntilAWalkFailsOnTheRoad()
+    {
+        // Several whole-graph searches are kept, so a search from another source between two
+        // from the goal leaves the goal's own in place; a failed walk makes it stale at once.
+        var graph = new NavGraph(
+            FacetNames.Felucca,
+            [
+                Node("A", 0, 0, 0, "B", "C"),
+                Node("B", 10, 0, 0, "D"),
+                Node("C", 10, 30, 0, "D"),
+                Node("D", 20, 0, 0)
+            ]
+        );
+
+        var first = Costs(graph, "D");
+        Costs(graph, "A");
+
+        Assert.Equal(first, Costs(graph, "D"));
+
+        EdgeHealth.NoteFailure(graph, "B", "D");
+
+        Assert.True(Costs(graph, "D")["B"] > first["B"]);
+    }
+
+    private static Dictionary<string, double> Costs(NavGraph graph, string source)
+    {
+        var cost = new Dictionary<string, double>();
+        NavSearch.Explore(graph, source, null, NavSearch.DefaultGateCost, null, null, cost, new Dictionary<string, string>());
+        return cost;
+    }
+
     private static NavGraph LineGraph() =>
         new(
             FacetNames.Felucca,

@@ -44,4 +44,38 @@ public class PersonaWriteQueueTests
         Assert.False(queue.TryTake(out id, out _));
         Assert.Null(id);
     }
+
+    [Fact]
+    public void Retry_QueuesAFailedCopyAgainUntilItsTriesRunOut()
+    {
+        // A failed or rejected answer left the copy unasked for the rest of the boot.
+        var queue = new PersonaWriteQueue();
+        queue.Add(First, FirstSerial);
+
+        for (var answer = 1; answer < PersonaWriteQueue.MaxTries; answer++)
+        {
+            Assert.True(queue.TryTake(out var id, out var serial));
+            Assert.True(queue.Retry(id, serial));
+            Assert.Equal(1, queue.Waiting);
+        }
+
+        Assert.True(queue.TryTake(out var last, out var lastSerial));
+        Assert.False(queue.Retry(last, lastSerial));
+        Assert.Equal(0, queue.Waiting);
+        Assert.False(queue.Add(First, FirstSerial));
+    }
+
+    [Fact]
+    public void Release_LetsAGoneCopyBeQueuedWhenItBindsAgain()
+    {
+        var queue = new PersonaWriteQueue();
+        queue.Add(First, FirstSerial);
+        queue.TryTake(out var id, out _);
+
+        queue.Release(id);
+
+        Assert.True(queue.Add(First, SecondSerial));
+        Assert.True(queue.TryTake(out _, out var serial));
+        Assert.Equal(SecondSerial, serial);
+    }
 }

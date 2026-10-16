@@ -77,7 +77,7 @@ delete config as a normal upgrade step.
 | `activity.log`, `activity-runs/` | Per-character activity of this boot. At each boot the last run's file moves to `activity-runs/`, named for the time it ended; the newest 10 are kept. Written when `logActivity` is `true`. |
 | `status.html` | The status page. |
 | `sosaria-list.txt` | The last `[Sosaria` list. |
-| `live-proof-*.tsv` | Population check results. |
+| `live-proof.tsv` | The last population check. Each check writes over the one before. |
 
 The console shows boot lines, warnings, and one summary line a minute: people in
 the world, steps done, steps failed, walks with no route, and plans given up.
@@ -88,7 +88,7 @@ they are not plugin files.
 
 | Command | Access | Result |
 |---|---|---|
-| `[Sosaria` | Counselor | Write every character with its location, work, power, and goal to `sosaria-list.txt` and the console. |
+| `[Sosaria` | Counselor | Write every character with its location, work, power, and goal to `sosaria-list.txt`, and tell you how many it wrote. |
 | `[SosariaGo <name>` | GameMaster | Go to a character, on any facet. |
 | `[SosariaBring <name>` | GameMaster | Bring a character to you. |
 | `[SosariaWatch <name>` | Counselor | Show one character's state, persona background, voice, idle line, choices, its bond to you, and its recent thoughts. |
@@ -100,7 +100,7 @@ they are not plugin files.
 | `[SosariaPanel` | GameMaster | Open the staff panel: live counts, staff travel to towns and dungeon doors, a status page write, and the First Time Setup button (Administrator). |
 | `[SosariaStatus` | Counselor | Write `status.html` now, with fresh counts and the stuck-character list. |
 | `[SosariaRebuildNav` | Administrator | Rebuild navigation from ModernUO data. It waits while the world waits for First Time Setup. |
-| `[SosariaLiveProof` | Counselor | Run a timed population check (a sample every 30 seconds for 20 minutes) into `live-proof-*.tsv`. One also starts 15 seconds after the server starts. |
+| `[SosariaLiveProof` | Counselor | Run a timed population check (a sample every 30 seconds for 20 minutes) into `live-proof.tsv`. One also starts 15 seconds after the server starts. |
 
 The server console also takes `sosaria` and `sosariawatch <name>`.
 

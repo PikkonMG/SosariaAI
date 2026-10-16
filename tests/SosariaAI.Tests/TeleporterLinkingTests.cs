@@ -173,6 +173,39 @@ public class TeleporterLinkingTests
     }
 
     [Fact]
+    public void Relink_LostGate_ComesBackOnTheNodesThatStand()
+    {
+        // A boot dropped the Fire pad's gate to Destard once; the pad fired again and the saved
+        // graph still had no gate. The pad's own link puts it back on the two nodes it joins.
+        var pad = Node("tp-5682-1437", 5682, 1437, 0);
+        var landing = Node("tp-5164-1009", 5164, 1009, 0);
+        var nodes = new List<NavNode> { pad, landing };
+        var links = new TeleporterLink[] { new(FacetNames.Felucca, 5682, 1437, 0, FacetNames.Felucca, 5164, 1009, 0, false) };
+
+        Assert.Equal(1, TeleporterLinking.Relink(nodes, links));
+        Assert.Equal(0, TeleporterLinking.Relink(nodes, links));
+
+        Assert.Equal(2, nodes.Count);
+        var graph = new NavGraph(FacetNames.Felucca, nodes);
+        Assert.Equal(NavGateKind.Teleporter, graph.GateKind(pad.Name, landing.Name));
+        Assert.True(graph.Travels(pad.Name, landing.Name));
+        Assert.False(graph.Travels(landing.Name, pad.Name));
+    }
+
+    [Fact]
+    public void Relink_EndWithNoNode_PlacesNoNode()
+    {
+        var pad = Node("tp-311-786", 311, 786, 0);
+        var nodes = new List<NavNode> { pad };
+        var links = new TeleporterLink[] { new(FacetNames.Felucca, 311, 786, 0, FacetNames.Felucca, 5750, 350, 5, false) };
+
+        Assert.Equal(0, TeleporterLinking.Relink(nodes, links));
+
+        Assert.Single(nodes);
+        Assert.Null(pad.Gates);
+    }
+
+    [Fact]
     public void FindOrAttach_EmptyList_AddsTpNode()
     {
         var nodes = new List<NavNode>();

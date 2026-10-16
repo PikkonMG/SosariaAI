@@ -22,7 +22,6 @@ public sealed class BankCrowdSkill : Skill
     private BankCrowdSeat _seat;
     private Skill _walk;
     private BankCrowdAct _act;
-    private DateTime _until;
 
     public override string Name => SkillKinds.BankCrowd;
 
@@ -78,7 +77,7 @@ public sealed class BankCrowdSkill : Skill
             return WalkTo(_seat.Spot) ? SkillStatus.Running : Fail("pushed off the bank floor with no way back");
         }
 
-        if (Core.Now >= _until || !_act.Tick(Core.Now))
+        if (Core.Now >= _seat.Until || !_act.Tick(Core.Now))
         {
             return Finish(SkillStatus.Done);
         }
@@ -94,7 +93,7 @@ public sealed class BankCrowdSkill : Skill
 
     public override void Resume(TimeSpan held)
     {
-        _until = SkillClock.Shift(_until, held);
+        _seat?.Shift(held);
         _walk?.Resume(held);
     }
 
@@ -114,10 +113,9 @@ public sealed class BankCrowdSkill : Skill
 
     private SkillStatus Arrive()
     {
-        _seat.MarkArrived();
+        _seat.MarkArrived(Core.Now + BankCrowdRules.HoldLength(Roll(), _member.PersonProfile.PhaseLengthMultiplier));
         _member.Home = _seat.Spot;
         _member.RangeHome = BankCrowdRules.SeatArrivalRange;
-        _until = Core.Now + BankCrowdRules.HoldLength(Roll(), _member.PersonProfile.PhaseLengthMultiplier);
         _act = BankCrowdAct.For(_seat.Role);
 
         if (!_act.Start(_member, _seat))
@@ -135,7 +133,7 @@ public sealed class BankCrowdSkill : Skill
                 _member.Name,
                 _seat.BankKey,
                 _seat.Role,
-                _until
+                _seat.Until
             );
         }
 

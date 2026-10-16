@@ -13,6 +13,7 @@ public class GrayWatchTests
     private const uint Third = 0x202;
     private const uint Fourth = 0x203;
     private static readonly DateTime Now = new(2026, 9, 24, 12, 0, 0);
+    private static readonly TimeSpan FlagLength = TimeSpan.FromMinutes(2);
 
     [Fact]
     public void TryJoin_AtMostThreeWatchers()
@@ -81,23 +82,28 @@ public class GrayWatchTests
     }
 
     [Fact]
-    public void NoteFlag_KeepsTheFirstSighting_UntilSwept()
+    public void FlagFresh_NoFightOnAFlagRunningOut()
     {
-        var watch = new GrayWatch();
+        var flagEnds = Now + FlagLength;
 
-        Assert.Equal(Now, watch.NoteFlag(Gray, Now));
-        Assert.Equal(Now, watch.NoteFlag(Gray, Now + TimeSpan.FromMinutes(1)));
-
-        var later = Now + GrayWatch.SweepGap;
-        watch.Sweep(gray => gray == Gray, later);
-        Assert.Equal(later, watch.NoteFlag(Gray, later));
+        Assert.True(GrayWatch.FlagFresh(flagEnds, FlagLength, Now + GrayWatch.StaleFlag - TimeSpan.FromSeconds(1)));
+        Assert.False(GrayWatch.FlagFresh(flagEnds, FlagLength, Now + GrayWatch.StaleFlag));
     }
 
     [Fact]
-    public void FlagFresh_NoFightOnAFlagRunningOut()
+    public void FlagFresh_ARepeatCrimeMakesTheGrayFreshAgain()
     {
-        Assert.True(GrayWatch.FlagFresh(Now, Now + GrayWatch.StaleFlag - TimeSpan.FromSeconds(1)));
-        Assert.False(GrayWatch.FlagFresh(Now, Now + GrayWatch.StaleFlag));
+        var stale = Now + GrayWatch.StaleFlag;
+        var againAt = stale + TimeSpan.FromSeconds(1);
+
+        Assert.False(GrayWatch.FlagFresh(Now + FlagLength, FlagLength, againAt));
+        Assert.True(GrayWatch.FlagFresh(againAt + FlagLength, FlagLength, againAt));
+    }
+
+    [Fact]
+    public void FlagFresh_NoClockRunning_IsNeverFresh()
+    {
+        Assert.False(GrayWatch.FlagFresh(DateTime.MinValue, FlagLength, Now));
     }
 
     [Fact]

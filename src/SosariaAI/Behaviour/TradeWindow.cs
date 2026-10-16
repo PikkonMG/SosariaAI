@@ -34,9 +34,6 @@ public sealed class TradeWindow
     /// <summary>The person checked their accept box.</summary>
     public bool TheirAccepted => _trade.From.Accepted;
 
-    /// <summary>The character checked its accept box.</summary>
-    public bool WeAccepted => _trade.To.Accepted;
-
     /// <summary>
     /// No coin promised through the window's currency fields. Account gold moves only between
     /// two accounts and a character has none, so an amount written there can never settle — the

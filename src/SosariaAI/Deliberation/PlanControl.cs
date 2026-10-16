@@ -7,8 +7,6 @@ using SosariaAI.Configuration;
 namespace SosariaAI.Deliberation;
 
 public sealed record PlanAcceptContext(
-    string CharacterId,
-    int CurrentRevision,
     bool Alive,
     bool OffWorld,
     DateTime Now,
@@ -164,14 +162,14 @@ public static class PlanControl
 
     public static AcceptResult Accept(ModelPlan current, PlanProposal proposal, PlanAcceptContext context)
     {
-        var stale = StaleReason(current, proposal, context);
+        var stale = StaleReason(proposal, context);
 
         if (stale != null)
         {
             return new AcceptResult
             {
                 Accepted = false,
-                Stale = stale == PlanValidator.RejectStale || stale == PlanValidator.RejectAgreement,
+                Stale = stale == PlanValidator.RejectAgreement,
                 Plan = current,
                 Rejection = stale
             };
@@ -432,7 +430,12 @@ public static class PlanControl
         };
     }
 
-    public static string StaleReason(ModelPlan current, PlanProposal proposal, PlanAcceptContext context)
+    /// <summary>
+    /// Why the reply may not become the plan as things stand now: the character died or left the
+    /// world, or a party agreement changed after the ask. A reply to an older ask never gets here
+    /// (<see cref="PlanningPath.Deliver"/> drops it by its request id).
+    /// </summary>
+    public static string StaleReason(PlanProposal proposal, PlanAcceptContext context)
     {
         if (context == null || proposal == null)
         {
@@ -449,29 +452,7 @@ public static class PlanControl
             return PlanValidator.RejectOffWorld;
         }
 
-        if (!string.IsNullOrWhiteSpace(context.CharacterId) &&
-            !string.IsNullOrWhiteSpace(proposal.CharacterId) &&
-            !context.CharacterId.Equals(proposal.CharacterId, StringComparison.OrdinalIgnoreCase))
-        {
-            return PlanValidator.RejectIdentity;
-        }
-
-        if (context.AgreementChanged)
-        {
-            return PlanValidator.RejectAgreement;
-        }
-
-        if (proposal.ExpectedRevision != context.CurrentRevision)
-        {
-            return PlanValidator.RejectStale;
-        }
-
-        if (current is { Revision: var revision } && revision > proposal.ExpectedRevision)
-        {
-            return PlanValidator.RejectStale;
-        }
-
-        return null;
+        return context.AgreementChanged ? PlanValidator.RejectAgreement : null;
     }
 
     private static IReadOnlyList<ModelPlanStep> ClampSteps(IReadOnlyList<ModelPlanStep> steps)

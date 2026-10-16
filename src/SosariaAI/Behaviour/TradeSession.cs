@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Server;
 using Server.Items;
 using Server.Logging;
@@ -43,7 +42,6 @@ public sealed class TradeSession
     private readonly Haggle _haggle;
     private readonly Item _goods;
     private readonly GoodsClaim _claim;
-    private readonly List<Item> _offered = [];
     private TradeWindow _window;
     private bool _windowDeclined;
     private bool _theirAccepted;
@@ -53,7 +51,6 @@ public sealed class TradeSession
     private DateTime _phaseSince;
     private Action<bool> _settled;
     private bool _paid;
-    private int _payerGoldBefore;
 
     private TradeSession(SosariaCharacter character, Mobile partner, Haggle haggle, Item goods, GoodsClaim claim, string noun = null)
     {
@@ -434,8 +431,9 @@ public sealed class TradeSession
     /// <summary>
     /// Keeps a live window inside the engine's arm's-length rule (the trade never joins the
     /// person's NetState list, so the engine cannot sweep it), checks the character's own box
-    /// once the person's side holds the deal, and names what is wrong when they check theirs
-    /// against the wrong contents.
+    /// once the person checked theirs on a side that holds the deal, and names what is wrong
+    /// when they check theirs against the wrong contents. The character checks last, so the
+    /// swap runs inside its own check: the deal is judged there, as the coin or goods cross.
     /// </summary>
     private void WatchWindow()
     {
@@ -466,22 +464,19 @@ public sealed class TradeSession
         var met = Side == HaggleSide.Sells
             ? onlyGold && paid == Agreed && window.TheirLedgerEmpty
             : GoodsThere(window);
+        var pressed = window.TheirAccepted;
 
-        if (met && !window.WeAccepted)
+        if (met && pressed)
         {
-            // The coin on their side left their pack: their pack plus it is what they had.
-            _payerGoldBefore = (Partner.Backpack?.GetAmount(typeof(Gold)) ?? 0) + paid;
             window.Accept();
 
             if (!window.IsOpen)
             {
-                FoldWindow();
+                Closed(throughWindow: true);
             }
 
             return;
         }
-
-        var pressed = window.TheirAccepted;
 
         if (pressed && !_theirAccepted && !met)
         {
@@ -499,30 +494,14 @@ public sealed class TradeSession
     }
 
     /// <summary>
-    /// The window closed. The swap ran when the goods or the coin crossed hands; a closed window
-    /// without a swap means the person folded it, and a fresh drop or another "deal" opens a new
-    /// one.
+    /// The window closed outside the character's own check, so no swap ran: the person folded
+    /// it and the engine handed each side back. A fresh drop or another "deal" opens a new one.
     /// </summary>
     private void FoldWindow()
     {
         _window = null;
         _theirAccepted = false;
-
-        var done = Side == HaggleSide.Sells
-            ? _goods == null
-                ? CraftOrderRules.CoinCrossed(_payerGoldBefore, Partner.Backpack?.GetAmount(typeof(Gold)) ?? 0, Agreed)
-                : _goods is { Deleted: false } && !_goods.IsChildOf(Character.Backpack)
-            : _offered is { Count: > 0 } && _offered.TrueForAll(item => item.IsChildOf(Character.Backpack));
-
-        _offered.Clear();
-
-        if (!done)
-        {
-            _windowDeclined = true;
-            return;
-        }
-
-        Closed(throughWindow: true);
+        _windowDeclined = true;
     }
 
     // The deal with the person is done: the log line, the shard's trade count and the thanks.
@@ -568,13 +547,10 @@ public sealed class TradeSession
         return gold;
     }
 
-    /// <summary>
-    /// The person's side of the window holds exactly what they said they would sell, remembered
-    /// so the close can tell a done deal from a folded one.
-    /// </summary>
+    /// <summary>The person's side of the window holds exactly what they said they would sell.</summary>
     private bool GoodsThere(TradeWindow window)
     {
-        _offered.Clear();
+        var offered = 0;
 
         foreach (var item in window.Theirs.Items)
         {
@@ -585,14 +561,13 @@ public sealed class TradeSession
 
             if (!_claim.Matches(item))
             {
-                _offered.Clear();
                 return false;
             }
 
-            _offered.Add(item);
+            offered++;
         }
 
-        return _offered.Count > 0;
+        return offered > 0;
     }
 
     private bool TakeGold(Item dropped)

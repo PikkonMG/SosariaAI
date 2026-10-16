@@ -15,8 +15,9 @@ namespace SosariaAI.Deliberation;
 /// with no file in personas-generated/ joins a queue; once a minute the writer sends at most
 /// <see cref="BrainConfiguration.PersonaWritesPerMinute"/> of them, inside the paid caps and
 /// the in-flight limit, so a full population fills in over hours. A checked answer is saved
-/// and read on every later boot; a failed one leaves the composed persona, and the copy is
-/// not asked about again until the next boot. Fixtures keep their authored persona.
+/// and read on every later boot; a failed or rejected one is asked again, up to
+/// <see cref="PersonaWriteQueue.MaxTries"/> answers a boot, and until then the copy keeps the
+/// composed persona. Fixtures keep their authored persona.
 /// With <see cref="BrainConfiguration.PersonaWriter"/> off it neither writes nor reads, and
 /// every copy keeps the persona composed from the part library. Game thread only.
 /// </summary>
@@ -93,6 +94,7 @@ public static class PersonaWriter
         if (!string.IsNullOrEmpty(result.Error))
         {
             Note("Persona for {Id} was not written: {Detail}", id, result.Error);
+            AskAgain(id, result.CharacterSerial);
             return true;
         }
 
@@ -102,6 +104,7 @@ public static class PersonaWriter
         if (clean == null)
         {
             Note("Persona for {Id} was rejected: {Detail}", id, reason);
+            AskAgain(id, result.CharacterSerial);
             return true;
         }
 
@@ -124,6 +127,15 @@ public static class PersonaWriter
         }
 
         return true;
+    }
+
+    /// <summary>A failed or rejected answer: the copy waits for another try while it has tries left.</summary>
+    private static void AskAgain(string id, Serial serial)
+    {
+        if (_queue.Retry(id, serial))
+        {
+            ScheduleDrain();
+        }
     }
 
     private static void ScheduleDrain()
@@ -155,6 +167,7 @@ public static class PersonaWriter
             if (World.FindMobile(serial) is not SosariaCharacter { Deleted: false } character ||
                 !string.Equals(character.CharacterId, id, StringComparison.OrdinalIgnoreCase))
             {
+                _queue.Release(id);
                 continue;
             }
 

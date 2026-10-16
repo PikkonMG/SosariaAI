@@ -197,7 +197,7 @@ public static class PartyOrderRules
     public static bool MayOrder(bool speakerLeads, bool speakerIsHuman) => speakerLeads && speakerIsHuman;
 
     /// <summary>Any person in the party may call for help.</summary>
-    public static bool MayCallHelp(bool speakerInParty, bool speakerIsHuman) => speakerInParty && speakerIsHuman;
+    public static bool MayCallHelp(bool speakerIsHuman) => speakerIsHuman;
 
     /// <summary>A hold or a step back runs out; every other order ends on its own terms.</summary>
     public static bool Expired(PartyOrderKind kind, DateTime at, DateTime now) =>

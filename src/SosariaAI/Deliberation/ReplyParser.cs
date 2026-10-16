@@ -81,7 +81,7 @@ public static class ReplyParser
         }
     }
 
-    public static PlanProposal ParsePlan(string raw, string characterId, int expectedRevision, long requestId)
+    public static PlanProposal ParsePlan(string raw, string characterId, long requestId)
     {
         var json = ExtractJson(raw);
 
@@ -119,7 +119,6 @@ public static class ReplyParser
 
             return new PlanProposal(
                 characterId,
-                expectedRevision,
                 ModelPlan.ClampText(ReadString(root, GoalProperty)),
                 ModelPlan.ClampText(ReadString(root, ReasonProperty)),
                 ModelPlan.ClampText(ReadString(root, SuccessProperty)),

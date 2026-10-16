@@ -22,33 +22,34 @@ public class GearEquipTests
     [Fact]
     public void ConflictingLayers_HandLayers_CoverBothHands()
     {
-        // EquipItem only checks the item's own layer, so a two-handed tool slipped
-        // onto the free hand and showed a hatchet and a pickaxe at once.
+        // Either hand can block the other, so both are read for an item in hand.
         Assert.Equal([Layer.OneHanded, Layer.TwoHanded], GearEquip.ConflictingLayers(Layer.OneHanded));
         Assert.Equal([Layer.OneHanded, Layer.TwoHanded], GearEquip.ConflictingLayers(Layer.TwoHanded));
         Assert.Equal([Layer.InnerTorso], GearEquip.ConflictingLayers(Layer.InnerTorso));
     }
 
     [Fact]
-    public void WornConflicts_TwoHanded_FlagsTheOneHandedWeapon()
+    public void WornConflicts_TwoHandedWeapon_FlagsTheOneHandedWeapon()
     {
         var character = Character((Serial)0x7301);
         var hatchet = new Hatchet((Serial)0x7401) { Layer = Layer.OneHanded };
         character.Items.Add(hatchet);
+        var staff = new QuarterStaff((Serial)0x7402) { Layer = Layer.TwoHanded };
 
-        var conflicts = GearEquip.WornConflicts(character, Layer.TwoHanded);
+        var conflicts = GearEquip.WornConflicts(character, staff);
 
         Assert.Same(hatchet, Assert.Single(conflicts));
     }
 
     [Fact]
-    public void WornConflicts_OneHanded_FlagsTheTwoHandedWeapon()
+    public void WornConflicts_OneHandedWeapon_FlagsTheTwoHandedWeapon()
     {
         var character = Character((Serial)0x7302);
         var staff = new QuarterStaff((Serial)0x7403) { Layer = Layer.TwoHanded };
         character.Items.Add(staff);
+        var katana = new Katana((Serial)0x7404) { Layer = Layer.OneHanded };
 
-        var conflicts = GearEquip.WornConflicts(character, Layer.OneHanded);
+        var conflicts = GearEquip.WornConflicts(character, katana);
 
         Assert.Same(staff, Assert.Single(conflicts));
     }
@@ -62,9 +63,44 @@ public class GearEquipTests
         character.Items.Add(hatchet);
         character.Items.Add(pickaxe);
 
-        var conflicts = GearEquip.WornConflicts(character, Layer.TwoHanded, keep: pickaxe);
+        var conflicts = GearEquip.WornConflicts(character, pickaxe);
 
         Assert.Same(hatchet, Assert.Single(conflicts));
+    }
+
+    [Fact]
+    public void WornConflicts_ShieldBesideOneHandedWeapon_KeepsTheWeapon()
+    {
+        // The engine wears a one-handed weapon and a shield together; buying a shield packed
+        // the sword, and drawing the sword packed the shield.
+        var character = Character((Serial)0x7306);
+        var katana = new Katana((Serial)0x7407) { Layer = Layer.OneHanded };
+        character.Items.Add(katana);
+        var shield = new MetalShield((Serial)0x7408) { Layer = Layer.TwoHanded };
+
+        Assert.Empty(GearEquip.WornConflicts(character, shield));
+    }
+
+    [Fact]
+    public void WornConflicts_OneHandedWeaponBesideShield_KeepsTheShield()
+    {
+        var character = Character((Serial)0x7308);
+        var shield = new MetalShield((Serial)0x7409) { Layer = Layer.TwoHanded };
+        character.Items.Add(shield);
+        var katana = new Katana((Serial)0x740A) { Layer = Layer.OneHanded };
+
+        Assert.Empty(GearEquip.WornConflicts(character, katana));
+    }
+
+    [Fact]
+    public void WornConflicts_NewShield_FlagsTheOldShield()
+    {
+        var character = Character((Serial)0x730A);
+        var old = new Buckler((Serial)0x740B) { Layer = Layer.TwoHanded };
+        character.Items.Add(old);
+        var shield = new MetalShield((Serial)0x740C) { Layer = Layer.TwoHanded };
+
+        Assert.Same(old, Assert.Single(GearEquip.WornConflicts(character, shield)));
     }
 
     [Fact]
@@ -286,6 +322,22 @@ public class GearEquipTests
 
         Assert.True(book.IsChildOf(character.Backpack));
         Assert.Same(katana, character.FindItemOnLayer(Layer.OneHanded));
+    }
+
+    [Fact]
+    public void EquipOrPack_ShieldBesideTheSword_BothStayWorn()
+    {
+        TestMap.EnsureRunningWorld();
+        TestMap.EnsureDecayScheduler();
+        var character = Fighter((Serial)0x733E);
+        var katana = new Katana { Layer = Layer.OneHanded };
+        Wear(character, katana);
+        var shield = new MetalShield { Layer = Layer.TwoHanded };
+
+        GearEquip.EquipOrPack(character, shield);
+
+        Assert.Same(katana, character.FindItemOnLayer(Layer.OneHanded));
+        Assert.Same(shield, character.FindItemOnLayer(Layer.TwoHanded));
     }
 
     [Fact]

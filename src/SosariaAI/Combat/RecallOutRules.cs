@@ -20,9 +20,9 @@ public static class RecallOutRules
     /// <summary>A recall out pays from any distance: the run is the reason, not the length of the trip.</summary>
     public const int MinTripTiles = RecallRules.NoRoadMinTripTiles;
 
-    /// <summary>True when every blow on the runner lands after the words of a recall end.</summary>
-    public static bool ContactBroken(long soonestBlowMs, bool slowedByProtection) =>
-        CastTiming.Holds(CastTiming.CastDelayMs(RecallCircle, slowedByProtection), soonestBlowMs);
+    /// <summary>True when every blow on the runner lands after the words of a recall end in this era.</summary>
+    public static bool ContactBroken(long soonestBlowMs, bool aos, bool slowedByProtection) =>
+        CastTiming.Holds(CastTiming.CastDelayMs(RecallCircle, aos, slowedByProtection), soonestBlowMs);
 
     /// <summary>A runner hides when its Hiding reaches this: below it the tries only reveal it.</summary>
     public const double HideOutMinHiding = 30;

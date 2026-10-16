@@ -6,6 +6,7 @@ using SosariaAI.Configuration;
 using SosariaAI.Deliberation;
 using SosariaAI.Memory;
 using SosariaAI.Mobiles;
+using SosariaAI.Navigation;
 using SosariaAI.Spawning;
 using SosariaAI.Social;
 using SosariaAI.Logging;
@@ -52,7 +53,7 @@ public static class Meeting
         }
 
         var now = Core.Now;
-        var atQuiet = AtMeetingPoint(character.Location, character.HomeFacet);
+        var atQuiet = AtMeetingPoint(character);
 
         if (!Brain.Conversations.SpeakerMayGreet(character.Serial, now, MeetingRules.SpeakerQuiet))
         {
@@ -71,30 +72,41 @@ public static class Meeting
             return;
         }
 
+        // One greeting is tried per think: the first one the gates let through.
         for (var i = 0; i < nearby.Count; i++)
         {
             var other = nearby[i];
 
-            if (other.Motor.Action != CharacterAction.Wander)
+            if (other.Motor.Action != CharacterAction.Wander || !MayGreet(character, other, now, Brain.Conversations))
             {
                 continue;
             }
 
-            if (TryGreet(character, other))
+            if (TryGreet(character, other, now) && atQuiet)
             {
-                if (atQuiet)
-                {
-                    Brain.Conversations.RecordAreaGreet(MeetingRules.BankArea, now);
-                }
-
-                return;
+                Brain.Conversations.RecordAreaGreet(MeetingRules.BankArea, now);
             }
+
+            return;
         }
     }
 
-    /// <summary>At the bank or a town's home pad of the facet (<see cref="WorldAnchors"/>), where people wait for each other.</summary>
-    public static bool AtMeetingPoint(Point3D at, string facet) =>
-        MeetingRules.InQuietPlace(at, CharactersFile.DefaultBankSpot, WorldAnchors.For(facet).TownHomes);
+    /// <summary>The character stands at a meeting point of the facet it is on, wherever its home is.</summary>
+    public static bool AtMeetingPoint(SosariaCharacter character) =>
+        character?.Map != null && AtMeetingPoint(character.Location, character.Map.Name);
+
+    /// <summary>
+    /// At the bank nearest the point on its facet, or at a town's home pad of that facet
+    /// (<see cref="WorldAnchors"/>), where people wait for each other.
+    /// </summary>
+    public static bool AtMeetingPoint(Point3D at, string facet)
+    {
+        var pads = WorldAnchors.For(facet).TownHomes;
+
+        return NavWorld.DestinationsFor(facet)?.Nearest(at, DestinationKind.Bank) is { } bank
+            ? MeetingRules.InQuietPlace(at, bank.Arrival, pads)
+            : Array.Exists(pads, pad => MeetingRules.NearPad(at, pad));
+    }
 
     public static bool ShouldSpeak(string line, IReadOnlyList<string> recentSpeech) =>
         !string.IsNullOrWhiteSpace(line) && !SpokenRepeat.IsNearRepeat(line, recentSpeech);
@@ -108,23 +120,7 @@ public static class Meeting
         ShardEvent news
     )
     {
-        if (speaker == null || other == null || tracker == null)
-        {
-            return false;
-        }
-
-        if (MeetingRules.SameWornName(speaker.Name, other.Name))
-        {
-            return false;
-        }
-
-        if (!tracker.CanGreet(
-                speaker.Serial,
-                other.Serial,
-                now,
-                Brain.BotToBotPairRest,
-                Brain.BotToBotPairRest,
-                1))
+        if (!MayGreet(speaker, other, now, tracker))
         {
             return false;
         }
@@ -377,9 +373,21 @@ public static class Meeting
         }
     }
 
-    private static bool TryGreet(SosariaCharacter speaker, SosariaCharacter other)
+    /// <summary>One greeting per pair rest, between two who do not wear the same name.</summary>
+    private static bool MayGreet(SosariaCharacter speaker, SosariaCharacter other, DateTime now, BotConversationTracker tracker) =>
+        speaker != null && other != null && tracker != null &&
+        !MeetingRules.SameWornName(speaker.Name, other.Name) &&
+        tracker.CanGreet(speaker.Serial, other.Serial, now, Brain.BotToBotPairRest, Brain.BotToBotPairRest, GreetsPerRest);
+
+    private const int GreetsPerRest = 1;
+
+    /// <summary>
+    /// A greeting to one the gates (<see cref="MayGreet"/>) already let through: news is picked
+    /// only now, once per think, since a pick marks the story told and may start a paid model
+    /// telling, both spent on nothing when the greeting then fell through.
+    /// </summary>
+    private static bool TryGreet(SosariaCharacter speaker, SosariaCharacter other, DateTime now)
     {
-        var now = Core.Now;
         var news = PickNews(speaker, now, out var toldByModel);
 
         // The model tells the story near a player; the greeting then stays a plain hello.

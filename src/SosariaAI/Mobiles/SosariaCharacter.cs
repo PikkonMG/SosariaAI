@@ -39,7 +39,7 @@ namespace SosariaAI.Mobiles;
 /// walks it. Think rate drops when no player is within
 /// <see cref="PresenceFocus.NearPlayerTiles"/>. Combat and ghosts stay fast.
 /// </summary>
-[SerializationGenerator(5)]
+[SerializationGenerator(6)]
 public partial class SosariaCharacter : PlayerMobile
 {
     private static readonly ILogger logger = SosariaLog.For(typeof(SosariaCharacter));
@@ -93,134 +93,132 @@ public partial class SosariaCharacter : PlayerMobile
     private long _nextWorldScanAt;
 
     [SerializableField(0)]
-    private int _routineStepIndex;
-
-    [SerializableField(1)]
     private TimeSpan _idleElapsed;
 
-    [SerializableField(2)]
+    [SerializableField(1)]
     private string _characterId;
 
-    [SerializableField(3)]
+    [SerializableField(2)]
     private Point3D _homeSpawn;
 
-    [SerializableField(4)]
+    [SerializableField(3)]
     private string _homeMapName;
 
-    [SerializableField(5)]
+    [SerializableField(4)]
     private DateTime _returnAt;
 
-    [SerializableField(6)]
+    [SerializableField(5)]
     private TimeSpan _returnAfterDeath;
 
-    [SerializableField(7)]
-    private string _activeRoutineId;
-
-    [SerializableField(8)]
+    [SerializableField(6)]
     private string _homeFacet;
 
-    [SerializableField(9)]
+    [SerializableField(7)]
     private DateTime _lastHuntAt;
 
-    [SerializableField(10)]
+    [SerializableField(8)]
     private DateTime _lastRestAt;
 
-    [SerializableField(11)]
+    [SerializableField(9)]
     private DateTime _lastTownAt;
 
-    [SerializableField(12)]
+    [SerializableField(10)]
     private int _guildIndex = -1;
 
-    [SerializableField(13)]
+    [SerializableField(11)]
     private uint _corpseSerial;
 
-    [SerializableField(14)]
+    [SerializableField(12)]
     private Point3D _corpseLocation;
 
-    [SerializableField(15)]
+    [SerializableField(13)]
     private string _deathPlace;
 
-    [SerializableField(16)]
+    [SerializableField(14)]
     private string _lastKillerName;
 
-    [SerializableField(17)]
+    [SerializableField(15)]
     private DateTime _ghostSince;
 
-    [SerializableField(18)]
+    [SerializableField(16)]
     private bool _careerStarted;
 
-    [SerializableField(19)]
+    [SerializableField(17)]
     private string _ambitionKind;
 
-    [SerializableField(20)]
+    [SerializableField(18)]
     private string _ambitionTarget;
 
-    [SerializableField(21)]
+    [SerializableField(19)]
     private int _ambitionGoal;
 
-    [SerializableField(22)]
+    [SerializableField(20)]
     private int _ambitionProgress;
 
-    [SerializableField(23)]
+    [SerializableField(21)]
     private string _activeGoalKind;
 
-    [SerializableField(24)]
+    [SerializableField(22)]
     private string _activeGoalTarget;
 
-    [SerializableField(25)]
+    [SerializableField(23)]
     private string _activeActionId;
 
-    [SerializableField(26)]
+    [SerializableField(24)]
     private bool _lastWalkFailed;
 
-    [SerializableField(27)]
+    [SerializableField(25)]
     private int _goldAtDeath;
 
-    [SerializableField(28)]
+    [SerializableField(26)]
     private int _houseSerial;
 
-    [SerializableField(29)]
+    [SerializableField(27)]
     private Point3D _houseLocation;
 
-    [SerializableField(30)]
+    [SerializableField(28)]
     private DateTime _lastDeathAt;
 
-    [SerializableField(31)]
+    [SerializableField(29)]
     private int _deathsAtPlace;
 
-    [SerializableField(32)]
+    [SerializableField(30)]
     private string _planId;
 
-    [SerializableField(33)]
+    [SerializableField(31)]
     private int _planStepIndex;
 
-    [SerializableField(34)]
+    [SerializableField(32)]
     private int _planStepFailures;
 
-    [SerializableField(35)]
+    [SerializableField(33)]
     private int _boatSerial;
 
-    [SerializableField(36)]
+    [SerializableField(34)]
     private int _vendorSerial;
 
-    [SerializableField(37)]
+    [SerializableField(35)]
     private List<string> _modelPlanLines = [];
 
     /// <summary>The one-time rune kit was packed, or judged not due: it is never packed again.</summary>
-    [SerializableField(38, setter: "internal")]
+    [SerializableField(36, setter: "internal")]
     private bool _runeKitPacked;
 
     /// <summary>Rule clocks by name (<see cref="RuleClock"/>), as absolute UTC times: the save keeps every rest.</summary>
-    [SerializableField(39, setter: "private")]
+    [SerializableField(37, setter: "private")]
     private Dictionary<string, DateTime> _ruleClocks = new();
 
     /// <summary>Each job's failure streak at one target, by job and target (<see cref="JobTargetRest"/>).</summary>
-    [SerializableField(40, setter: "private")]
+    [SerializableField(38, setter: "private")]
     private Dictionary<string, string> _targetStreaks = new();
 
     /// <summary>Orders this crafter took, one <see cref="CraftOrderCodec"/> line each (<see cref="CraftOrders"/>).</summary>
-    [SerializableField(41, setter: "private")]
+    [SerializableField(39, setter: "private")]
     private List<string> _orderLines = [];
+
+    /// <summary>When a bank or sell job last ended done: the save keeps it past a restart.</summary>
+    [SerializableField(40)]
+    private DateTime _lastBankAt;
 
     [Constructible]
     public SosariaCharacter()
@@ -632,11 +630,11 @@ public partial class SosariaCharacter : PlayerMobile
 
         if (Routine == null)
         {
-            AttachRoutine(new Routine([loiter]));
+            AttachRoutine(new Routine(loiter));
         }
         else
         {
-            Routine.Replace([loiter]);
+            Routine.Replace(loiter);
         }
     }
 
@@ -1798,14 +1796,16 @@ public partial class SosariaCharacter : PlayerMobile
         CommitFallbackScore(result, source);
     }
 
-    public ScoreResult ScoreNow()
+    public ScoreResult ScoreNow() => Definition == null ? null : ScoreOn(BuildSituation());
+
+    /// <summary>Ranks the jobs on a situation already taken this tick; null without a definition.</summary>
+    private ScoreResult ScoreOn(Situation situation)
     {
         if (Definition == null)
         {
             return null;
         }
 
-        var situation = BuildSituation();
         var seed = JobSeed(Core.Now);
         var goal = GoalRules.Pick(situation, seed);
         var catalog = NavWorld.DestinationsFor(HomeFacet);
@@ -1844,7 +1844,7 @@ public partial class SosariaCharacter : PlayerMobile
             Brain.ForgetJobChoice(this);
             Planning.Interrupt(StepProof.DetailInterrupted, now);
             SaveModelPlan();
-            CommitFallbackScore();
+            CommitFallbackScore(ScoreOn(situation));
             return;
         }
 
@@ -1898,7 +1898,7 @@ public partial class SosariaCharacter : PlayerMobile
                 return;
             }
 
-            var scored = ScoreNow();
+            var scored = ScoreOn(situation);
 
             if (Brain.AskJobChoice(this, scored, situation, now, out var source))
             {
@@ -1910,15 +1910,13 @@ public partial class SosariaCharacter : PlayerMobile
             return;
         }
 
-        CommitFallbackScore();
+        CommitFallbackScore(ScoreOn(situation));
     }
 
-    /// <param name="result">A ranking already taken this tick, or null to take one.</param>
+    /// <param name="result">The ranking taken this tick; null commits nothing.</param>
     /// <param name="source">The activity log's source, or null for a plain fallback.</param>
-    private void CommitFallbackScore(ScoreResult result = null, string source = null)
+    private void CommitFallbackScore(ScoreResult result, string source = null)
     {
-        result ??= ScoreNow();
-
         if (result == null)
         {
             return;
@@ -1978,11 +1976,11 @@ public partial class SosariaCharacter : PlayerMobile
 
         if (Routine == null)
         {
-            AttachRoutine(new Routine([fallback]));
+            AttachRoutine(new Routine(fallback));
         }
         else
         {
-            Routine.Replace([fallback], keepFailPause: true);
+            Routine.Replace(fallback, keepFailPause: true);
         }
     }
 
@@ -2095,6 +2093,7 @@ public partial class SosariaCharacter : PlayerMobile
         var gold = (Backpack?.GetAmount(typeof(Gold)) ?? 0) + (BankBox?.GetAmount(typeof(Gold)) ?? 0);
         var ownedMount = Mounted ? null : OwnedMounts.Nearest(this, MountRules.SearchTiles);
         var houseGold = SosariaSettings.Characters?.Career?.HouseGold ?? CareerSettings.DefaultHouseGold;
+        var avoided = AvoidedHuntPlaces();
         return new Situation
         {
             Needs = needs,
@@ -2137,16 +2136,8 @@ public partial class SosariaCharacter : PlayerMobile
                 SosariaSettings.Characters?.Career?.LeashRadius ?? CareerSettings.DefaultLeashRadius
             ),
             DistanceFromHome = HomeLeash.DistanceFromHome(Location, HomeSpot),
-            AvoidHuntPlace = DeathAvoid.ShouldAvoid(
-                _deathPlace,
-                _deathPlace,
-                _lastDeathAt,
-                Core.Now,
-                SosariaSettings.Characters?.Career?.DeathAvoidHours ?? CareerSettings.DefaultDeathAvoidHours,
-                _deathsAtPlace,
-                CharacterPower.For(this),
-                CharactersFile.GraveyardRequiredPower
-            ) || FriendFellAtHunt(),
+            AvoidHuntGround = avoided.Ground,
+            AvoidDungeon = avoided.Dungeon,
             CanUpgradeGear = UpgradeGearSkill.OfferFor(this) != null,
             OpenOrders = CraftOrders.Count,
             CanMount = !Mounted && MayClimbOn(ownedMount),
@@ -2192,25 +2183,47 @@ public partial class SosariaCharacter : PlayerMobile
         };
     }
 
-    /// <summary>A close friend fell lately at this character's hunt ground or dungeon.</summary>
-    private bool FriendFellAtHunt()
+    /// <summary>
+    /// Which of its hunt ground and dungeon this character keeps off: the one it died at lately
+    /// (<see cref="DeathAvoid.ShouldAvoid"/>), or the one a close friend fell at. A death at one
+    /// place leaves the other open. The places are named only when a death could count.
+    /// </summary>
+    private (bool Ground, bool Dungeon) AvoidedHuntPlaces()
     {
-        var hours = DeathAvoid.WindowHours(SosariaSettings.Characters?.Career?.DeathAvoidHours ?? CareerSettings.DefaultDeathAvoidHours);
-        var places = MemoryChoiceRules.FriendDeathPlaces(MemoryStore.Shared, Recall.IdOf(this), Core.Now, TimeSpan.FromHours(hours));
+        var hours = SosariaSettings.Characters?.Career?.DeathAvoidHours ?? CareerSettings.DefaultDeathAvoidHours;
+        var friendPlaces = MemoryChoiceRules.FriendDeathPlaces(
+            MemoryStore.Shared,
+            Recall.IdOf(this),
+            Core.Now,
+            TimeSpan.FromHours(DeathAvoid.WindowHours(hours))
+        );
 
-        if (places.Count == 0)
+        if (string.IsNullOrWhiteSpace(_deathPlace) && friendPlaces.Count == 0)
         {
-            return false;
+            return (false, false);
         }
 
         var hunt = HuntHomeNow();
         var map = FacetMaps.Resolve(HomeFacet);
-        return DeathAvoid.FriendFellAt(
-            places,
-            hunt?.Ground == null ? null : PlaceNames.Of(hunt.Ground.Arrival, map),
-            hunt?.Dungeon == null ? null : PlaceNames.Of(hunt.Dungeon.Arrival, map)
+        var groundPlace = hunt?.Ground == null ? null : PlaceNames.Of(hunt.Ground.Arrival, map);
+        var dungeonPlace = hunt?.Dungeon == null ? null : PlaceNames.Of(hunt.Dungeon.Arrival, map);
+        return (
+            DiedLatelyAt(groundPlace, hours) || DeathAvoid.FriendFellAt(friendPlaces, groundPlace),
+            DiedLatelyAt(dungeonPlace, hours) || DeathAvoid.FriendFellAt(friendPlaces, dungeonPlace)
         );
     }
+
+    private bool DiedLatelyAt(string place, int hours) =>
+        DeathAvoid.ShouldAvoid(
+            _deathPlace,
+            place,
+            _lastDeathAt,
+            Core.Now,
+            hours,
+            _deathsAtPlace,
+            CharacterPower.For(this),
+            CharactersFile.GraveyardRequiredPower
+        );
 
     public bool HouseOwned()
     {
@@ -2302,13 +2315,17 @@ public partial class SosariaCharacter : PlayerMobile
             return;
         }
 
+        if (SkillKinds.BankCrowd.Equals(candidate.SkillKind, StringComparison.OrdinalIgnoreCase))
+        {
+            BankCrowd.Promise(this);
+        }
+
         if (!same)
         {
             RememberRecentSkill(ActionId.SkillKindOf(ActiveActionId));
         }
 
         ActiveActionId = candidate.Id.Value;
-        ActiveRoutineId = candidate.RoutineId;
         ActiveGoalKind = result.Goal.Kind.ToString();
         ActiveGoalTarget = result.Goal.Target;
         if (!fromModel)
@@ -2323,11 +2340,11 @@ public partial class SosariaCharacter : PlayerMobile
 
         if (Routine == null)
         {
-            AttachRoutine(new Routine([skill]));
+            AttachRoutine(new Routine(skill));
         }
         else
         {
-            Routine.Replace([skill], keepFailPause: true);
+            Routine.Replace(skill, keepFailPause: true);
         }
 
         if (same)
@@ -3095,9 +3112,7 @@ public partial class SosariaCharacter : PlayerMobile
             return;
         }
 
-        var id = !string.IsNullOrWhiteSpace(ActiveActionId)
-            ? ActiveActionId
-            : string.IsNullOrWhiteSpace(ActiveRoutineId) ? skillName : ActiveRoutineId;
+        var id = string.IsNullOrWhiteSpace(ActiveActionId) ? skillName : ActiveActionId;
 
         if (status == SkillStatus.Failed)
         {
@@ -3235,13 +3250,11 @@ public partial class SosariaCharacter : PlayerMobile
     }
 
     /// <summary>
-    /// An owned mount in reach that the person may walk to and climb on now: its mounting does
-    /// not cool down, and it does not rest that mount after failing it the same way three
-    /// times. Darian the Grim tried a mount he could not walk to 36 times, every minute or two.
+    /// An owned mount in reach that the person may climb on now: its mounting does not cool
+    /// down. A mount the job rests after failing it three times the same way never gets here:
+    /// <see cref="OwnedMounts.Nearest"/> passes it over.
     /// </summary>
-    private bool MayClimbOn(BaseMount mount) =>
-        mount != null && !RestsSkill(SkillKinds.Mount) &&
-        !JobTargetRest.Rests(this, SkillKinds.Mount, JobTargetRest.KeyOf(mount), Core.Now);
+    private bool MayClimbOn(BaseMount mount) => mount != null && !RestsSkill(SkillKinds.Mount);
 
     /// <summary>True while a skill kind cools down after repeated failure, or rests after it last finished.</summary>
     public bool RestsSkill(string skillKind) => RepeatFailure.Lists(BlockedSkillKinds(Core.Now), skillKind);
@@ -3685,8 +3698,10 @@ public partial class SosariaCharacter : PlayerMobile
         ReportMurderers();
         LetOutlawLoot(c);
         TrackBody(c);
-        _deathsAtPlace = DeathAvoid.AfterDeath(_deathPlace, LocationDescription, _deathsAtPlace, _lastDeathAt, Core.Now);
-        _deathPlace = LocationDescription;
+        // Named as a hunt place is named (PlaceNames), so the avoid check can match it.
+        var deathPlace = PlaceNames.Of(this);
+        _deathsAtPlace = DeathAvoid.AfterDeath(_deathPlace, deathPlace, _deathsAtPlace, _lastDeathAt, Core.Now);
+        _deathPlace = deathPlace;
         MarkDeath(Core.Now);
         _ghostSince = Core.Now;
         Motor.Stop();
@@ -3703,7 +3718,7 @@ public partial class SosariaCharacter : PlayerMobile
                 Type = deathType,
                 Actor = Name,
                 Other = _lastKillerName,
-                Place = PlaceNames.Of(this),
+                Place = deathPlace,
                 Facet = HomeFacet,
                 X = X,
                 Y = Y,
@@ -3723,7 +3738,7 @@ public partial class SosariaCharacter : PlayerMobile
 
         Memory.ShiftBond(_lastKillerPerson, -BondRules.KillPenalty, BondRules.KilledReason);
 
-        AttachRoutine(new Routine([new GhostSkill()], 0));
+        AttachRoutine(new Routine(new GhostSkill()));
         StartGhostFallback();
         Pulse.WakeNow();
     }
@@ -3880,11 +3895,11 @@ public partial class SosariaCharacter : PlayerMobile
 
         if (Routine == null)
         {
-            AttachRoutine(new Routine([run]));
+            AttachRoutine(new Routine(run));
         }
         else
         {
-            Routine.Replace([run]);
+            Routine.Replace(run);
         }
 
         Pulse.WakeNow();
@@ -3932,7 +3947,6 @@ public partial class SosariaCharacter : PlayerMobile
         Poison = null;
         Warmode = false;
         Combatant = null;
-        RoutineStepIndex = 0;
         Routine?.Restart();
         EnsureWorkerSupport(freshStart: false);
         MoveToWorld(location, map);
@@ -4004,7 +4018,7 @@ public partial class SosariaCharacter : PlayerMobile
 
         if (IsGhost)
         {
-            AttachRoutine(new Routine([new GhostSkill()], 0));
+            AttachRoutine(new Routine(new GhostSkill()));
             StartGhostFallback();
         }
 
@@ -4020,6 +4034,10 @@ public partial class SosariaCharacter : PlayerMobile
         _speechTimer.Cancel();
         _returnTimer.Cancel();
         _ghostFallbackTimer.Cancel();
+        GateTravel.Forget(Serial);
+        DungeonGate.Forget(Serial);
+        DungeonAbort.Forget(Serial);
+        HarvestPatches.Forget(Serial.Value);
         base.OnAfterDelete();
     }
 }

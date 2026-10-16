@@ -639,7 +639,10 @@ else on foot through the Den gate. A rider can recall to a camp only when it can
 also get home from there: on foot, or by a second recall it holds (a scroll, a
 book charge, or a set of the spell's reagents). Destard has no walk back to the
 Den, and reds that spent their last charge on the ride out stood there for
-hours. The same holds for a red's dungeon hall and hunt ground. At the camp, the first there wait up to two
+hours. The same holds for a red's dungeon hall and hunt ground. A red that is
+stranded anyway, with no road home clear of the guards and no recall, walks home
+across the guards by the least guarded way: the guards may kill it, and a ghost
+gets home. At the camp, the first there wait up to two
 minutes for the rest. A mate joins a gang's ride only when its own run can
 start: its Conflict job does not rest, and a camp is in its reach.
 

@@ -217,8 +217,8 @@ public class RecallRulesTests
     {
         // A red spent the one charge it had for the way home on the ride out to Destard,
         // where no road leads back to the Den, and stood there for hours.
-        Assert.False(RecallRules.RecallsBothWays(recallsInHand: 1, walksHome: false));
-        Assert.True(RecallRules.RecallsBothWays(RecallRules.RoundTripRecalls, walksHome: false));
-        Assert.True(RecallRules.RecallsBothWays(recallsInHand: 1, walksHome: true));
+        Assert.False(RecallRules.RecallsBothWays(recallsInHand: 1, walksHome: () => false));
+        Assert.True(RecallRules.RecallsBothWays(RecallRules.RoundTripRecalls, walksHome: () => throw new InvalidOperationException("no walk search with two recalls")));
+        Assert.True(RecallRules.RecallsBothWays(recallsInHand: 1, walksHome: () => true));
     }
 }

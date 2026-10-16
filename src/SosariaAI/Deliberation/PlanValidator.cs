@@ -8,7 +8,6 @@ namespace SosariaAI.Deliberation;
 
 public sealed record PlanProposal(
     string CharacterId,
-    int ExpectedRevision,
     string Goal,
     string Reason,
     string Success,
@@ -26,7 +25,6 @@ public static class PlanValidator
     public const string RejectCoordinates = "invented-coordinates";
     public const string RejectEra = "era-forbidden";
     public const string RejectSequence = "sequence-cannot-run";
-    public const string RejectIdentity = "wrong-character";
     public const string RejectStale = "stale-reply";
     public const string RejectDead = "character-dead";
     public const string RejectOffWorld = "character-off-world";

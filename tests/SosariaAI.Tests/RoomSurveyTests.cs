@@ -51,9 +51,9 @@ public class RoomSurveyTests
         Assert.Equal(NoneCount, picture.Threat);
         Assert.Equal(SelfX, picture.CenterX);
         Assert.Equal(SelfY, picture.CenterY);
-        Assert.Equal(RoomSurvey.NoDistance, picture.NearestDistance);
         Assert.Equal(NoneCount, picture.AttackerThreat);
         Assert.Equal(RoomSurvey.NoDistance, picture.AttackerNearest);
+        Assert.Equal(RoomSurvey.NoDistance, picture.AttackerSecond);
     }
 
     [Fact]
@@ -71,10 +71,22 @@ public class RoomSurveyTests
         Assert.Equal(OneFoe, picture.CloseAttackers);
         Assert.Equal(OneTrollThreat, picture.CloseThreat);
         Assert.Equal(ExpectedCenterX, picture.CenterX);
-        Assert.Equal(NearDistance, picture.NearestDistance);
-        Assert.Equal(FarDistance, picture.SecondDistance);
         Assert.Equal(OneTrollThreat, picture.AttackerThreat);
         Assert.Equal(NearDistance, picture.AttackerNearest);
+        Assert.Equal(RoomSurvey.NoDistance, picture.AttackerSecond);
+    }
+
+    [Fact]
+    public void Finish_TwoTrollsOnSelf_ReadsTheNearestTwoAttackers()
+    {
+        var tally = new RoomTally();
+        tally.Add(FarX, SelfY, FarDistance, onSelf: true, Troll);
+        tally.Add(NearX, SelfY, NearDistance, onSelf: true, Troll);
+
+        var picture = tally.Finish(SelfX, SelfY);
+
+        Assert.Equal(NearDistance, picture.AttackerNearest);
+        Assert.Equal(FarDistance, picture.AttackerSecond);
     }
 
     [Fact]
@@ -87,9 +99,23 @@ public class RoomSurveyTests
         var picture = tally.Finish(SelfX, SelfY);
 
         Assert.Equal(TwoTrollThreat, picture.Threat);
-        Assert.Equal(NearDistance, picture.NearestDistance);
         Assert.Equal(OneTrollThreat, picture.AttackerThreat);
         Assert.Equal(FarDistance, picture.AttackerNearest);
+        Assert.Equal(RoomSurvey.NoDistance, picture.AttackerSecond);
+    }
+
+    [Fact]
+    public void AnIdleTrollBetweenTwoChasers_DoesNotCloseTheGap()
+    {
+        // Read on every hostile in sight, an idle monster beside the runner hid the strung-out pack.
+        var tally = new RoomTally();
+        tally.Add(NearX, SelfY, NearDistance, onSelf: false, Troll);
+        tally.Add(SelfX + MeleeNearest, SelfY, MeleeNearest, onSelf: true, Troll);
+        tally.Add(SelfX + SecondBehind, SelfY, SecondBehind, onSelf: true, Troll);
+
+        var picture = tally.Finish(SelfX, SelfY);
+
+        Assert.True(RoomSurvey.IsStraggler(picture.AttackerNearest, picture.AttackerSecond, ranged: false, KeepMin, KeepMax));
     }
 
     [Fact]
@@ -111,7 +137,6 @@ public class RoomSurveyTests
         runnerTally.Add(NearX, SelfY, NearDistance, onSelf: false, Troll);
         var runner = runnerTally.Finish(SelfX, SelfY);
 
-        Assert.False(RetreatRules.IsClear(runner.NearestDistance, RoomSurvey.NoDistance, NotHunted));
         Assert.True(RetreatRules.IsClear(runner.AttackerNearest, RoomSurvey.NoDistance, NotHunted));
     }
 

@@ -39,6 +39,7 @@ public static partial class CombatBrain
     private const string BurstLine = "burst";
     private const string VanishLine = "vanish";
     private const string RecallOutLine = "recall out";
+    private const string LeaveHiddenLine = "leave hidden";
 
     // Weak keys: a deleted character's tactics go with it, as its fight memory does.
     private static readonly ConditionalWeakTable<SosariaCharacter, CasterTactics> Tactics = new();
@@ -324,9 +325,12 @@ public static partial class CombatBrain
     /// <summary>
     /// A caster that is losing (<see cref="MageTacticsRules.Losing"/>) or stands hidden gets out
     /// (<see cref="MageTacticsRules.Escape"/>): it recalls home when the recall-out path allows
-    /// it, else goes invisible, and holds still while hidden. A monster drops a foe it cannot see
-    /// at its next swing (Mobile.CheckCombatTime), so the caster leaves the blows before the line
-    /// where it would run, and meditates after the fight (<see cref="TendMana"/>).
+    /// it, else goes invisible, and holds still while hidden and a recall may still come
+    /// (<see cref="MageTacticsRules.WaitsForRecall"/>); with none to wait for it leaves the
+    /// fight on foot, and the run holds still while it stays hidden (<see cref="HidesFromChasers"/>).
+    /// A monster drops a foe it cannot see at its next swing (Mobile.CheckCombatTime), so the
+    /// caster leaves the blows before the line where it would run, and meditates after the fight
+    /// (<see cref="TendMana"/>).
     /// </summary>
     private static bool TryEscape(
         SosariaCharacter character,
@@ -351,7 +355,13 @@ public static partial class CombatBrain
             return false;
         }
 
-        switch (MageTacticsRules.Escape(hidden, losing, RecallsOut(character, memory, tactics), losing && CanVanish(character, memory)))
+        var recallAllowed = RecallsOut(character, memory, tactics);
+        var waitsForRecall = MageTacticsRules.WaitsForRecall(
+            memory.RecallOutOver,
+            tactics.HiddenSince == 0 ? 0 : Core.TickCount - tactics.HiddenSince
+        );
+
+        switch (MageTacticsRules.Escape(hidden, losing, recallAllowed, waitsForRecall, losing && CanVanish(character, memory)))
         {
             case EscapeMove.Recall:
             {
@@ -364,6 +374,11 @@ public static partial class CombatBrain
             case EscapeMove.StayHidden:
             {
                 character.Motor.Stop();
+                return true;
+            }
+            case EscapeMove.Leave:
+            {
+                LeaveHidden(character, memory, foe);
                 return true;
             }
             default:
@@ -384,7 +399,7 @@ public static partial class CombatBrain
         var now = Core.TickCount;
 
         if (memory.RecallOutOver || now - tactics.NextRecallLookAt < 0 ||
-            !RecallOutRules.ContactBroken(memory.Threats.SoonestBlowMs, SlowedByProtection(character)))
+            !RecallOutRules.ContactBroken(memory.Threats.SoonestBlowMs, Core.AOS, SlowedByProtection(character)))
         {
             return false;
         }
@@ -393,6 +408,20 @@ public static partial class CombatBrain
         var whyNot = RecallRules.WhyNoRecall(character, character.HomeSpot, RecallOutRules.MinTripTiles);
         memory.RecallOutOver = !RecallOutRules.TriesAgain(whyNot);
         return whyNot == null;
+    }
+
+    /// <summary>
+    /// A hidden caster with no recall to wait for leaves the fight on foot: a run decided by its
+    /// own escape, as a flee Jev ordered is, so blows that barely hurt do not turn it round.
+    /// </summary>
+    private static void LeaveHidden(SosariaCharacter character, Memory memory, Mobile foe)
+    {
+        BreakOff(character, memory, foe, ordered: true, FleeSpan());
+
+        if (LogsOnce(character, LeaveHiddenLine, foe))
+        {
+            logger.Information("{Name} has no recall out and leaves {Foe} on foot while hidden", character.Name, foe.Name);
+        }
     }
 
     /// <summary>Says the words home; the travel spell answers its own cursor (<see cref="TravelSpells"/>).</summary>
@@ -475,18 +504,25 @@ public static partial class CombatBrain
         }
     }
 
-    /// <summary>A spell that helps, on itself, a friend, a pet or a ghost. The cast gap holds as for an attack.</summary>
     /// <summary>
     /// A caster on the run casts Invisibility once its lead lets the words finish before the
     /// next blow (<see cref="SafeCircleNow"/>): the chasers lose it, where a run alone dragged
-    /// them along until it was caught.
+    /// them along until it was caught. The blows are read now, from this scan's chasers: the
+    /// read the fight left behind told a runner well clear that a blow was on it, or one caught
+    /// that it was clear.
     /// </summary>
     private static bool VanishesOnTheRun(SosariaCharacter character, Memory memory, bool scanned)
     {
         if (!scanned || character.Hidden || !IsSpellFighter(character) ||
             !SpellBook.CanCast(SpellBook.Invisibility, character.Skills.Magery.Value, character.Mana) ||
-            !SpellBook.Fits(SpellBook.Invisibility, SafeCircleNow(character, memory)) ||
-            ChaserOnRunner(character, memory) is not { } chaser ||
+            ChaserOnRunner(character, memory) is not { } chaser)
+        {
+            return false;
+        }
+
+        ReadThreats(character, memory, chaser);
+
+        if (!SpellBook.Fits(SpellBook.Invisibility, SafeCircleNow(character, memory)) ||
             !CastAid(character, memory, SpellKind.Invisibility, character))
         {
             return false;
@@ -500,6 +536,7 @@ public static partial class CombatBrain
         return true;
     }
 
+    /// <summary>A spell that helps, on itself, a friend, a pet or a ghost. The cast gap holds as for an attack.</summary>
     private static bool CastAid(SosariaCharacter character, Memory memory, SpellKind kind, Mobile target)
     {
         if (!BeginCast(character, memory, kind, target))
@@ -590,7 +627,7 @@ public static partial class CombatBrain
             !FootworkRules.CanBreakCast(
                 foe.Player,
                 FoeCastLeftMs(foe),
-                FootworkRules.ArrowBreakMs(SlowedByProtection(character))
+                FootworkRules.ArrowBreakMs(Core.AOS, SlowedByProtection(character))
             ) ||
             !SpellBook.CanCast(SpellBook.MagicArrow, character.Skills.Magery.Value, character.Mana) ||
             !memory.Kit.Stock.Has(SpellKind.MagicArrow) ||

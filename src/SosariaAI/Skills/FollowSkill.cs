@@ -26,6 +26,9 @@ public sealed class FollowSkill : Skill
 {
     private const string FollowedThroughGateEvent = "followed the leader through a gate";
 
+    /// <summary>A walk is planned again once the leader moved off its end by more than the way left divided by this.</summary>
+    private const int StaleRouteDivisor = 2;
+
     private static readonly ILogger logger = SosariaLog.For(typeof(FollowSkill));
 
     private readonly string _partyId;
@@ -98,13 +101,13 @@ public sealed class FollowSkill : Skill
 
         if (TimeRules.Passed(_started, Core.Now, PartyWaitRules.FollowLimit))
         {
-            ClearWalk();
+            Stop();
             return SkillStatus.Done;
         }
 
         if (party.Disbanded || (_sawTrip && !party.TripActive))
         {
-            ClearWalk();
+            Stop();
             return SkillStatus.Done;
         }
 
@@ -127,7 +130,7 @@ public sealed class FollowSkill : Skill
                 return WalkTo(catchUp);
             }
 
-            ClearWalk();
+            Stop();
             return SkillStatus.Done;
         }
 
@@ -147,7 +150,10 @@ public sealed class FollowSkill : Skill
         return KeepUp(leader);
     }
 
-    public override void Abort()
+    public override void Abort() => Stop();
+
+    /// <summary>Ends the follow: the walk stops and a recall still being spoken is broken off.</summary>
+    private void Stop()
     {
         _recall?.Abort();
         _recall = null;
@@ -161,7 +167,7 @@ public sealed class FollowSkill : Skill
 
         if (leader == null)
         {
-            ClearWalk();
+            Stop();
             return SkillStatus.Done;
         }
 
@@ -239,7 +245,7 @@ public sealed class FollowSkill : Skill
                 logger.Information("{Name} stopped waiting for party {Id}", _character.Name, _partyId);
             }
 
-            ClearWalk();
+            Stop();
             return SkillStatus.Done;
         }
 
@@ -314,20 +320,21 @@ public sealed class FollowSkill : Skill
     {
         var chebyshev = NavMetric.Chebyshev(_character.Location, dest);
         var useNav = FollowWalk.NeedsNav(chebyshev);
+        var destMoved = LeaderMovedOff(_character.Location, _walkDest, dest);
 
         if (_waitingForRoute)
         {
             // No route right now. Stand still, then ask the graph again rather than
             // waiting out the whole trip in one spot. The leader walking on is not a
             // reason to ask sooner.
-            if (!FollowWalk.ShouldReplan(waitingForRoute: true, _walkDest != dest, ++_routeWaitTicks))
+            if (!FollowWalk.ShouldReplan(waitingForRoute: true, destMoved, ++_routeWaitTicks))
             {
                 return SkillStatus.Running;
             }
 
             ClearWalk();
         }
-        else if (_walk != null && FollowWalk.ShouldReplan(waitingForRoute: false, _walkDest != dest, 0))
+        else if (_walk != null && FollowWalk.ShouldReplan(waitingForRoute: false, destMoved, 0))
         {
             ClearWalk();
         }
@@ -372,6 +379,16 @@ public sealed class FollowSkill : Skill
 
         return status == SkillStatus.Failed ? SkillStatus.Failed : SkillStatus.Running;
     }
+
+    /// <summary>
+    /// True when the leader at <paramref name="leaderAt"/> has moved off the end of the walk
+    /// (<paramref name="walkDest"/>) by more than half the way the follower at
+    /// <paramref name="follower"/> still has to go. A leader on the move stands on a new tile
+    /// each tick; a walk planned again on each step was thrown away before its route came
+    /// back, so the follower never moved. A walk that has arrived is planned again on any step.
+    /// </summary>
+    public static bool LeaderMovedOff(Point3D follower, Point3D walkDest, Point3D leaderAt) =>
+        NavMetric.Chebyshev(walkDest, leaderAt) * StaleRouteDivisor > NavMetric.Chebyshev(follower, walkDest);
 
     /// <summary>
     /// A follower takes up the leader's foe unless it is running, or it ran from that foe or its

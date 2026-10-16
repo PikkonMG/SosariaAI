@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Server;
 using SosariaAI.Behaviour;
@@ -19,8 +18,6 @@ namespace SosariaAI.Population;
 /// </summary>
 public static class LifecycleClock
 {
-    private const double MinutesPerHour = 60.0;
-
     private static bool _onMinute;
 
     /// <summary>Runs one pulse after the bind, so everyone enters the world at boot, then pulses every minute.</summary>
@@ -34,10 +31,6 @@ public static class LifecycleClock
             _onMinute = true;
         }
     }
-
-    /// <summary>The local time of day in hours, with the minutes as a fraction.</summary>
-    public static double HourOfDay(DateTime utcNow) =>
-        DayShapeRules.LocalHour(utcNow) + utcNow.Minute / MinutesPerHour;
 
     /// <summary>
     /// A person off the world logs back in on the pulse, unless its return from death is set: a
@@ -66,7 +59,7 @@ public static class LifecycleClock
     private static void Pulse()
     {
         var now = Core.Now;
-        var hour = (int)Math.Floor(HourOfDay(now));
+        var hour = DayShapeRules.LocalHour(now);
         var bound = new List<SosariaCharacter>();
 
         foreach (var mobile in World.Mobiles.Values)

@@ -206,6 +206,7 @@ public static class FactionWar
 
         if (LastPairTaunt.Count >= SweepAt)
         {
+            Sweep(LastTaunt, now, FactionRules.TauntRest);
             Sweep(LastPairTaunt, now, FactionRules.PairTauntRest);
             Sweep(LastTauntOn, now, FactionRules.FoeTauntRest);
             Sweep(LastTauntIn, now, FactionRules.PlaceTauntRest);

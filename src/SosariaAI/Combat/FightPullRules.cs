@@ -53,15 +53,9 @@ public static class FightPullRules
         bool hasHealing,
         int alliesPower,
         double threatMultiple,
-        double minHitsToOpen,
-        bool alreadyAttacked
+        double minHitsToOpen
     )
     {
-        if (alreadyAttacked)
-        {
-            return false;
-        }
-
         if (ThreatRating.ShouldEngage(
                 power,
                 groupThreat,
@@ -69,8 +63,7 @@ public static class FightPullRules
                 hasHealing,
                 alliesPower,
                 threatMultiple,
-                minHitsToOpen,
-                alreadyAttacked: false))
+                minHitsToOpen))
         {
             return false;
         }
@@ -82,7 +75,6 @@ public static class FightPullRules
             hasHealing,
             alliesPower,
             threatMultiple,
-            minHitsToOpen,
-            alreadyAttacked: false);
+            minHitsToOpen);
     }
 }

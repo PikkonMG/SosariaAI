@@ -17,10 +17,19 @@ public sealed class Party
     private static readonly Dictionary<string, Party> Registry = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Where each crew member was last found. Care, lag waits and follows look members up
-    /// every think, and this cache saves a walk over every mobile in the world for each one.
+    /// Where each character was last found, by id. Care, lag waits and follows look members up
+    /// every think, and this index saves a walk over every mobile in the world for each one.
     /// </summary>
     private static readonly Dictionary<string, Serial> KnownSerials = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// A member missing from the index is looked for again, in one walk over the world for
+    /// every id, at most this often: a crew member out of the world cost a full walk on every
+    /// hunt think of its leader.
+    /// </summary>
+    private static readonly TimeSpan IndexRebuildGap = TimeSpan.FromSeconds(30);
+
+    private static DateTime _indexBuiltAt;
 
     private readonly HashSet<string> _present = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _restLogged = new(StringComparer.OrdinalIgnoreCase);
@@ -498,7 +507,7 @@ public sealed class Party
             }
         }
 
-        return PartyWaitRules.ShouldWaitForLag(false, farthest, PartyWaitRules.LagTiles);
+        return PartyWaitRules.ShouldWaitForLag(farthest);
     }
 
     public static SosariaCharacter FindMobile(string characterId)
@@ -508,25 +517,42 @@ public sealed class Party
             return null;
         }
 
-        if (KnownSerials.TryGetValue(characterId, out var serial) &&
-            World.FindMobile(serial) is SosariaCharacter { Deleted: false } known &&
-            string.Equals(known.CharacterId, characterId, StringComparison.OrdinalIgnoreCase))
+        if (Known(characterId) is { } known)
         {
             return known;
         }
 
-        foreach (var mobile in World.Mobiles.Values)
+        var now = Core.Now;
+
+        if (!TimeRules.Rested(_indexBuiltAt, now, IndexRebuildGap))
         {
-            if (mobile is SosariaCharacter { Deleted: false } character &&
-                string.Equals(character.CharacterId, characterId, StringComparison.OrdinalIgnoreCase))
-            {
-                KnownSerials[characterId] = character.Serial;
-                return character;
-            }
+            return null;
         }
 
-        KnownSerials.Remove(characterId);
-        return null;
+        _indexBuiltAt = now;
+        IndexCharacters();
+        return Known(characterId);
+    }
+
+    private static SosariaCharacter Known(string characterId) =>
+        KnownSerials.TryGetValue(characterId, out var serial) &&
+        World.FindMobile(serial) is SosariaCharacter { Deleted: false } known &&
+        string.Equals(known.CharacterId, characterId, StringComparison.OrdinalIgnoreCase)
+            ? known
+            : null;
+
+    /// <summary>One walk over the world finds every character by its id.</summary>
+    private static void IndexCharacters()
+    {
+        KnownSerials.Clear();
+
+        foreach (var mobile in World.Mobiles.Values)
+        {
+            if (mobile is SosariaCharacter { Deleted: false } character && !string.IsNullOrWhiteSpace(character.CharacterId))
+            {
+                KnownSerials[character.CharacterId] = character.Serial;
+            }
+        }
     }
 
     private static void LogLeftBehind(Party party, string memberId)

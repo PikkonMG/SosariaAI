@@ -11,11 +11,10 @@ public class PartyGateRulesTests
     [Fact]
     public void PickGater_TheLeaderWhenItCan_ElseTheFirstMemberWhoCan()
     {
-        Assert.Equal(LeaderIndex, PartyGateRules.PickGater([true, true, false], LeaderIndex));
-        Assert.Equal(2, PartyGateRules.PickGater([false, false, true, true], LeaderIndex));
-        Assert.Equal(PartyGateRules.NoOne, PartyGateRules.PickGater([false, false], LeaderIndex));
-        Assert.Equal(PartyGateRules.NoOne, PartyGateRules.PickGater(null, LeaderIndex));
-        Assert.Equal(1, PartyGateRules.PickGater([false, true], PartyGateRules.NoOne));
+        Assert.Equal(LeaderIndex, PartyGateRules.PickGater([true, true, false]));
+        Assert.Equal(2, PartyGateRules.PickGater([false, false, true, true]));
+        Assert.Equal(PartyGateRules.NoOne, PartyGateRules.PickGater([false, false]));
+        Assert.Equal(PartyGateRules.NoOne, PartyGateRules.PickGater(null));
     }
 
     [Fact]
@@ -39,10 +38,14 @@ public class PartyGateRulesTests
     [Fact]
     public void MayStep_TheLeaderFirst_TheRestAfterIt()
     {
-        Assert.True(PartyGateRules.MayStep(isLeader: true, leaderThrough: false));
-        Assert.False(PartyGateRules.MayStep(isLeader: false, leaderThrough: false));
-        Assert.True(PartyGateRules.MayStep(isLeader: false, leaderThrough: true));
+        Assert.True(PartyGateRules.MayStep(isLeader: true, leaderThrough: false, leaderCast: false));
+        Assert.False(PartyGateRules.MayStep(isLeader: false, leaderThrough: false, leaderCast: false));
+        Assert.True(PartyGateRules.MayStep(isLeader: false, leaderThrough: true, leaderCast: false));
     }
+
+    [Fact]
+    public void MayStep_TheRestGoAtOnce_WhenTheLeaderCastAndHoldsTheGate() =>
+        Assert.True(PartyGateRules.MayStep(isLeader: false, leaderThrough: false, leaderCast: true));
 
     [Fact]
     public void CasterGoes_WhenEveryoneIsThrough_OrItsHoldIsUp()

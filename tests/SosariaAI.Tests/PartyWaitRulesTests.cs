@@ -62,11 +62,11 @@ public class PartyWaitRulesTests
     }
 
     [Fact]
-    public void ShouldWaitForLag_OnlyOutOfCombat()
+    public void ShouldWaitForLag_OnlyPastTheLagLine()
     {
-        Assert.False(PartyWaitRules.ShouldWaitForLag(true, 40, PartyWaitRules.LagTiles));
-        Assert.True(PartyWaitRules.ShouldWaitForLag(false, 40, PartyWaitRules.LagTiles));
-        Assert.False(PartyWaitRules.ShouldWaitForLag(false, 2, PartyWaitRules.LagTiles));
+        Assert.True(PartyWaitRules.ShouldWaitForLag(PartyWaitRules.LagTiles + 1));
+        Assert.False(PartyWaitRules.ShouldWaitForLag(PartyWaitRules.LagTiles));
+        Assert.False(PartyWaitRules.ShouldWaitForLag(2));
     }
 
     [Fact]

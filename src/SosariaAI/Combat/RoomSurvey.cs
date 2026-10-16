@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Server;
 using SosariaAI.Navigation;
@@ -7,9 +6,9 @@ namespace SosariaAI.Combat;
 
 /// <summary>
 /// What one glance at a room tells a player: how many hostiles, what they rate together,
-/// how many are on me, how many of those can hit me this second, where the mass of them
-/// stands, and how far the nearest two are. The ones on me apart: what they rate together
-/// (<see cref="AttackerThreat"/>) and how far the nearest of them is (<see cref="AttackerNearest"/>).
+/// how many are on me, how many of those can hit me this second, and where the mass of them
+/// stands. The ones on me apart: what they rate together (<see cref="AttackerThreat"/>) and how
+/// far the nearest two of them are (<see cref="AttackerNearest"/>, <see cref="AttackerSecond"/>).
 /// A monster in sight that is not on me is no reason to run, and running from it pulls it in.
 /// </summary>
 public readonly record struct RoomPicture(
@@ -20,10 +19,9 @@ public readonly record struct RoomPicture(
     int CloseThreat,
     int CenterX,
     int CenterY,
-    int NearestDistance,
-    int SecondDistance,
     int AttackerThreat,
-    int AttackerNearest
+    int AttackerNearest,
+    int AttackerSecond
 )
 {
     public bool Any => Count > 0;
@@ -40,9 +38,8 @@ public sealed class RoomTally
     private readonly List<HostileStats> _close = [];
     private long _sumX;
     private long _sumY;
-    private int _nearest;
-    private int _second;
     private int _attackerNearest;
+    private int _attackerSecond;
 
     public RoomTally() => Reset();
 
@@ -53,9 +50,8 @@ public sealed class RoomTally
         _close.Clear();
         _sumX = 0;
         _sumY = 0;
-        _nearest = RoomSurvey.NoDistance;
-        _second = RoomSurvey.NoDistance;
         _attackerNearest = RoomSurvey.NoDistance;
+        _attackerSecond = RoomSurvey.NoDistance;
     }
 
     public void Add(int x, int y, int distance, bool onSelf, HostileStats stats)
@@ -64,23 +60,22 @@ public sealed class RoomTally
         _sumX += x;
         _sumY += y;
 
-        if (distance < _nearest)
-        {
-            _second = _nearest;
-            _nearest = distance;
-        }
-        else if (distance < _second)
-        {
-            _second = distance;
-        }
-
         if (!onSelf)
         {
             return;
         }
 
         _attackers.Add(stats);
-        _attackerNearest = Math.Min(_attackerNearest, distance);
+
+        if (distance < _attackerNearest)
+        {
+            _attackerSecond = _attackerNearest;
+            _attackerNearest = distance;
+        }
+        else if (distance < _attackerSecond)
+        {
+            _attackerSecond = distance;
+        }
 
         if (RoomSurvey.IsClose(distance))
         {
@@ -100,10 +95,9 @@ public sealed class RoomTally
             ThreatRating.Score(_close),
             count == 0 ? originX : (int)(_sumX / count),
             count == 0 ? originY : (int)(_sumY / count),
-            _nearest,
-            _second,
             ThreatRating.Score(_attackers),
-            _attackerNearest
+            _attackerNearest,
+            _attackerSecond
         );
     }
 }
@@ -131,7 +125,7 @@ public static class RoomSurvey
 
     public static bool IsClose(int distance) => distance <= CloseTiles;
 
-    /// <summary>Tiles between the nearest hostile and the next. No second hostile is an open gap.</summary>
+    /// <summary>Tiles between the nearest chaser and the next. No second chaser is an open gap.</summary>
     public static int Gap(int nearest, int second) =>
         nearest == NoDistance ? 0 : second == NoDistance ? NoDistance : second - nearest;
 

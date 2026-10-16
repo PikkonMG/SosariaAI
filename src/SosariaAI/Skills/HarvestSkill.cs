@@ -775,16 +775,27 @@ public abstract class HarvestSkill : Skill
         _lastCarried = carried;
     }
 
-    /// <summary>A full load goes onto the pack beast in reach, and the work goes on.</summary>
+    /// <summary>
+    /// A full load goes onto the pack beast in reach, and the work goes on. Only this trade's
+    /// own resource that left the pack counts toward the trip: the ingots a miner carries from
+    /// its stock ride on the beast too, and are no haul of this trip.
+    /// </summary>
     private void LoadBeastWhenLoaded()
     {
-        if (!IsLoaded() || PackAnimals.Load(_character) is not (var loaded and > 0))
+        if (!IsLoaded())
         {
             return;
         }
 
-        _loadedOnBeast += loaded;
+        var before = CountResource(_character.Backpack);
+
+        if (PackAnimals.Load(_character) <= 0)
+        {
+            return;
+        }
+
         ResourceCount = CountResource(_character.Backpack);
+        _loadedOnBeast += before - ResourceCount;
         _lastCarried = CarryLoad.Carried(_character);
     }
 

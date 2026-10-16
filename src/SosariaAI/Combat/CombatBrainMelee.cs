@@ -20,19 +20,28 @@ public static partial class CombatBrain
 
     /// <summary>
     /// One melee think: out of reach while the bandage works (Jev's heal stance, or the rules
-    /// when the fight turns), else the draw, else a better stand on the scan pace, else into
-    /// reach. A step-out that ended, not pinned, ends its break-away, so the next one starts fresh.
+    /// when the fight turns), a step back while a foe is near and a stand past it
+    /// (<see cref="MeleeTacticsRules.StepsBack"/>); else the draw, else a better stand on the
+    /// scan pace, else into reach. A step-out that ended, not pinned, ends its break-away, so
+    /// the next one starts fresh.
     /// </summary>
     private static void FightAsMelee(SosariaCharacter character, Memory memory, Mobile foe, CombatStance stance, bool scanned)
     {
         ExpireBreakAway(memory);
         var reach = Math.Max(MeleeRange, character.Weapon?.MaxRange ?? MeleeRange);
-        var healingOut = stance == CombatStance.Heal && JevHolds(memory, CombatStance.Heal) && memory.Threats.Adjacent > 0 ||
+        var healingOut = stance == CombatStance.Heal && JevHolds(memory, CombatStance.Heal) ||
                          StepsOutToHeal(character, memory, foe);
 
         if (healingOut)
         {
-            OpenGap(character, memory, foe, FootworkRules.SingleStep);
+            if (MeleeTacticsRules.StepsBack(memory.Threats.NearestDistance))
+            {
+                OpenGap(character, memory, foe, FootworkRules.SingleStep);
+            }
+            else
+            {
+                character.Motor.Stop();
+            }
 
             if (LogsOnce(character, HealOutLine, foe))
             {
@@ -62,7 +71,6 @@ public static partial class CombatBrain
             everyBlowSlips: !Core.AOS,
             Vitals.HitsFraction(character),
             memory.Outlook,
-            memory.Threats.Adjacent,
             StyleOfFoe(foe) != CombatStyle.Melee,
             memory.Pinned
         );

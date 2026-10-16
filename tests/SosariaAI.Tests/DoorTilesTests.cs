@@ -55,5 +55,8 @@ public class DoorTilesTests
         Assert.False(DoorTiles.IsDoorway(Map.Internal, 0, 0));
         Assert.Null(DoorTiles.ClosedDoorAt(null, 0, 0, 0));
         Assert.Null(DoorTiles.ClosedDoorAt(Map.Internal, 0, 0, 0));
+        Assert.Null(DoorTiles.DoorwayAt(null, 0, 0, 0));
+        Assert.Null(DoorTiles.DoorwayAt(Map.Internal, 0, 0, 0));
+        Assert.False(DoorTiles.DiagonalByDoorway(null, 0, 0, 1, 1, 0));
     }
 }

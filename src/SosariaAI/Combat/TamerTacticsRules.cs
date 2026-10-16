@@ -12,7 +12,7 @@ public enum TamerMove
     /// <summary>A pet is near death: "all follow me", and the tamer runs with it.</summary>
     SavePet,
 
-    /// <summary>Hidden: it stands still, since a step or a spell shows it again.</summary>
+    /// <summary>Hidden while its pets fight: it stands still, since a step or a spell shows it again.</summary>
     StayHidden,
 
     /// <summary>A heal or cure on the hurt pet: a spell from range, or a bandage beside it.</summary>
@@ -92,7 +92,9 @@ public static class TamerTacticsRules
             return TamerMove.SavePet;
         }
 
-        if (sight.Hidden)
+        // Hidden with no pet fit to fight for it, the tamer is a caster alone: its way out is the
+        // caster's (MageTacticsRules.Escape). Held here, it stood still for the rest of the fight.
+        if (sight.Hidden && sight.PetsReady)
         {
             return sight.HiddenMs >= HideHoldMs && sight.PetNeedsCare && sight.CanTendPet ? TamerMove.HealPet : TamerMove.StayHidden;
         }

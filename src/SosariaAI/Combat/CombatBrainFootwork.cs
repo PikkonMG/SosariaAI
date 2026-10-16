@@ -143,14 +143,10 @@ public static partial class CombatBrain
 
     /// <summary>The highest circle this caster can finish before the soonest blow, by this era's rules.</summary>
     private static int SafeCircleNow(SosariaCharacter character, Memory memory) =>
-        CastTiming.SafeCircle(
-            memory.Threats.SoonestBlowMs,
-            SlowedByProtection(character),
-            firstCircleShrugsHits: !Core.AOS
-        );
+        CastTiming.SafeCircle(memory.Threats.SoonestBlowMs, Core.AOS, SlowedByProtection(character));
 
-    private static bool SlowedByProtection(Mobile mobile) =>
-        Core.UOR && ProtectionSpell.Registry.ContainsKey(mobile);
+    /// <summary>Protection is up; whether it slows the words is the era's call (<see cref="CastTiming.CastDelayMs"/>).</summary>
+    private static bool SlowedByProtection(Mobile mobile) => ProtectionSpell.Registry.ContainsKey(mobile);
 
     /// <summary>The ward of the era is up: Protection from UOR on, Reactive Armor before.</summary>
     private static bool WardUp(Mobile mobile) =>
@@ -347,6 +343,9 @@ public static partial class CombatBrain
 
     private static readonly SpellInfo[] SpellInfos = new SpellInfo[AllSpells.Length];
 
+    /// <summary>The pack's count of each reagent type, read by <see cref="StockOf"/>. World thread only.</summary>
+    private static readonly int[] ReagentCounts = new int[SupplyCheck.ReagentTypes.Length];
+
     /// <summary>The pack's remedies and the spells it holds the reagents for. Read on the scan pace.</summary>
     private static void ReadKit(SosariaCharacter character, Memory memory)
     {
@@ -366,7 +365,12 @@ public static partial class CombatBrain
         };
     }
 
-    /// <summary>The spells of <paramref name="kinds"/> whose reagents <paramref name="pack"/> holds (<see cref="SpellStock"/>).</summary>
+    /// <summary>
+    /// The spells of <paramref name="kinds"/> whose reagents <paramref name="pack"/> holds
+    /// (<see cref="SpellStock"/>). The pack is read once, one count per reagent type
+    /// (<see cref="SupplyCheck.ReagentTypes"/>); a pack search per reagent of every spell was
+    /// fifty searches a scan for every fighter. World thread only.
+    /// </summary>
     private static SpellStock StockOf(Container pack, IReadOnlyList<SpellKind> kinds, Mobile caster)
     {
         var stock = SpellStock.None;
@@ -376,15 +380,27 @@ public static partial class CombatBrain
             return stock;
         }
 
+        for (var i = 0; i < SupplyCheck.ReagentTypes.Length; i++)
+        {
+            ReagentCounts[i] = pack.GetAmount(SupplyCheck.ReagentTypes[i]);
+        }
+
         for (var i = 0; i < kinds.Count; i++)
         {
-            if (HasReagents(pack, kinds[i], caster))
+            if (SpellCasting.HasReagents(InfoOf(kinds[i], caster), CountedReagent))
             {
                 stock = stock.With(kinds[i]);
             }
         }
 
         return stock;
+    }
+
+    /// <summary>The count <see cref="StockOf"/> read for a reagent type; zero for a type it does not count.</summary>
+    private static int CountedReagent(Type reagent)
+    {
+        var index = Array.IndexOf(SupplyCheck.ReagentTypes, reagent);
+        return index < 0 ? 0 : ReagentCounts[index];
     }
 
     private static bool HasReagents(Container pack, SpellKind kind, Mobile caster) =>

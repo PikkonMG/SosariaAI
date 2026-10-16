@@ -17,6 +17,12 @@ namespace SosariaAI.Combat;
 /// </summary>
 public static partial class CombatBrain
 {
+    /// <summary>
+    /// The stance a model set while it stands and the character can carry it out, else the
+    /// stance rules. A model's Flee passes the gates every run passes (<see cref="MayRun"/>) and
+    /// waits out the bay window (<see cref="AtBay"/>); refused by the retreat, it stepped the
+    /// fighter back and forth where it was told to stand.
+    /// </summary>
     private static CombatStance StanceFor(
         SosariaCharacter character,
         Memory memory,
@@ -28,7 +34,8 @@ public static partial class CombatBrain
     {
         var now = Core.TickCount;
         var situation = SituationOf(character, memory, foe, style, caster, distance, now);
-        var stance = now - memory.StanceUntil < 0 && memory.JevStance is { } set && StanceRules.Feasible(set, situation)
+        var stance = now - memory.StanceUntil < 0 && memory.JevStance is { } set && StanceRules.Feasible(set, situation) &&
+                     (set != CombatStance.Flee || !AtBay(memory) && MayRun(character, memory))
             ? set
             : StanceRules.Pick(situation);
 

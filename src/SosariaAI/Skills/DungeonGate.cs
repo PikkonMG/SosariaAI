@@ -54,4 +54,7 @@ public static class DungeonGate
         Where[character.Serial] = (now.Dungeon, now.Level);
         return now;
     }
+
+    /// <summary>Drops the floor noted for a person that left the world for good.</summary>
+    public static void Forget(Serial serial) => Where.Remove(serial);
 }

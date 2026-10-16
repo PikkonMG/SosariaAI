@@ -99,15 +99,9 @@ public static class ThreatRating
         bool hasHealing,
         int alliesPower,
         double threatMultiple,
-        double minHitsToOpen,
-        bool alreadyAttacked
+        double minHitsToOpen
     )
     {
-        if (alreadyAttacked)
-        {
-            return true;
-        }
-
         if (hitsFraction < minHitsToOpen)
         {
             return false;

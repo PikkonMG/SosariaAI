@@ -271,12 +271,27 @@ public class BankCrowdRulesTests
     public void HasLeft_WalkGraceThenStayAtTheBank()
     {
         var shortWhile = TimeSpan.FromMinutes(1);
+        var claimed = new DateTime(2026, 9, 24, 12, 0, 0);
+        var holdUntil = claimed + BankCrowdRules.WalkGrace + BankCrowdRules.HoldLength(int.MaxValue, BankCrowdRules.MaxHoldScale);
 
-        Assert.False(BankCrowdRules.HasLeft(arrived: false, atBank: false, shortWhile));
-        Assert.True(BankCrowdRules.HasLeft(arrived: false, atBank: false, BankCrowdRules.WalkGrace + shortWhile));
-        Assert.True(BankCrowdRules.HasLeft(arrived: true, atBank: false, shortWhile));
-        Assert.False(BankCrowdRules.HasLeft(arrived: true, atBank: true, shortWhile));
-        Assert.True(BankCrowdRules.HasLeft(arrived: true, atBank: true, BankCrowdRules.LongestHold + shortWhile));
+        Assert.False(BankCrowdRules.HasLeft(arrived: false, atBank: false, shortWhile, default, claimed + shortWhile));
+        Assert.True(BankCrowdRules.HasLeft(arrived: false, atBank: false, BankCrowdRules.WalkGrace + shortWhile, default, claimed));
+        Assert.True(BankCrowdRules.HasLeft(arrived: true, atBank: false, shortWhile, holdUntil, claimed + shortWhile));
+        Assert.False(BankCrowdRules.HasLeft(arrived: true, atBank: true, shortWhile, holdUntil, claimed + shortWhile));
+        Assert.True(BankCrowdRules.HasLeft(arrived: true, atBank: true, shortWhile, holdUntil, holdUntil));
+    }
+
+    // A member that walked the whole grace and then rolled the longest hold keeps its seat until
+    // its own hold ends: the hold counts from the arrival, not from the claim.
+    [Fact]
+    public void HasLeft_LongWalkNeverEatsIntoTheHold()
+    {
+        var claimed = new DateTime(2026, 9, 24, 12, 0, 0);
+        var arrived = claimed + BankCrowdRules.WalkGrace;
+        var holdUntil = arrived + BankCrowdRules.HoldLength(int.MaxValue, BankCrowdRules.MaxHoldScale);
+        var lastMinute = holdUntil - TimeSpan.FromMinutes(1);
+
+        Assert.False(BankCrowdRules.HasLeft(arrived: true, atBank: true, lastMinute - claimed, holdUntil, lastMinute));
     }
 
     [Fact]

@@ -111,13 +111,15 @@ public static class RedGangReach
 
     /// <summary>
     /// True when the red recalls to <paramref name="goal"/> (<see cref="Recalls"/>) and can get
-    /// home from there: a walk from the goal to its home, or a second recall in hand
-    /// (<see cref="RecallRules.RecallsBothWays"/>). An outing reached only by a recall that
-    /// leaves the red no way back is out of reach.
+    /// home from there: a second recall in hand, or a walk on its roads between its home and the
+    /// goal (<see cref="RecallRules.RecallsBothWays"/>). The walk is searched from the home, which
+    /// every red of the Den shares, so one cached search serves every camp; a search from each
+    /// camp made one full road search per camp and per red. An outing reached only by a recall
+    /// that leaves the red no way back is out of reach.
     /// </summary>
     public static bool RecallsThereAndBack(SosariaCharacter red, Point3D goal) =>
         Recalls(red, goal) &&
-        RecallRules.RecallsBothWays(RuneKit.RecallsInHand(red), Walks(red, goal, red.HomeSpot));
+        RecallRules.RecallsBothWays(RuneKit.RecallsInHand(red), () => Walks(red, red.HomeSpot, goal));
 
     /// <summary>
     /// True when <paramref name="walker"/> walks from <paramref name="from"/> to the node
@@ -167,7 +169,7 @@ public static class RedGangReach
 
         var cost = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         var prev = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        NavSearch.Explore(graph, start.Name, null, NavSearch.DefaultGateCost, null, null, cost, prev, bars, walkAway: true);
+        NavSearch.Explore(graph, start.Name, null, Traveler.GateCost(), null, null, cost, prev, bars, walkAway: true);
         var walkable = new HashSet<string>(cost.Keys, StringComparer.OrdinalIgnoreCase);
         WalkableByStart[key] = walkable;
         return walkable;

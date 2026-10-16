@@ -12,6 +12,7 @@ using SosariaAI.Configuration;
 using SosariaAI.Navigation.Generation;
 using SosariaAI.Logging;
 using SosariaAI.Spawning;
+using Teleporter = Server.Items.Teleporter;
 
 namespace SosariaAI.Navigation;
 
@@ -101,9 +102,10 @@ public static class NavWorld
 
     /// <summary>
     /// Picks the reds' haven from the catalogs just loaded (<see cref="WorldAnchors.HavenFor"/>),
-    /// then reads the guarded roads reds keep off on each graph of a map with open PvP
-    /// (<see cref="PathSearchBars.WarmGuards"/>), at boot and after every check or rebuild: a new
-    /// graph starts cold, and the first red plan on it paid the read on the world thread.
+    /// then reads the guarded roads reds keep off on each graph (<see cref="PathSearchBars.WarmGuards"/>),
+    /// at boot and after every check or rebuild: a new graph starts cold, and the first red plan
+    /// on it paid the read on the world thread. A map with no open PvP is read too: a red keeps
+    /// off its guards all the same (<see cref="PathSearchBars.For(NavGraph, Map, Point3D, bool, bool)"/>).
     /// </summary>
     private static void SettleReds(CharactersConfiguration characters)
     {
@@ -111,7 +113,7 @@ public static class NavWorld
 
         foreach (var pair in characters.Maps)
         {
-            if (pair.Value is not { Enabled: true } || !FacetMaps.OpenPvp(pair.Key) || !Graphs.ContainsKey(pair.Key))
+            if (pair.Value is not { Enabled: true } || !Graphs.ContainsKey(pair.Key))
             {
                 continue;
             }
@@ -174,8 +176,9 @@ public static class NavWorld
             return;
         }
 
-        // Reads the map, so the build runs on the world thread.
-        var walker = Standable.Walker(map);
+        // Reads the map, so the build runs on the world thread. The graph is saved and pads are
+        // moved, so only the lasting ground counts: no movable item, every door shut and openable.
+        var walker = Standable.GroundWalker(map);
 
         // A dead pad laid level fires, so the pad check below keeps its gate.
         if (!worldWaits && TeleporterRepair.LevelDeadPads(map, walker) is var leveled and > 0)
@@ -189,7 +192,13 @@ public static class NavWorld
         {
             loaded = true;
         }
-        else if (!worldWaits)
+        else if (worldWaits)
+        {
+            // A graph saved without its catalog waits with the rest: checked on bare ground and
+            // saved with an empty catalog, it loaded whole after the setup and kept no destinations.
+            graph = null;
+        }
+        else
         {
             try
             {
@@ -296,16 +305,25 @@ public static class NavWorld
     }
 
     /// <summary>
-    /// The graph without the teleporter gates whose pad no walker's step sets off
-    /// (<see cref="GatePad.NeverFires(Map, TileWalker, int, int)"/>), nor the pads into a place
-    /// such a pad was the only way out of (<see cref="DeadPads"/>), nor the walking links that
-    /// step onto a live pad on the way, and with a walk off the pads for every landing
-    /// (<see cref="PadCrossings"/>). The pads are the world's own items, so a saved graph is
-    /// checked too and needs no rebuild.
+    /// The graph with the gate of every pad a step sets off again, where an earlier boot dropped
+    /// it (<see cref="TeleporterLinking.Relink"/>), and without the teleporter gates whose pad no
+    /// walker's step sets off (<see cref="GatePad.NeverFires(Map, TileWalker, int, int)"/>), nor the
+    /// pads into a place such a pad was the only way out of (<see cref="DeadPads"/>), nor the
+    /// walking links that step onto a live pad on the way, and with a walk off the pads for every
+    /// landing (<see cref="PadCrossings"/>). The pads are the world's own items, so a saved graph
+    /// is checked too and needs no rebuild.
     /// </summary>
     private static NavGraph WithLivePads(NavGraph graph, Map map, TileWalker walker, out int changed)
     {
-        var (dead, intoSealed) = DeadPads.Drop(graph.Nodes, node => GatePad.NeverFires(map, walker, node.X, node.Y));
+        var nodes = new List<NavNode>(graph.Nodes);
+        var regated = TeleporterLinking.Relink(nodes, FiringPads(map, walker));
+
+        if (regated > 0)
+        {
+            logger.Warning("Nav {Facet}: gave back {Count} teleporter gates whose pad fires again", graph.Facet, regated);
+        }
+
+        var (dead, intoSealed) = DeadPads.Drop(nodes, node => GatePad.NeverFires(map, walker, node.X, node.Y));
 
         if (dead + intoSealed > 0)
         {
@@ -317,7 +335,6 @@ public static class NavWorld
             );
         }
 
-        var nodes = new List<NavNode>(graph.Nodes);
         var (crossing, relinked) = PadCrossings.Drop(nodes, walker, LiveIndoor(graph.Facet));
 
         if (crossing + relinked > 0)
@@ -330,8 +347,35 @@ public static class NavWorld
             );
         }
 
-        changed = dead + intoSealed + crossing + relinked;
+        changed = regated + dead + intoSealed + crossing + relinked;
         return changed == 0 ? graph : new NavGraph(graph.Facet, nodes);
+    }
+
+    /// <summary>
+    /// The map's plain teleporter pads that carry a person on this map and that a step sets off
+    /// (not <see cref="GatePad.NeverFires(Map, TileWalker, int, int)"/>, the test that drops a
+    /// gate), each as a one-way link from its tile to where it sends. A pad of a kind that asks
+    /// more than a step, a keyword or a skill, is no gate a walker takes.
+    /// </summary>
+    private static List<TeleporterLink> FiringPads(Map map, TileWalker walker)
+    {
+        var links = new List<TeleporterLink>();
+
+        foreach (var pad in GatePad.ActivePads(map))
+        {
+            var lands = pad.PointDest;
+
+            if (pad.GetType() != typeof(Teleporter) || lands == Point3D.Zero ||
+                pad.MapDest != null && pad.MapDest != Map.Internal && pad.MapDest != map ||
+                GatePad.NeverFires(map, walker, pad.X, pad.Y))
+            {
+                continue;
+            }
+
+            links.Add(new TeleporterLink(map.Name, pad.X, pad.Y, pad.Z, map.Name, lands.X, lands.Y, lands.Z, Back: false));
+        }
+
+        return links;
     }
 
     private static Func<int, int, int, bool> LiveIndoor(string facet) =>

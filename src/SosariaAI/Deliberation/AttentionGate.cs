@@ -29,8 +29,30 @@ public sealed class AttentionGate
         return _windows.TryGetValue((character, speaker), out var until) && now < until;
     }
 
-    public void Open(Serial character, Serial speaker, DateTime now, TimeSpan window) =>
+    /// <summary>Opens or extends the speaker's window. Windows already shut are dropped, so the map holds only open ones.</summary>
+    public void Open(Serial character, Serial speaker, DateTime now, TimeSpan window)
+    {
+        ForgetShut(now);
         _windows[(character, speaker)] = now + window;
+    }
+
+    private void ForgetShut(DateTime now)
+    {
+        List<(Serial, Serial)> shut = null;
+
+        foreach (var (pair, until) in _windows)
+        {
+            if (now >= until)
+            {
+                (shut ??= []).Add(pair);
+            }
+        }
+
+        for (var i = 0; shut != null && i < shut.Count; i++)
+        {
+            _windows.Remove(shut[i]);
+        }
+    }
 
     /// <summary>True when the line is nothing but the character's name, or its calling name, with any punctuation around it.</summary>
     public static bool IsOnlyName(string text, string characterName)

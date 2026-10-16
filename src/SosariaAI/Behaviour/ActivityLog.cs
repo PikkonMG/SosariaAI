@@ -26,7 +26,7 @@ public static class ActivityLog
     {
         DungeonAbort.OnNextStarted(character, skill.Name);
 
-        if (!SosariaSettings.LogActivity || character == null || !Allow(character, isFailure: false))
+        if (!SosariaSettings.LogActivity || character == null || !Allow(character, StepLine.Started))
         {
             return;
         }
@@ -57,7 +57,7 @@ public static class ActivityLog
             return;
         }
 
-        if (!Allow(character, status == SkillStatus.Failed))
+        if (!Allow(character, status == SkillStatus.Failed ? StepLine.Failed : StepLine.Ended))
         {
             return;
         }
@@ -131,34 +131,21 @@ public static class ActivityLog
     }
 
     // A step that fails over and over writes three lines per cycle: the start, the failure
-    // and the routine restart. The first failure is logged, then the character stays quiet
-    // for one window. Any step that does not fail ends the window at once, so an isolated
-    // failure never hides a character's real work.
-    private static bool Allow(SosariaCharacter character, bool isFailure)
+    // and the routine restart. The rules in ActivityLogLimit.Next keep the cycle quiet for one
+    // window after a logged failure; a step that ends without failing ends the window at once.
+    private static bool Allow(SosariaCharacter character, StepLine line)
     {
-        var now = Core.Now;
-        LastFailureLog.TryGetValue(character.Serial, out var lastFailure);
+        var (write, lastFailure) = ActivityLogLimit.Next(line, LastFailureLog.GetValueOrDefault(character.Serial), Core.Now);
 
-        if (!isFailure && !EndsQuietWindow(character, lastFailure))
+        if (lastFailure == default)
         {
-            return !ActivityLogLimit.InQuietWindow(lastFailure, now);
+            LastFailureLog.Remove(character.Serial);
+        }
+        else
+        {
+            LastFailureLog[character.Serial] = lastFailure;
         }
 
-        if (!isFailure)
-        {
-            return true;
-        }
-
-        if (!ActivityLogLimit.AllowFailureLog(lastFailure, now))
-        {
-            return false;
-        }
-
-        LastFailureLog[character.Serial] = now;
-        return true;
+        return write;
     }
-
-    /// <summary>A step that ended without failing clears the quiet window for that character.</summary>
-    private static bool EndsQuietWindow(SosariaCharacter character, DateTime lastFailure) =>
-        lastFailure != default && LastFailureLog.Remove(character.Serial);
 }

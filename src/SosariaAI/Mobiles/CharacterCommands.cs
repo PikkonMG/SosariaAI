@@ -123,7 +123,7 @@ public static class CharacterCommands
         }
 
         Console.WriteLine(report);
-        Console.WriteLine(CharacterCommandText.WroteFile(ListLogPath(), listed));
+        Console.WriteLine(SaveList(report, listed));
     }
 
     private static void WatchToConsole(string argument)
@@ -173,8 +173,7 @@ public static class CharacterCommands
             return;
         }
 
-        Console.WriteLine(report);
-        staff.SendMessage(CharacterCommandText.WroteFile(ListLogPath(), listed));
+        staff.SendMessage(SaveList(report, listed));
         console.Information("{Staff} ran [Sosaria]: {Count} characters -> {Path}", staff.Name, listed, ListLogPath());
     }
 
@@ -484,7 +483,6 @@ public static class CharacterCommands
         for (var i = 0; i < found.Count; i++)
         {
             var character = found[i];
-            character.EnsureLife();
             var distance = staffMap == null || staffLocation is null
                 ? CharacterCommandText.AnotherFacet
                 : CharacterCommandText.DistanceLabel(
@@ -507,23 +505,32 @@ public static class CharacterCommands
         }
 
         listed = lines.Count;
+        return listed == 0 ? string.Empty : CharacterCommandText.ListReport(lines, listed);
+    }
 
-        if (listed == 0)
-        {
-            return string.Empty;
-        }
-
-        var report = CharacterCommandText.ListReport(lines, listed);
-
+    /// <summary>
+    /// Writes the list file and returns the line that says where it went. A file the server
+    /// cannot write is a warning, never a crash.
+    /// </summary>
+    private static string SaveList(string report, int listed)
+    {
         var path = ListLogPath();
-        Directory.CreateDirectory(Path.GetDirectoryName(path) ?? ".");
-        File.WriteAllText(path, report + "\n", Encoding.UTF8);
-        return report;
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path) ?? ".");
+            File.WriteAllText(path, report + "\n", Encoding.UTF8);
+            return CharacterCommandText.WroteFile(path, listed);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            console.Warning(e, "Cannot write the character list {Path}", path);
+            return CharacterCommandText.NotWritten(path, listed);
+        }
     }
 
     private static List<string> WatchReport(SosariaCharacter character, Mobile observer)
     {
-        character.EnsureLife();
         var persona = character.Persona;
         var dayPart = character.DayPartAt(Core.Now);
         return CharacterCommandText.WatchLines(

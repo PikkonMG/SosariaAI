@@ -240,14 +240,9 @@ public sealed partial class AdventureTracker
             return MemoryStore.NoAdventure;
         }
 
-        var known = _store.AdventuresOf(first.Id);
-
-        for (var i = 0; i < known.Count; i++)
+        if (_store.HasFirstKill(first.Id))
         {
-            if (known[i].Kind == AdventureKinds.FirstKill && known[i].MemberOf(first.Id)?.Role == AdventureRoles.Killer)
-            {
-                return MemoryStore.NoAdventure;
-            }
+            return MemoryStore.NoAdventure;
         }
 
         var spot = AdventureSpot.Of(victim);

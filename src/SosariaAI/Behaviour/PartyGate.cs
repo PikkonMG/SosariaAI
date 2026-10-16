@@ -62,7 +62,7 @@ public static class PartyGate
             canGate[i] = GateRules.CanOpenToward(people[i], toward, minTripTiles);
         }
 
-        var pick = PartyGateRules.PickGater(canGate, 0);
+        var pick = PartyGateRules.PickGater(canGate);
 
         if (pick == PartyGateRules.NoOne || !GateRules.TryOpenToward(people[pick], toward, minTripTiles))
         {
@@ -115,7 +115,7 @@ public static class PartyGate
         }
 
         if (crossing.Through.Contains(who.Serial) || crossing.Gate == null ||
-            !PartyGateRules.MayStep(who == crossing.Leader, crossing.LeaderThrough))
+            !PartyGateRules.MayStep(who == crossing.Leader, crossing.LeaderThrough, crossing.Caster == crossing.Leader))
         {
             who.Motor.ClearMoveIntent();
             return GateTurn.Hold;

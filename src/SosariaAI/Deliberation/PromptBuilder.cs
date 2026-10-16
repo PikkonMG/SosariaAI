@@ -65,6 +65,9 @@ public static class PromptBuilder
     public const string NobodyNearLine = "Nobody else stands near you now.";
 
     private const string NameListSeparator = ", ";
+
+    /// <summary>Heads the status and routine list a decide-shape event carries (<see cref="UsesDecideShape"/>).</summary>
+    private const string RoutinesHeading = "Routines:\n";
     private const string LifeTalkRule =
         "Talk about your own life when it fits: what you are doing right now, who you just saw, what you did today. Your long goal is only a hope for later. Do not invent being an AI.";
 
@@ -325,7 +328,7 @@ public static class PromptBuilder
             BrainEventKind.Spoken =>
                 $"A {kind} named {speaker}, standing next to you, says: '{evt.Text}'",
             BrainEventKind.Attacked =>
-                $"A {kind} named {speaker} attacks you.",
+                $"A {kind} named {speaker} attacks you. Pick what to do next. {RoutinesHeading}{evt.Text}",
             BrainEventKind.Plan =>
                 "Form a goal and a short plan of real actions. Game code will carry out each step.",
             BrainEventKind.Musing =>
@@ -336,7 +339,7 @@ public static class PromptBuilder
             BrainEventKind.Reword =>
                 $"Say this to {speaker} in your own words. Keep every number and every item exactly as written: '{evt.Text}'",
             BrainEventKind.PlayerNoticed =>
-                $"A {kind} named {speaker} is nearby and idle. You may speak or pick the next thing to do. Routines:\n{evt.Text}",
+                $"A {kind} named {speaker} is nearby and idle. You may speak or pick the next thing to do. {RoutinesHeading}{evt.Text}",
             _ => "Something happens nearby."
         };
     }

@@ -44,7 +44,17 @@ public sealed class BankCrowdSeat
     /// <summary>True once the member has walked to its bank.</summary>
     public bool Arrived { get; private set; }
 
-    public void MarkArrived() => Arrived = true;
+    /// <summary>When the hold ends. Set on arrival: the walk there holds nothing yet.</summary>
+    public DateTime Until { get; private set; }
+
+    public void MarkArrived(DateTime until)
+    {
+        Arrived = true;
+        Until = until;
+    }
+
+    /// <summary>Moves the end of the hold on by the time the member's job was held.</summary>
+    public void Shift(TimeSpan held) => Until = SkillClock.Shift(Until, held);
 }
 
 /// <summary>What a hawker holds up and what it asks: the real item and the spoken price.</summary>
@@ -67,19 +77,26 @@ public static class BankCrowd
 
     /// <summary>
     /// True when the person's bank is short of its crowd and a role there fits the person.
-    /// The job picker weights a bank job with this. A yes promises the person a seat until it
-    /// can claim it (<see cref="BankCrowdRules.PromiseHold"/>): the job begins a tick or more
-    /// after the choice, and a second person who chose the last seat in between took it first.
+    /// The job picker weights a bank job with this, for every person on every decision, so it
+    /// promises nothing: <see cref="Promise"/> does once the crowd job is chosen.
     /// </summary>
-    public static bool Wants(SosariaCharacter person)
-    {
-        if (!BankOf(person, out var key, out _) || RoleFor(person, key) == null)
-        {
-            return false;
-        }
+    public static bool Wants(SosariaCharacter person) =>
+        BankOf(person, out var key, out _) && RoleFor(person, key) != null;
 
-        Promises[person.Serial] = (key, Core.Now + BankCrowdRules.PromiseHold);
-        return true;
+    /// <summary>
+    /// The crowd job was chosen: the person's seat stays promised until the job claims it
+    /// (<see cref="BankCrowdRules.PromiseHold"/>). The job begins a tick or more after the
+    /// choice, and a second person who chose the last seat in between took it first. Nothing
+    /// is promised when the bank has no room for the person now.
+    /// </summary>
+    public static void Promise(SosariaCharacter person)
+    {
+        DropLapsedPromises(Core.Now);
+
+        if (BankOf(person, out var key, out _) && RoleFor(person, key) != null)
+        {
+            Promises[person.Serial] = (key, Core.Now + BankCrowdRules.PromiseHold);
+        }
     }
 
     /// <summary>Takes a place in the person's bank crowd. False when the crowd is full or nothing fits.</summary>
@@ -342,26 +359,34 @@ public static class BankCrowd
     {
         var now = Core.Now;
         var promised = 0;
-        var lapsed = new List<Serial>();
 
         foreach (var (serial, promise) in Promises)
         {
-            if (!BankCrowdRules.PromiseHolds(promise.Until, now))
-            {
-                lapsed.Add(serial);
-            }
-            else if (serial != person.Serial && promise.Bank == key)
+            if (serial != person.Serial && promise.Bank == key && BankCrowdRules.PromiseHolds(promise.Until, now))
             {
                 promised++;
             }
         }
 
-        for (var i = 0; i < lapsed.Count; i++)
+        return promised;
+    }
+
+    private static void DropLapsedPromises(DateTime now)
+    {
+        List<Serial> lapsed = null;
+
+        foreach (var (serial, promise) in Promises)
+        {
+            if (!BankCrowdRules.PromiseHolds(promise.Until, now))
+            {
+                (lapsed ??= []).Add(serial);
+            }
+        }
+
+        for (var i = 0; i < (lapsed?.Count ?? 0); i++)
         {
             Promises.Remove(lapsed[i]);
         }
-
-        return promised;
     }
 
     private static List<BankCrowdRole> RolesAt(string key)
@@ -395,7 +420,13 @@ public static class BankCrowd
     {
         var member = seat.Member;
         var gone = member == null || member.Deleted || !member.Alive || !People.InWorld(member) ||
-                   BankCrowdRules.HasLeft(seat.Arrived, BankCrowdRules.AtBank(member.Location, seat.Bank), Core.Now - seat.Since);
+                   BankCrowdRules.HasLeft(
+                       seat.Arrived,
+                       BankCrowdRules.AtBank(member.Location, seat.Bank),
+                       Core.Now - seat.Since,
+                       seat.Until,
+                       Core.Now
+                   );
 
         if (gone && member != null)
         {

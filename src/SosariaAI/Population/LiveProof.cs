@@ -13,17 +13,17 @@ using SosariaAI.Logging;
 namespace SosariaAI.Population;
 
 /// <summary>
-/// No-login sample of the crowd into a live-proof file: every <see cref="SampleSeconds"/> for
+/// No-login sample of the crowd into <see cref="FileName"/>: every <see cref="SampleSeconds"/> for
 /// <see cref="DurationMinutes"/> minutes, the steps done and failed, the stuck, the live, the
 /// regions they stand in, the speech and the time one sample took. It starts
 /// <see cref="StartDelaySeconds"/> after every boot, and staff start it again with
-/// [<see cref="CommandName"/>. It does not start the shard.
+/// [<see cref="CommandName"/>; each run writes over the last one's file. It listens to each
+/// routine once and lets go of all of them when the run ends. It does not start the shard.
 /// </summary>
 public static class LiveProof
 {
     public const string CommandName = "SosariaLiveProof";
-    public const string FilePrefix = "live-proof-";
-    public const string FileSuffix = ".tsv";
+    public const string FileName = "live-proof.tsv";
     public const int StartDelaySeconds = 15;
     public const int DurationMinutes = 20;
     public const int SampleSeconds = 30;
@@ -35,6 +35,7 @@ public static class LiveProof
     private static int _failed;
     private static int _speech;
     private static readonly StringBuilder _log = new();
+    private static readonly HashSet<Routine> _watched = [];
 
     public static void Initialize() => EventSink.ServerStarted += OnServerStarted;
 
@@ -55,13 +56,13 @@ public static class LiveProof
     public static void Begin()
     {
         _token.Cancel();
+        StopWatching();
         _started = Core.Now;
         _completed = 0;
         _failed = 0;
         _speech = 0;
         _log.Clear();
-        _log.Append("time\tcompleted\tfailed\tstuck\tlive\tareas\tspeech\tthinkMs\n");
-        WatchGoals();
+        _log.Append("time\tcompleted\tfailed\tstuck\tlive\tareas\tspeech\tsampleMs\n");
         Timer.StartTimer(
             TimeSpan.FromSeconds(SampleSeconds),
             TimeSpan.FromSeconds(SampleSeconds),
@@ -72,16 +73,23 @@ public static class LiveProof
         Sample();
     }
 
-    private static void WatchGoals()
+    // A routine can be replaced; a new one is heard from the sample that first sees it.
+    private static void Watch(Routine routine)
     {
-        foreach (var mobile in World.Mobiles.Values)
+        if (routine != null && _watched.Add(routine))
         {
-            if (mobile is SosariaCharacter character && character.Routine != null)
-            {
-                character.Routine.SkillEnded -= OnSkillEnded;
-                character.Routine.SkillEnded += OnSkillEnded;
-            }
+            routine.SkillEnded += OnSkillEnded;
         }
+    }
+
+    private static void StopWatching()
+    {
+        foreach (var routine in _watched)
+        {
+            routine.SkillEnded -= OnSkillEnded;
+        }
+
+        _watched.Clear();
     }
 
     private static void OnSkillEnded(SosariaCharacter character, Skills.Skill skill, Skills.SkillStatus status)
@@ -103,8 +111,7 @@ public static class LiveProof
 
     private static void Sample()
     {
-        WatchGoals();
-        var thinkStart = Core.TickCount;
+        var sampleStart = Core.TickCount;
         var live = 0;
         var stuck = 0;
         var areas = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -116,6 +123,7 @@ public static class LiveProof
                 continue;
             }
 
+            Watch(character.Routine);
             live++;
             var region = character.Region?.Name;
 
@@ -130,7 +138,7 @@ public static class LiveProof
             }
         }
 
-        var thinkMs = (int)(Core.TickCount - thinkStart);
+        var sampleMs = (int)(Core.TickCount - sampleStart);
         var minutes = (int)(Core.Now - _started).TotalMinutes;
         _log.Append(Core.Now.ToString("HH:mm:ss"));
         _log.Append('\t');
@@ -146,7 +154,7 @@ public static class LiveProof
         _log.Append('\t');
         _log.Append(_speech);
         _log.Append('\t');
-        _log.Append(thinkMs);
+        _log.Append(sampleMs);
         _log.Append('\n');
 
         if (minutes >= DurationMinutes)
@@ -158,13 +166,18 @@ public static class LiveProof
     private static void Finish()
     {
         _token.Cancel();
-        var folder = ConfigFile.RootDirectory;
-        Directory.CreateDirectory(folder);
-        var path = Path.Combine(
-            folder,
-            FilePrefix + Core.Now.ToString("yyyyMMdd-HHmm") + FileSuffix
-        );
-        File.WriteAllText(path, _log.ToString(), Encoding.UTF8);
-        console.Information("{Command} wrote {Path}", CommandName, path);
+        StopWatching();
+        var path = ConfigFile.PathIn(FileName);
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path) ?? ".");
+            File.WriteAllText(path, _log.ToString(), Encoding.UTF8);
+            console.Information("{Command} wrote {Path}", CommandName, path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            console.Warning(e, "{Command} cannot write {Path}", CommandName, path);
+        }
     }
 }

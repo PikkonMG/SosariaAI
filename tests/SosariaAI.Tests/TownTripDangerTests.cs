@@ -157,7 +157,7 @@ public class TownTripDangerTests
     public void GiveUpForThreat_OnATownTrip_RestsItsBankAndStopsTheTrip()
     {
         var ursel = Person(Ursel);
-        var routine = new Routine([new TownTrip(BritainBank)]);
+        var routine = new Routine(new TownTrip(BritainBank));
         TestRoutine.Give(ursel, routine);
 
         TownTrip.GiveUpForThreat(ursel, Start);
@@ -172,7 +172,7 @@ public class TownTripDangerTests
     public void GiveUpForThreat_OnOtherWork_OnlyStopsIt()
     {
         var loiterer = Person(Loiterer);
-        var routine = new Routine([new ArrivalStay()]);
+        var routine = new Routine(new ArrivalStay());
         TestRoutine.Give(loiterer, routine);
 
         TownTrip.GiveUpForThreat(loiterer, Start);

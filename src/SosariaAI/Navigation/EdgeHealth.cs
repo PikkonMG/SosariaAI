@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace SosariaAI.Navigation;
 
@@ -7,16 +8,17 @@ namespace SosariaAI.Navigation;
 /// Shared health of graph edges. A walk that fails on the hop between two nodes marks that
 /// edge, and every later search pays extra to use it, so a town stops sending people into
 /// the same blocked gap. A mark fades, so a crowd or a shut door that clears is used again.
-/// The world thread writes; path workers read the snapshot published with each write.
+/// The world thread writes; path workers read the snapshot published with each write. A graph
+/// a rebuild or a boot check replaced takes its marks with it: the table holds no graph alive.
 /// </summary>
 public static class EdgeHealth
 {
     private static readonly object WriteGate = new();
-    private static volatile Dictionary<NavGraph, EdgeHealthSnapshot> _published = new();
+    private static readonly ConditionalWeakTable<NavGraph, EdgeHealthSnapshot> Published = new();
 
     /// <summary>The marks a search on <paramref name="graph"/> pays for, or null when it has none.</summary>
     public static EdgeHealthSnapshot For(NavGraph graph) =>
-        graph != null && _published.TryGetValue(graph, out var snapshot) ? snapshot : null;
+        graph != null && Published.TryGetValue(graph, out var snapshot) ? snapshot : null;
 
     /// <summary>A walk from node <paramref name="from"/> to node <paramref name="to"/> failed.</summary>
     public static void NoteFailure(NavGraph graph, string from, string to)
@@ -51,11 +53,7 @@ public static class EdgeHealth
             var failures = marks.TryGetValue(key, out var prior) ? prior.Failures : 0;
             marks[key] = EdgeHealthRules.After(failures, now);
 
-            var published = new Dictionary<NavGraph, EdgeHealthSnapshot>(_published)
-            {
-                [graph] = new EdgeHealthSnapshot(marks, (old?.Version ?? 0) + 1)
-            };
-            _published = published;
+            Published.AddOrUpdate(graph, new EdgeHealthSnapshot(marks, (old?.Version ?? 0) + 1));
         }
     }
 }
@@ -70,12 +68,6 @@ public sealed class EdgeHealthSnapshot
     {
         Marks = marks;
         Version = version;
-        NextExpiry = long.MaxValue;
-
-        foreach (var mark in marks.Values)
-        {
-            NextExpiry = Math.Min(NextExpiry, mark.Until);
-        }
     }
 
     public IReadOnlyDictionary<long, EdgeMark> Marks { get; }
@@ -83,8 +75,26 @@ public sealed class EdgeHealthSnapshot
     /// <summary>Changes with every new mark, so a cached search knows it is stale.</summary>
     public int Version { get; }
 
-    /// <summary>The soonest a mark fades: a cached search is stale after it.</summary>
-    public long NextExpiry { get; }
+    /// <summary>
+    /// The soonest a mark still active at <paramref name="now"/> fades, or <see cref="long.MaxValue"/>
+    /// when none is: a search cached at <paramref name="now"/> is stale after it. A mark that
+    /// faded before is already left out of the search, and counting it stored every cached
+    /// search stale once the snapshot's first mark faded, until the next failed walk.
+    /// </summary>
+    public long NextExpiryAfter(long now)
+    {
+        var soonest = long.MaxValue;
+
+        foreach (var mark in Marks.Values)
+        {
+            if (EdgeHealthRules.Active(now, mark.Until))
+            {
+                soonest = Math.Min(soonest, mark.Until);
+            }
+        }
+
+        return soonest;
+    }
 
     /// <summary>Extra cost in tiles for the edge between two search indexes at <paramref name="now"/>.</summary>
     public double PenaltyTiles(int a, int b, long now) =>

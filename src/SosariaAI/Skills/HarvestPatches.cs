@@ -78,6 +78,32 @@ public static class HarvestPatches
     /// <summary>True while the worker's last trip found no forge or counter for its haul.</summary>
     public static bool HasNoOutlet(uint worker, DateTime now) => Holds(NoOutletUntil, worker, now);
 
+    /// <summary>
+    /// Drops every note of a worker that left the world for good: its bare harvests, its load
+    /// rest and its haul with no outlet. A lapsed note is only dropped when read again, and a
+    /// gone worker is never read again.
+    /// </summary>
+    public static void Forget(uint worker)
+    {
+        LoadedUntil.Remove(worker);
+        NoOutletUntil.Remove(worker);
+
+        var dry = new List<(uint Worker, string Kind)>();
+
+        foreach (var key in DryUntil.Keys)
+        {
+            if (key.Worker == worker)
+            {
+                dry.Add(key);
+            }
+        }
+
+        for (var i = 0; i < dry.Count; i++)
+        {
+            DryUntil.Remove(dry[i]);
+        }
+    }
+
     /// <summary>True while the note under <paramref name="key"/> lasts; a lapsed note is dropped.</summary>
     private static bool Holds<TKey>(Dictionary<TKey, DateTime> notes, TKey key, DateTime now)
     {

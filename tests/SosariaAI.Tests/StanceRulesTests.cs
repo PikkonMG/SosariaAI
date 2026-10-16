@@ -84,6 +84,17 @@ public class StanceRulesTests
     }
 
     [Fact]
+    public void Pick_AFrozenMeleeFoeWithTheMageCornered_Presses()
+    {
+        // Walking away is the whole stance; pinned, the mage stood idle beside the frozen foe.
+        var cornered = Mage() with { FoeHeld = true, CanParalyze = true, Cornered = true };
+
+        Assert.Equal(CombatStance.Press, StanceRules.Pick(cornered));
+        Assert.False(StanceRules.Feasible(CombatStance.ParalyzeThenKite, cornered));
+        Assert.True(StanceRules.Feasible(CombatStance.ParalyzeThenKite, cornered with { FoeHeld = false }));
+    }
+
+    [Fact]
     public void Pick_OutOfMana_KitesWhileItComesBack() =>
         Assert.Equal(CombatStance.Kite, StanceRules.Pick(Mage() with { ManaFraction = NoMana }));
 

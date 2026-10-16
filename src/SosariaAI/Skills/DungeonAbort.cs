@@ -61,4 +61,7 @@ public static class DungeonAbort
 
         logger.Information("{Line}", Line(character.Name, Reason(nextSkill), character.Location));
     }
+
+    /// <summary>Drops the broken-off trip of a person that left the world for good: no next job will write its end.</summary>
+    public static void Forget(Serial serial) => Pending.Remove(serial);
 }

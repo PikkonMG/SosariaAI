@@ -190,6 +190,12 @@ public class AmbitionRulesTests
     [Theory]
     [InlineData(AmbitionRules.SkillSwords)]
     [InlineData(AmbitionRules.SkillArchery)]
+    [InlineData(nameof(SkillName.Fencing))]
+    [InlineData(nameof(SkillName.Macing))]
+    [InlineData(nameof(SkillName.Wrestling))]
+    [InlineData(nameof(SkillName.Tactics))]
+    [InlineData(nameof(SkillName.Anatomy))]
+    [InlineData(nameof(SkillName.Parry))]
     public void PrefersHunt_FightSkill_IsTrue(string skill)
     {
         var ambition = new Ambition(AmbitionKind.Skill, skill, AmbitionRules.DefaultSkillGoal, 0);
@@ -373,6 +379,32 @@ public class AmbitionRulesTests
         var ambition = AmbitionRules.SeedFromBackground("Paints a fine image of the town.");
 
         Assert.Equal(AmbitionRules.NestEggTarget, ambition.Target);
+    }
+
+    // A table word must end the word it matches: "red" is not "redeem", "rob" is not "robe",
+    // and "forge" is not "forgets".
+    [Theory]
+    [InlineData("Wants to redeem the family name.", AmbitionKind.Gold, "the family name")]
+    [InlineData("A quiet monk in a plain robe.", AmbitionKind.Gold, AmbitionRules.NestEggTarget)]
+    [InlineData("Never forgets a face.", AmbitionKind.Gold, AmbitionRules.NestEggTarget)]
+    public void SeedFromBackground_WordMustEndWhereTheTableWordEnds(string background, AmbitionKind kind, string target)
+    {
+        var ambition = AmbitionRules.SeedFromBackground(background);
+
+        Assert.Equal(kind, ambition.Kind);
+        Assert.Equal(target, ambition.Target);
+    }
+
+    // A plural of a whole word and every word a root starts still match.
+    [Theory]
+    [InlineData("Keeps watch for reds on the road.", nameof(SkillName.Tactics))]
+    [InlineData("A wrestler from the Jhelom pits.", nameof(SkillName.Wrestling))]
+    [InlineData("A daughter who forges her own nails.", nameof(SkillName.Blacksmith))]
+    public void SeedFromBackground_PluralsAndRootsStillMatch(string background, string skill)
+    {
+        var ambition = AmbitionRules.SeedFromBackground(background);
+
+        Assert.Equal(new Ambition(AmbitionKind.Skill, skill, AmbitionRules.DefaultSkillGoal, 0), ambition);
     }
 
     [Fact]

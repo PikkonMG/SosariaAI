@@ -90,6 +90,15 @@ public class NavStoreTests
     }
 
     [Fact]
+    public void FromFile_NewerFormat_ReturnsNull()
+    {
+        var file = LongConnectFile();
+        file.Format = NavFile.CurrentFormat + 1;
+
+        Assert.Null(NavStore.FromFile(file, FacetNames.Felucca));
+    }
+
+    [Fact]
     public void FromFile_NullNodes_ReturnsNull()
     {
         var file = new NavFile { Facet = FacetNames.Felucca, Nodes = null };

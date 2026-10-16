@@ -72,10 +72,11 @@ public sealed class FleeSkill : Skill
             return Fail(LeftWorldReason);
         }
 
+        // The flee holds for as long as the run may last: it gives up at the flee limit.
         if (!_begunFlee)
         {
             _begunFlee = true;
-            _character.BeginFlee(TimeSpan.FromSeconds(FleeRules.CoveredTiles));
+            _character.BeginFlee(FleeLimit);
         }
 
         var covered = NavMetric.Chebyshev(_start, _character.Location);
@@ -83,13 +84,13 @@ public sealed class FleeSkill : Skill
 
         if (FleeRules.IsDone(threat, covered))
         {
-            _character.RestoreTownStance();
+            EndRun();
             return SkillStatus.Done;
         }
 
         if (ShouldGiveUp(_failedLegs, Core.Now, _started))
         {
-            _character.RestoreTownStance();
+            EndRun();
             return Fail(GiveUpWhy(_failedLegs));
         }
 
@@ -118,7 +119,22 @@ public sealed class FleeSkill : Skill
     {
         _walk?.Abort();
         _walk = null;
-        _character?.RestoreTownStance();
+
+        if (_character != null)
+        {
+            EndRun();
+        }
+    }
+
+    /// <summary>The run is over: the flee it held ends with it, not at the flee limit.</summary>
+    private void EndRun()
+    {
+        if (_begunFlee)
+        {
+            _character.StopFlee();
+        }
+
+        _character.RestoreTownStance();
     }
 
     public override void Resume(TimeSpan held)

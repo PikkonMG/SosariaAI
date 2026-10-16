@@ -250,29 +250,16 @@ public static class JevPrompt
         return string.IsNullOrWhiteSpace(persona.Background) ? who : who + " " + persona.Background;
     }
 
+    /// <summary>
+    /// Where the listener is and what it is doing. The gate and the intent read a line of
+    /// speech, whose text is the words heard (under "heard"), never a status.
+    /// </summary>
     private static Dictionary<string, object> Situation(BrainEvent evt) =>
         new()
         {
             ["place"] = string.IsNullOrWhiteSpace(evt?.Location) ? "Sosaria" : evt.Location,
-            ["doing_now"] = string.IsNullOrWhiteSpace(evt?.CurrentActivity) ? "idle" : evt.CurrentActivity,
-            ["status"] = StatusText(evt?.Text)
+            ["doing_now"] = string.IsNullOrWhiteSpace(evt?.CurrentActivity) ? "idle" : evt.CurrentActivity
         };
-
-    /// <summary>
-    /// Decision events carry the character's status plus their routine list in one
-    /// text block ("- id: description" lines). Jev gets the routines as typed
-    /// options, so the state keeps only the status part.
-    /// </summary>
-    private static string StatusText(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return "";
-        }
-
-        var optionsStart = text.IndexOf("\n- ", System.StringComparison.Ordinal);
-        return optionsStart < 0 ? text : text[..optionsStart];
-    }
 
     /// <summary>
     /// The decide-shape events (<see cref="PromptBuilder.UsesDecideShape"/>), minus the routine

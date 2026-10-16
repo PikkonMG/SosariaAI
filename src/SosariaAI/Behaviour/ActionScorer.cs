@@ -476,8 +476,8 @@ public static class ActionScorer
             return "recovering";
         }
 
-        if (situation?.AvoidHuntPlace == true &&
-            candidate.SkillKind is SkillKinds.Hunt or SkillKinds.Dungeon)
+        if ((situation?.AvoidHuntGround == true && candidate.SkillKind == SkillKinds.Hunt) ||
+            (situation?.AvoidDungeon == true && candidate.SkillKind == SkillKinds.Dungeon))
         {
             return "died there today";
         }
@@ -592,7 +592,7 @@ public static class ActionScorer
 
         var family = FamilyOf(candidate);
         var outing = family is RoutineFamily.Hunt or RoutineFamily.Dungeon or RoutineFamily.Party;
-        var power = DecideChoice.EffectivePower(outing ? needs.OutingPower : needs.Power, needs.AlliesPower, outing);
+        var power = needs.EffectivePower(outing);
 
         if (candidate.RequiredPower > 0 && power < candidate.RequiredPower)
         {

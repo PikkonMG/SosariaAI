@@ -26,6 +26,13 @@ public static class ResurrectOffer
     private static readonly Dictionary<Serial, SosariaCharacter> HelperOf = new();
     private static readonly Dictionary<(Serial Helper, Serial Ghost), DateTime> GaveUpUntil = new();
 
+    /// <summary>
+    /// A Resurrection spell read only for its type and its reagents, the same for every caster,
+    /// and never cast: a new spell on every scan of every character made garbage for nothing.
+    /// World thread only.
+    /// </summary>
+    private static ResurrectionSpell _raiseProbe;
+
     /// <summary>The spell, else the bandage, else nothing, from the helper's skills, book and pack.</summary>
     public static AidMethod MethodFor(Mobile helper)
     {
@@ -43,7 +50,7 @@ public static class ResurrectOffer
             return AidMethod.None;
         }
 
-        var spell = new ResurrectionSpell(helper);
+        var spell = _raiseProbe ??= new ResurrectionSpell(helper);
         return ResurrectAid.MethodFor(
             magery,
             helper.Mana,
@@ -203,6 +210,18 @@ public static class ResurrectOffer
         else
         {
             GaveUpUntil.Remove((helper.Serial, ghost.Serial));
+        }
+    }
+
+    /// <summary>Drops each give-up whose time ran out.</summary>
+    public static void Prune(DateTime now)
+    {
+        foreach (var (key, until) in GaveUpUntil)
+        {
+            if (now >= until)
+            {
+                GaveUpUntil.Remove(key);
+            }
         }
     }
 

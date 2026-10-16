@@ -114,8 +114,7 @@ public static class NerveRules
                 facts.HasHealing,
                 facts.AlliesPower,
                 facts.ThreatMultiple,
-                facts.StartLine,
-                alreadyAttacked: false))
+                facts.StartLine))
         {
             return EngageChoice.Engage;
         }
@@ -129,8 +128,7 @@ public static class NerveRules
                 facts.HasHealing,
                 facts.AlliesPower,
                 facts.ThreatMultiple,
-                facts.StartLine,
-                alreadyAttacked: false))
+                facts.StartLine))
         {
             return EngageChoice.PullStraggler;
         }

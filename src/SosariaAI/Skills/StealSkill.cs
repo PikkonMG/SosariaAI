@@ -44,6 +44,7 @@ public sealed class StealSkill : Skill
     private Item _loot;
     private Phase _phase;
     private DateTime _phaseStarted;
+    private DateTime _stalkStarted;
     private TimeSpan _caseFor;
     private Point3D _slipTo;
     private bool _sneaked;
@@ -95,6 +96,7 @@ public sealed class StealSkill : Skill
 
         _sneaked = character.Hidden;
         Enter(Phase.Approach);
+        _stalkStarted = _phaseStarted;
         return true;
     }
 
@@ -134,6 +136,7 @@ public sealed class StealSkill : Skill
     {
         _bank?.Resume(held);
         _phaseStarted = SkillClock.Shift(_phaseStarted, held);
+        _stalkStarted = SkillClock.Shift(_stalkStarted, held);
         _nextPeekAt = SkillClock.Shift(_nextPeekAt, held);
     }
 
@@ -169,7 +172,9 @@ public sealed class StealSkill : Skill
             return GiveUp(StealRules.MarkGoneReason);
         }
 
-        if (Core.Now - _phaseStarted >= StealRules.ApproachLimit)
+        // The clock runs from the first step toward the mark: a mark that steps off each time
+        // the thief gets beside it sends the thief back here without a fresh limit.
+        if (Core.Now - _stalkStarted >= StealRules.ApproachLimit)
         {
             return GiveUp(StealRules.ApproachTooLongReason);
         }
@@ -403,7 +408,7 @@ public sealed class StealSkill : Skill
         {
             if (!_lifted)
             {
-                return SkillStatus.Done;
+                return Fail(StealRules.MissedReason);
             }
 
             Enter(Phase.Bank);

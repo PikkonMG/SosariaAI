@@ -87,6 +87,10 @@ public class TamerTacticsRulesTests
     }
 
     [Fact]
+    public void Next_HiddenWithNoReadyPet_LeavesTheWayOutToTheCaster() =>
+        Assert.Equal(TamerMove.None, TamerTacticsRules.Next(Steady with { Hidden = true, HiddenMs = HidLong, PetsReady = false }));
+
+    [Fact]
     public void Next_HurtPet_IsHealedWhenItCanBe()
     {
         Assert.Equal(TamerMove.HealPet, TamerTacticsRules.Next(Steady with { PetNeedsCare = true, CanTendPet = true }));

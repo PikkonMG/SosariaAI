@@ -9,6 +9,7 @@ using Server.Mobiles;
 using Server.Regions;
 using SosariaAI.Behaviour;
 using SosariaAI.Combat;
+using SosariaAI.Common;
 using SosariaAI.Configuration;
 using SosariaAI.Economy;
 using SosariaAI.Mobiles;
@@ -63,6 +64,15 @@ public sealed class VendorSellSkill : Skill
     private const string ShopWalkFailedWhy = "the walk to the shop failed";
 
     private static readonly ILogger logger = SosariaLog.For(typeof(VendorSellSkill));
+
+    /// <summary>
+    /// How long a town's check for its harvest shop holds. Every vendor scan of every seller
+    /// ran the town-wide spawner and shop search again.
+    /// </summary>
+    private static readonly TimeSpan HarvestShopCheckGap = TimeSpan.FromMinutes(10);
+
+    /// <summary>When each town last checked its shop for each harvest. Towns and harvests are few.</summary>
+    private static readonly Dictionary<(TownRegion Town, string Token), DateTime> HarvestShopsCheckedAt = [];
 
     private readonly string _forcedDestination;
     private readonly HashSet<Serial> _triedVendors = [];
@@ -1029,41 +1039,58 @@ public sealed class VendorSellSkill : Skill
     }
 
     /// <summary>
-    /// A town with no shop for the harvest wakes its harvest shop spawners, then opens a
-    /// stall when that brought nobody. Loot has no stall: it goes to a buyer that exists.
+    /// A town with no shop for the harvest fills the empty places of its harvest shop
+    /// spawners, then opens a stall when that brought nobody. Loot has no stall: it goes to a
+    /// buyer that exists. A town checks once per <see cref="HarvestShopCheckGap"/>. A spawner's
+    /// standing vendors are never removed: the respawn this once did wiped and recreated a
+    /// town's vendors on every scan while a guildmaster made the town look unserved.
     /// </summary>
     private void EnsureHarvestShops(TownRegion town)
     {
         var token = Destination();
 
-        if (string.IsNullOrWhiteSpace(token) || HasHarvestShop(town, token))
+        if (string.IsNullOrWhiteSpace(token) || !HarvestShopCheckDue(town, token, Core.Now) || HasHarvestShop(town, token))
         {
             return;
         }
 
-        var spawners = new List<BaseSpawner>();
-
         foreach (var item in _character.GetItemsInRange(VendorSellRules.TownVendorScanRange))
         {
-            if (item is not BaseSpawner spawner ||
-                spawner.Deleted ||
-                !TownContains(town, spawner.Location) ||
-                !SpawnerSellsHarvest(spawner))
+            if (item is BaseSpawner { Deleted: false } spawner &&
+                TownContains(town, spawner.Location) &&
+                SpawnerSellsHarvest(spawner))
             {
-                continue;
+                FillEmptyPlaces(spawner);
             }
-
-            spawners.Add(spawner);
-        }
-
-        for (var i = 0; i < spawners.Count; i++)
-        {
-            spawners[i].Respawn();
         }
 
         if (!HasHarvestShop(town, token))
         {
             PlaceHarvestShop(town, token);
+        }
+    }
+
+    /// <summary>True, and noted as checked, when the town's check for the harvest's shop is due.</summary>
+    private static bool HarvestShopCheckDue(TownRegion town, string token, DateTime now)
+    {
+        var key = (town, token);
+
+        if (HarvestShopsCheckedAt.TryGetValue(key, out var checkedAt) &&
+            !TimeRules.Rested(checkedAt, now, HarvestShopCheckGap))
+        {
+            return false;
+        }
+
+        HarvestShopsCheckedAt[key] = now;
+        return true;
+    }
+
+    /// <summary>Spawns into the spawner's empty places only. A place the engine cannot fill does not loop.</summary>
+    private static void FillEmptyPlaces(BaseSpawner spawner)
+    {
+        for (var i = 0; i < spawner.Count && !spawner.IsFull; i++)
+        {
+            spawner.Spawn();
         }
     }
 
@@ -1123,8 +1150,7 @@ public sealed class VendorSellSkill : Skill
     {
         foreach (var mobile in _character.Map.GetMobilesInRange(spot, StallRange()))
         {
-            if (mobile is BaseVendor { Deleted: false } vendor &&
-                VendorSellRules.MatchesNeededShop(vendor.GetType().Name, token))
+            if (IsHarvestShop(mobile, token))
             {
                 return true;
             }
@@ -1137,13 +1163,7 @@ public sealed class VendorSellSkill : Skill
     {
         foreach (var mobile in _character.GetMobilesInRange(VendorSellRules.TownVendorScanRange))
         {
-            // A guildmaster's name matches the shop family, but its counter is for
-            // guild joins, not goods. Counting it left towns looking served while
-            // nothing there bought the harvest.
-            if (mobile is BaseVendor { Deleted: false } vendor &&
-                vendor is not BaseGuildmaster &&
-                TownContains(town, vendor.Location) &&
-                VendorSellRules.MatchesNeededShop(vendor.GetType().Name, token))
+            if (IsHarvestShop(mobile, token) && TownContains(town, mobile.Location))
             {
                 return true;
             }
@@ -1151,6 +1171,18 @@ public sealed class VendorSellSkill : Skill
 
         return false;
     }
+
+    private static bool IsHarvestShop(Mobile mobile, string token) =>
+        mobile is BaseVendor { Deleted: false } vendor &&
+        CountsAsHarvestShop(vendor.GetType().Name, vendor is BaseGuildmaster, token);
+
+    /// <summary>
+    /// A shop of the harvest's family. A guildmaster's name matches the family, but its counter
+    /// is for guild joins, not goods: the town check skipped it and the stall check counted it,
+    /// so a town with only a guildmaster never got a stall and was checked again on every scan.
+    /// </summary>
+    internal static bool CountsAsHarvestShop(string vendorTypeName, bool guildmaster, string token) =>
+        !guildmaster && VendorSellRules.MatchesNeededShop(vendorTypeName, token);
 
     private static bool SpawnerSellsHarvest(BaseSpawner spawner)
     {

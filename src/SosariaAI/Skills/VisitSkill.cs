@@ -246,60 +246,41 @@ public sealed class VisitSkill : Skill
         return mobile is { Deleted: false, Alive: true } ? mobile : null;
     }
 
-    private static Mobile FindTarget(SosariaCharacter character)
-    {
-        var friend = FindPerson(character, MemoryChoiceRules.FriendId(MemoryStore.Shared, Recall.IdOf(character)));
-
-        if (friend != null)
-        {
-            return friend;
-        }
-
-        return FindAnyOther(character);
-    }
-
-    /// <summary>The person with this long-term memory id, when that person may be visited.</summary>
-    private static Mobile FindPerson(SosariaCharacter self, string personId)
-    {
-        if (string.IsNullOrWhiteSpace(personId) || World.Mobiles == null)
-        {
-            return null;
-        }
-
-        foreach (var mobile in World.Mobiles.Values)
-        {
-            if (IsVisitPick(self, mobile) && Recall.IdOf(mobile) == personId)
-            {
-                return mobile;
-            }
-        }
-
-        return null;
-    }
-
     /// <summary>
-    /// With no friend in mind yet, the nearest person who may be picked (<see cref="IsVisitPick"/>).
-    /// The first person in the world list was Connor, and thirty-four people set out to visit him.
+    /// The friend this visitor has in mind when it may be visited, else the nearest person who
+    /// may be picked (<see cref="IsVisitPick"/>) and is not avoided. The first person in the
+    /// world list was Connor, and thirty-four people set out to visit him. Only people within
+    /// <see cref="VisitRules.ReachTiles"/> may be picked, so one look round that reach finds
+    /// both: two walks over every mobile in the world held up the shard.
     /// </summary>
-    private static Mobile FindAnyOther(SosariaCharacter self)
+    private static Mobile FindTarget(SosariaCharacter self)
     {
-        if (World.Mobiles == null)
+        if (!People.InWorld(self))
         {
             return null;
         }
 
+        var selfId = Recall.IdOf(self);
+        var friendId = MemoryChoiceRules.FriendId(MemoryStore.Shared, selfId);
+        var hasFriend = !string.IsNullOrWhiteSpace(friendId);
         Mobile nearest = null;
         var best = int.MaxValue;
-        var selfId = Recall.IdOf(self);
 
-        foreach (var mobile in World.Mobiles.Values)
+        foreach (var mobile in self.GetMobilesInRange<PlayerMobile>(VisitRules.ReachTiles))
         {
             if (!IsVisitPick(self, mobile))
             {
                 continue;
             }
 
-            if (MemoryChoiceRules.Avoids(MemoryStore.Shared, selfId, Recall.IdOf(mobile)))
+            var personId = Recall.IdOf(mobile);
+
+            if (hasFriend && personId == friendId)
+            {
+                return mobile;
+            }
+
+            if (MemoryChoiceRules.Avoids(MemoryStore.Shared, selfId, personId))
             {
                 continue;
             }

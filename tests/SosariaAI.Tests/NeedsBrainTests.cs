@@ -184,6 +184,20 @@ public class NeedsBrainTests
     }
 
     [Fact]
+    public void Score_AHurtFighterWhoseHealthyPowerMeetsIt_KeepsTheOuting()
+    {
+        var needs = new NeedsSnapshot
+        {
+            HitsFraction = NeedsBrain.HealthyHitsFraction,
+            Power = PowerBelowDespise,
+            HealthyPower = PowerAboveDespise,
+            Drives = new PersonaDrives(greed: 0.3, caution: 0.2, valor: 0.9, isCustom: true)
+        };
+
+        Assert.Equal(NeedsBrain.Score(RoutineFamily.Dungeon, needs), NeedsBrain.Score(DespiseGated, needs));
+    }
+
+    [Fact]
     public void Score_NullOrZeroRequiredPower_UsesRoutineScore()
     {
         var needs = new NeedsSnapshot

@@ -207,11 +207,12 @@ public static class RecallRules
 
     /// <summary>
     /// A recall trip leaves the person able to get home: the goal has a walk home, or the
-    /// person holds a recall for the way back too. A red spent the one charge it had for the
+    /// person holds a recall for the way back too. The walk is only searched when the recalls
+    /// in hand do not settle it. A red spent the one charge it had for the
     /// way home on the ride out to Destard, where no road leads back to the Den, and stood
     /// there for hours with its gang.
     /// </summary>
-    public static bool RecallsBothWays(int recallsInHand, bool walksHome) => walksHome || recallsInHand >= RoundTripRecalls;
+    public static bool RecallsBothWays(int recallsInHand, Func<bool> walksHome) => recallsInHand >= RoundTripRecalls || walksHome();
 
     /// <summary>Begins a real Recall toward <paramref name="goal"/>. True when the words of power began.</summary>
     public static bool TryRecallToward(SosariaCharacter character, Point3D goal, int minTripTiles = MinTripTiles) =>

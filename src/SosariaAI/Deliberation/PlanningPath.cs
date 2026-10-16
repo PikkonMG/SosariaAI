@@ -27,8 +27,6 @@ public sealed class PlanningPath
 
     public int AgreementGeneration { get; private set; }
 
-    public int PendingRevision { get; private set; }
-
     public PlanTrigger PendingTrigger { get; private set; }
 
     public long PendingRequestId { get; private set; }
@@ -106,7 +104,6 @@ public sealed class PlanningPath
         InFlight = true;
         LastAsked = now;
         PendingRequestId = requestId;
-        PendingRevision = Plan?.Revision ?? 0;
         PendingAgreement = AgreementGeneration;
         PendingTrigger = MergedTrigger;
         MergedTrigger = PlanTrigger.None;
@@ -115,6 +112,10 @@ public sealed class PlanningPath
         Diag.LastTrigger = PendingTrigger;
     }
 
+    /// <summary>
+    /// Settles the ask that is out with its reply, or its failure. A reply or a failure for any
+    /// other request is stale: it changes nothing, and the ask that is out stays in flight.
+    /// </summary>
     public AcceptResult Deliver(
         string raw,
         long requestId,
@@ -123,7 +124,14 @@ public sealed class PlanningPath
         bool timedOut
     )
     {
+        if (requestId != PendingRequestId)
+        {
+            Diag.NoteRejected(PlanValidator.RejectStale, stale: true);
+            return new AcceptResult { Accepted = false, Stale = true, Plan = Plan, Rejection = PlanValidator.RejectStale };
+        }
+
         InFlight = false;
+        PendingRequestId = 0;
         Diag.RequestState = PlanRequestState.Idle;
 
         if (timedOut || string.IsNullOrWhiteSpace(raw))
@@ -140,13 +148,7 @@ public sealed class PlanningPath
             };
         }
 
-        if (requestId != 0 && PendingRequestId != 0 && requestId != PendingRequestId)
-        {
-            Diag.NoteRejected(PlanValidator.RejectStale, stale: true);
-            return new AcceptResult { Accepted = false, Stale = true, Plan = Plan, Rejection = PlanValidator.RejectStale };
-        }
-
-        var proposal = ReplyParser.ParsePlan(raw, characterId, PendingRevision, requestId);
+        var proposal = ReplyParser.ParsePlan(raw, characterId, requestId);
 
         if (proposal == null)
         {
@@ -157,11 +159,7 @@ public sealed class PlanningPath
             return new AcceptResult { Accepted = false, Plan = Plan, Rejection = PlanValidator.RejectSchema };
         }
 
-        var acceptContext = context with
-        {
-            CurrentRevision = PendingRevision,
-            AgreementChanged = AgreementGeneration != PendingAgreement
-        };
+        var acceptContext = context with { AgreementChanged = AgreementGeneration != PendingAgreement };
         var result = PlanControl.Accept(Plan, proposal, acceptContext);
 
         if (!result.Accepted)
@@ -185,7 +183,6 @@ public sealed class PlanningPath
         BackoffUntil = default;
         Plan = result.Plan.With(trigger: PendingTrigger == PlanTrigger.None ? PlanTrigger.NoPlan : PendingTrigger);
         PendingTrigger = PlanTrigger.None;
-        PendingRequestId = 0;
         Diag.NoteAccepted(Plan);
         return new AcceptResult { Accepted = true, Plan = Plan };
     }

@@ -2,13 +2,17 @@ using System;
 
 namespace SosariaAI.Combat;
 
-/// <summary>How a caster that is losing gets out: by Recall, by Invisibility, or by holding still while hidden.</summary>
+/// <summary>
+/// How a caster that is losing gets out: by Recall, by Invisibility, by holding still while
+/// hidden for a recall to come, or, hidden with no recall to wait for, by leaving on foot.
+/// </summary>
 public enum EscapeMove
 {
     None,
     Recall,
     Vanish,
-    StayHidden
+    StayHidden,
+    Leave
 }
 
 /// <summary>
@@ -47,6 +51,9 @@ public static class MageTacticsRules
 
     /// <summary>A caster losing the trade of blows gets out below this share of its hits.</summary>
     public const double LosingEscapeFraction = 0.6;
+
+    /// <summary>A hidden caster waits for its recall at most this long: the heat of battle cools in it (<see cref="TravelHeat.Delay"/>).</summary>
+    public static readonly long HideWaitMs = (long)TravelHeat.Delay.TotalMilliseconds;
 
     /// <summary>A summon is dispelled when the spell unmakes it at least this often; below it the twenty mana buys more as damage.</summary>
     public const double MinDispelChance = 0.5;
@@ -101,11 +108,11 @@ public static class MageTacticsRules
     /// <summary>
     /// True when a spell of <paramref name="followCircle"/> said right after Explosion lands
     /// within <see cref="BurstWindowMs"/> of the blast: its words and the cast recovery against
-    /// the blast's delay. Before AOS an Energy Bolt lands 250 ms after the blast and a Flame
-    /// Strike 500 ms after; a Magic Arrow would land a full second before it.
+    /// the blast's delay. Before AOS an Energy Bolt lands with the blast and a Flame Strike
+    /// 250 ms after; a Magic Arrow would land 1.25 seconds before it.
     /// </summary>
     public static bool LandsTogether(int followCircle, bool aos) =>
-        Math.Abs(CastTiming.CastDelayMs(followCircle, slowedByProtection: false) + RecoveryMs(aos) - ExplosionDelayMs(aos)) <=
+        Math.Abs(CastTiming.CastDelayMs(followCircle, aos, slowedByProtection: false) + RecoveryMs(aos) - ExplosionDelayMs(aos)) <=
         BurstWindowMs;
 
     /// <summary>
@@ -154,12 +161,21 @@ public static class MageTacticsRules
          outlook == FightOutlook.Losing && hitsFraction < LosingEscapeFraction);
 
     /// <summary>
-    /// The way out: a hidden caster recalls when the recall-out path allows it and else holds
-    /// still, since a step or a spell shows it again; a losing one recalls when it may, else
-    /// goes invisible when it can; otherwise nothing.
+    /// A hidden caster holds still for its recall while a refusal may still pass (the heat of
+    /// battle, the mana) and for at most <see cref="HideWaitMs"/>. With no rune home, no
+    /// reagents, or a wait that ran out, holding still waited forever.
     /// </summary>
-    public static EscapeMove Escape(bool hidden, bool losing, bool recallAllowed, bool canVanish) =>
-        hidden ? recallAllowed ? EscapeMove.Recall : EscapeMove.StayHidden
+    public static bool WaitsForRecall(bool recallRefusedForGood, long hiddenMs) =>
+        !recallRefusedForGood && hiddenMs < HideWaitMs;
+
+    /// <summary>
+    /// The way out: a hidden caster recalls when the recall-out path allows it, else holds still
+    /// while it waits for the recall (<see cref="WaitsForRecall"/>), since a step or a spell shows
+    /// it again, else leaves the fight on foot; a losing one recalls when it may, else goes
+    /// invisible when it can; otherwise nothing.
+    /// </summary>
+    public static EscapeMove Escape(bool hidden, bool losing, bool recallAllowed, bool waitsForRecall, bool canVanish) =>
+        hidden ? recallAllowed ? EscapeMove.Recall : waitsForRecall ? EscapeMove.StayHidden : EscapeMove.Leave
         : !losing ? EscapeMove.None
         : recallAllowed ? EscapeMove.Recall
         : canVanish ? EscapeMove.Vanish

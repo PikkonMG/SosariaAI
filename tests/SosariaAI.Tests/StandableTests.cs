@@ -43,6 +43,9 @@ public class StandableTests
         public int ProbeBody { get; private set; }
         public Direction AskedDirection { get; private set; }
 
+        /// <summary>True when the engine was told to leave movable items out of the step.</summary>
+        public bool IgnoredMovables { get; private set; }
+
         public bool CheckMovement(Mobile m, Direction d, out int newZ) => CheckMovement(m, m.Map, m.Location, d, out newZ);
 
         public bool CheckMovement(Mobile m, Map map, Point3D loc, Direction d, out int newZ)
@@ -53,6 +56,7 @@ public class StandableTests
             ProbeIsPlayer = m.Player;
             ProbeBody = m.Body.BodyID;
             AskedDirection = d;
+            IgnoredMovables = MovementImpl.IgnoreMovableImpassables;
             newZ = LandedZ;
             return Allows;
         }
@@ -101,6 +105,35 @@ public class StandableTests
             Assert.False(Standable.TryStep(map, TestX, TestY, TestZ, TestX, TestY - 1, out _));
             Assert.Equal(1, recorder.Asked);
             Assert.Equal(Standable.WalkerBody, recorder.ProbeBody);
+        }
+        finally
+        {
+            Movement.Impl = engine;
+        }
+    }
+
+    [Fact]
+    public void GroundWalker_StepsPastMovableItems_AndOpensDoors()
+    {
+        // The boot's verdicts are saved and move pads, so a step on the lasting ground leaves
+        // every movable item out and opens every door, whichever way the items lie now. The
+        // engine is set back as it was after the step.
+        var map = TestMap.EnsureLand();
+        var engine = Movement.Impl;
+        var ignoredBefore = MovementImpl.IgnoreMovableImpassables;
+        var recorder = new RecordingMovement();
+        Movement.Impl = recorder;
+
+        try
+        {
+            Assert.True(Standable.GroundWalker(map).Step(TestX, TestY, TestZ, TestX, TestY - 1, out var z));
+            Assert.Equal(LandedZ, z);
+            Assert.Equal(new Point3D(TestX, TestY, TestZ), recorder.AskedFrom);
+            Assert.Equal(Standable.DoorOpeningBody, recorder.ProbeBody);
+            Assert.True(recorder.IgnoredMovables);
+            Assert.Equal(ignoredBefore, MovementImpl.IgnoreMovableImpassables);
+            Assert.False(Standable.GroundWalker(map).Step(TestX, TestY, TestZ, TestX + 2, TestY, out _));
+            Assert.Null(Standable.GroundWalker(null).FloorNear(0, 0, 0));
         }
         finally
         {

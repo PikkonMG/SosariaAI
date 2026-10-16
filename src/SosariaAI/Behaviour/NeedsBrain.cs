@@ -29,6 +29,13 @@ public sealed class NeedsSnapshot
     /// </summary>
     public int OutingPower => Math.Max(Power, HealthyPower);
 
+    /// <summary>
+    /// The power held to a required power: an outing (a hunt, a dungeon, a party run) counts
+    /// <see cref="OutingPower"/> and a share of the allies' power; anything else the power of
+    /// the moment alone.
+    /// </summary>
+    public int EffectivePower(bool outing) => DecideChoice.EffectivePower(outing ? OutingPower : Power, AlliesPower, outing);
+
     public TimeSpan TimeSinceHunt { get; init; } = TimeSpan.MaxValue;
 
     public TimeSpan TimeSinceRest { get; init; } = TimeSpan.MaxValue;
@@ -120,7 +127,7 @@ public static class NeedsBrain
         }
 
         var maxUnmetRequiredPower = MaxUnmetRequiredPower(choices, needs, catalog);
-        var trainHunt = InTrainingBand(needs.Power, maxUnmetRequiredPower);
+        var trainHunt = InTrainingBand(needs.OutingPower, maxUnmetRequiredPower);
         var bestId = choices[0].Routine;
         var bestScore = double.MinValue;
 
@@ -381,14 +388,11 @@ public static class NeedsBrain
     private static bool PowerMet(ChoiceDefinition choice, NeedsSnapshot needs, DestinationCatalog catalog)
     {
         var required = DecideChoice.RequiredPowerOf(choice, catalog);
-        var family = FamilyOf(choice.Routine);
-        var power = DecideChoice.EffectivePower(
-            needs.Power,
-            needs.AlliesPower,
-            family is RoutineFamily.Hunt or RoutineFamily.Dungeon or RoutineFamily.Party
-        );
-        return required <= 0 || power >= required;
+        return required <= 0 || PowerFor(choice, needs) >= required;
     }
+
+    private static int PowerFor(ChoiceDefinition choice, NeedsSnapshot needs) =>
+        needs.EffectivePower(FamilyOf(choice.Routine) is RoutineFamily.Hunt or RoutineFamily.Dungeon or RoutineFamily.Party);
 
     private static int MaxUnmetRequiredPower(
         IReadOnlyList<ChoiceDefinition> choices,
@@ -401,13 +405,8 @@ public static class NeedsBrain
         for (var i = 0; i < choices.Count; i++)
         {
             var required = DecideChoice.RequiredPowerOf(choices[i], catalog);
-            var family = FamilyOf(choices[i].Routine);
-            var power = DecideChoice.EffectivePower(
-                needs.Power,
-                needs.AlliesPower,
-                family is RoutineFamily.Hunt or RoutineFamily.Dungeon or RoutineFamily.Party
-            );
-            if (required > max && power < required)
+
+            if (required > max && PowerFor(choices[i], needs) < required)
             {
                 max = required;
             }

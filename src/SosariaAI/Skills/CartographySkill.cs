@@ -14,6 +14,12 @@ namespace SosariaAI.Skills;
 /// </summary>
 public sealed class CartographySkill : Skill
 {
+    /// <summary>The cartographer is dead or out of the world.</summary>
+    public const string CannotWorkWhy = "cannot work now";
+
+    /// <summary>No map work was begun, or it was broken off.</summary>
+    public const string NoWorkWhy = "no map work under way";
+
     private SosariaCharacter _character;
     private Skill _work;
 
@@ -26,21 +32,26 @@ public sealed class CartographySkill : Skill
 
         if (!CraftStationSkill.MayWork(character))
         {
-            return false;
+            return CannotStart(CannotWorkWhy);
         }
 
         _work = Choose(character);
-        return _work.Begin(character);
+        return _work.Begin(character) || CannotStart(_work.FailReason);
     }
 
     public override SkillStatus Tick()
     {
         if (_work == null)
         {
-            return SkillStatus.Failed;
+            return Fail(NoWorkWhy);
         }
 
         var status = _work.Tick();
+
+        if (status == SkillStatus.Failed)
+        {
+            return Fail(_work.FailReason);
+        }
 
         if (status != SkillStatus.Done || _work is not TreasureMapBuySkill { Bought: { } map })
         {

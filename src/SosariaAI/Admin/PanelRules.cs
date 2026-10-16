@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Server;
+using SosariaAI.Common;
 using SosariaAI.Navigation;
 
 namespace SosariaAI.Admin;
@@ -22,6 +23,9 @@ public static class PanelRules
     /// <summary>Tiles searched around a travel spot for one a staff member can land on.</summary>
     public const int LandingRadius = 8;
 
+    /// <summary>How long a facet's landed travel spots are kept before they are landed again.</summary>
+    public static readonly TimeSpan SpotsLife = TimeSpan.FromMinutes(10);
+
     public const int ButtonRefresh = 1;
     public const int ButtonWriteStatus = 2;
     public const int ButtonFirstTimeSetup = 3;
@@ -33,6 +37,13 @@ public static class PanelRules
     public const int DungeonSection = 2;
 
     public static int SpotButton(int section, int index) => section * SectionSize + index;
+
+    /// <summary>
+    /// True while travel spots landed at <paramref name="landedAt"/> still serve: the facet's
+    /// nav graph is the one they were landed on, and <see cref="SpotsLife"/> has not passed.
+    /// </summary>
+    public static bool SpotsFresh(bool sameGraph, DateTime landedAt, DateTime now) =>
+        sameGraph && !TimeRules.Rested(landedAt, now, SpotsLife);
 
     public static bool TryReadSpot(int buttonId, out int section, out int index)
     {

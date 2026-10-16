@@ -2,7 +2,7 @@ namespace SosariaAI.Deliberation;
 
 /// <summary>
 /// Drain order for the per-provider queue. High items (player chat) go first, but a
-/// streak of them cannot starve the normal channel.
+/// streak of them cannot starve the normal channel. Asked only when a request waits.
 /// </summary>
 public static class WorkerQueuePolicy
 {
@@ -10,28 +10,10 @@ public static class WorkerQueuePolicy
 
     public enum Pick
     {
-        None,
         High,
         Normal
     }
 
-    public static Pick Next(bool hasHigh, bool hasNormal, int highStreak)
-    {
-        if (hasHigh && highStreak < MaxHighBeforeNormal)
-        {
-            return Pick.High;
-        }
-
-        if (hasNormal)
-        {
-            return Pick.Normal;
-        }
-
-        if (hasHigh)
-        {
-            return Pick.High;
-        }
-
-        return Pick.None;
-    }
+    public static Pick Next(bool hasHigh, bool hasNormal, int highStreak) =>
+        hasHigh && (highStreak < MaxHighBeforeNormal || !hasNormal) ? Pick.High : Pick.Normal;
 }

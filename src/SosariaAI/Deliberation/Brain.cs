@@ -65,6 +65,12 @@ public static partial class Brain
     /// <summary>The most people the chat prompt names as standing near (<see cref="PeopleNear"/>).</summary>
     public const int MaxPeopleNear = 8;
 
+    /// <summary>
+    /// The clock a decision prompt shows: the server's local time, the clock the day part reads
+    /// (<see cref="DayShapeRules.LocalHour"/>), so "Time 22:10" and an evening day part agree.
+    /// </summary>
+    private const string PromptClockFormat = "HH:mm";
+
     public static int HearRange => _settings?.HearRange ?? BrainConfiguration.DefaultHearRange;
 
     /// <summary>True when brain.json sends party orders through the goal loop instead of straight to the routine.</summary>
@@ -228,7 +234,6 @@ public static partial class Brain
         _providerFailures.Clear();
         LogJevUsageAtShutdown();
         EventSink.Shutdown -= Shutdown;
-        MemoryStore.Shared.Flush();
     }
 
     public static void Watch(Routine routine)
@@ -314,7 +319,7 @@ public static partial class Brain
             }
 
             if (result.Kind == BrainEventKind.Plan &&
-                World.FindMobile(result.CharacterSerial) is SosariaCharacter failedPlan)
+                World.FindMobile(result.CharacterSerial) is SosariaCharacter { Deleted: false } failedPlan)
             {
                 ApplyPlan(failedPlan, result);
                 return;
@@ -338,6 +343,14 @@ public static partial class Brain
 
         var character = World.FindMobile(result.CharacterSerial) as SosariaCharacter;
 
+        // A plan reply always settles the planning session, a dead character's too: the plan
+        // is rejected there, and the ask is no longer in flight, so the next plan can be asked.
+        if (result.Kind == BrainEventKind.Plan && character is { Deleted: false })
+        {
+            ApplyPlan(character, result);
+            return;
+        }
+
         if (character == null || character.Deleted || !character.Alive)
         {
             LogSpokenOutcome(result, character, speaker: null, discarded: true, distance: -1);
@@ -345,12 +358,6 @@ public static partial class Brain
         }
 
         FinishSpokenWait(result, character);
-
-        if (result.Kind == BrainEventKind.Plan)
-        {
-            ApplyPlan(character, result);
-            return;
-        }
 
         if (DecisionEvents.Qualifies(result.Kind, speakerIsPlayer: true))
         {
@@ -788,14 +795,15 @@ public static partial class Brain
         }
 
         var evt = Create(BrainEventKind.Plan, character, speaker: null, text: trigger.ToString());
+        var requestId = TryEnqueue(evt, PlanningPath.CallKind, now);
 
-        if (TryEnqueue(evt, PlanningPath.CallKind, now) <= 0)
+        if (requestId <= 0)
         {
             return false;
         }
 
         _lastPlanEnqueue = now;
-        character.Planning.MarkEnqueued(_nextRequestId, now);
+        character.Planning.MarkEnqueued(requestId, now);
 
         if (SosariaSettings.LogActivity)
         {
@@ -1368,7 +1376,6 @@ public static partial class Brain
                 evt.SpeakerIsPlayer && evt.Kind == BrainEventKind.Spoken,
                 evt.FromParty,
                 living?.CharacterId,
-                living?.Planning.Plan?.Revision ?? 0,
                 jev,
                 ask,
                 jevKind
@@ -1395,8 +1402,7 @@ public static partial class Brain
                 providerName,
                 evt.SpeakerIsPlayer && evt.Kind is BrainEventKind.Spoken or BrainEventKind.Reword,
                 evt.FromParty,
-                living?.CharacterId,
-                living?.Planning.Plan?.Revision ?? 0
+                living?.CharacterId
             );
         }
 
@@ -1618,7 +1624,12 @@ public static partial class Brain
         if (skill.Name is SkillKinds.BankDeposit or SkillKinds.VendorSell)
         {
             character.TickAmbition();
-            NoteBankVisit(character);
+
+            // Only a finished run dropped the haul off; a failed one leaves the time since the bank running.
+            if (status == SkillStatus.Done)
+            {
+                NoteBankVisit(character);
+            }
         }
 
         if (skill.Name == SkillKinds.Sightsee)
@@ -1974,9 +1985,7 @@ public static partial class Brain
         var facts = FactsOf(character, null);
         var offWorld = character.Map == null || character.Map == Map.Internal;
         var context = new PlanAcceptContext(
-            character.CharacterId,
-            character.Planning.Plan?.Revision ?? 0,
-            !character.Deleted,
+            character.Alive && !character.Deleted,
             offWorld,
             Core.Now,
             skills,
@@ -2290,7 +2299,7 @@ public static partial class Brain
         builder.Append(". Pack ");
         builder.Append((int)(snap.PackFillFraction * 100));
         builder.Append(" percent. Time ");
-        builder.Append(Core.Now.ToString("HH:mm"));
+        builder.Append(Core.Now.ToLocalTime().ToString(PromptClockFormat));
         builder.Append('.');
 
         if (snap.PartyForming)

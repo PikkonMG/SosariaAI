@@ -50,8 +50,8 @@ public static class DeathAvoid
     /// <summary>The configured hours a death is kept away from; 0 or less uses the default.</summary>
     public static int WindowHours(int hours) => hours > 0 ? hours : CareerSettings.DefaultDeathAvoidHours;
 
-    /// <summary>True when one of the places a close friend fell lately is this hunt ground or this dungeon.</summary>
-    public static bool FriendFellAt(IReadOnlyList<string> friendDeathPlaces, string groundPlace, string dungeonPlace)
+    /// <summary>True when one of the places a close friend fell lately is this place.</summary>
+    public static bool FriendFellAt(IReadOnlyList<string> friendDeathPlaces, string place)
     {
         if (friendDeathPlaces == null)
         {
@@ -60,7 +60,7 @@ public static class DeathAvoid
 
         for (var i = 0; i < friendDeathPlaces.Count; i++)
         {
-            if (SamePlace(friendDeathPlaces[i], groundPlace) || SamePlace(friendDeathPlaces[i], dungeonPlace))
+            if (SamePlace(friendDeathPlaces[i], place))
             {
                 return true;
             }

@@ -1,3 +1,4 @@
+using System;
 using Server;
 using Server.Items;
 using Server.Spells;
@@ -21,6 +22,28 @@ public static class SpellCasting
         for (var i = 0; i < info.Reagents.Length; i++)
         {
             if (pack.GetAmount(info.Reagents[i]) < info.Amounts[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// True when <paramref name="amountOf"/>, the reagents already counted in a pack, pays for
+    /// the spell: one read of the pack serves every spell of a stock.
+    /// </summary>
+    public static bool HasReagents(SpellInfo info, Func<Type, int> amountOf)
+    {
+        if (info == null)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < info.Reagents.Length; i++)
+        {
+            if (amountOf(info.Reagents[i]) < info.Amounts[i])
             {
                 return false;
             }

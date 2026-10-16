@@ -53,8 +53,7 @@ public static class DoorTiles
 
         foreach (var door in map.GetItemsAt<BaseDoor>(x, y))
         {
-            if (!door.Open && !(door.Locked && door.UseLocks()) &&
-                door.Z + door.ItemData.Height > z && z + PersonBody.Height > door.Z)
+            if (!door.Open && !StaysShut(door) && InTheWay(door.Z, door, z))
             {
                 return door;
             }
@@ -62,6 +61,53 @@ public static class DoorTiles
 
         return null;
     }
+
+    /// <summary>True when a person's step does not open the door: it is locked.</summary>
+    public static bool StaysShut(BaseDoor door) => door.Locked && door.UseLocks();
+
+    /// <summary>
+    /// The door whose doorway is the tile and which stands in the way of a person at height
+    /// <paramref name="z"/> when shut, open or shut as it is now; null when none. Its shut
+    /// spot is read back from the open leaf, so the answer is the same whichever way it stands.
+    /// </summary>
+    public static BaseDoor DoorwayAt(Map map, int x, int y, int z)
+    {
+        if (map == null || map == Map.Internal)
+        {
+            return null;
+        }
+
+        foreach (var door in map.GetItemsInRange<BaseDoor>(x, y, LeafReach))
+        {
+            var shut = ShutSpot(door);
+
+            if (shut.X == x && shut.Y == y && InTheWay(shut.Z, door, z))
+            {
+                return door;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// True when a step between two tiles side by side is diagonal and a doorway
+    /// (<see cref="DoorwayAt"/>) stands on either end or on either corner tile the step cuts:
+    /// the engine's corner rule refuses it while the door is shut, and a shut door is how a
+    /// door rests.
+    /// </summary>
+    public static bool DiagonalByDoorway(Map map, int fromX, int fromY, int toX, int toY, int z) =>
+        fromX != toX && fromY != toY &&
+        (DoorwayAt(map, fromX, fromY, z) != null || DoorwayAt(map, toX, toY, z) != null ||
+         DoorwayAt(map, toX, fromY, z) != null || DoorwayAt(map, fromX, toY, z) != null);
+
+    /// <summary>Where a door stands shut: its own spot, or its open leaf's spot less the swing.</summary>
+    private static Point3D ShutSpot(BaseDoor door) =>
+        door.Open ? new Point3D(door.X - door.Offset.X, door.Y - door.Offset.Y, door.Z - door.Offset.Z) : door.Location;
+
+    /// <summary>True when a door at <paramref name="doorZ"/> is neither wholly above nor wholly below a person at <paramref name="z"/>.</summary>
+    private static bool InTheWay(int doorZ, BaseDoor door, int z) =>
+        doorZ + door.ItemData.Height > z && z + PersonBody.Height > doorZ;
 
     /// <summary>
     /// True when a step the engine refuses goes through all the same once the walker opens the
@@ -84,10 +130,9 @@ public static class DoorTiles
 
         foreach (var door in map.GetItemsInRange<BaseDoor>(x, y, LeafReach))
         {
-            var frameX = door.Open ? door.X - door.Offset.X : door.X;
-            var frameY = door.Open ? door.Y - door.Offset.Y : door.Y;
+            var shut = ShutSpot(door);
 
-            if (frameX == x && frameY == y)
+            if (shut.X == x && shut.Y == y)
             {
                 return true;
             }

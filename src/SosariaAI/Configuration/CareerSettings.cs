@@ -62,9 +62,12 @@ public sealed class CareerSettings
     [JsonPropertyName("ignorePriceLimits")]
     public bool IgnorePriceLimits { get; set; } = DefaultIgnorePriceLimits;
 
-    /// <summary>Gold a character keeps in the bank when it shops for gear.</summary>
+    /// <summary>
+    /// Gold a character keeps in the bank when it shops for gear. A goldReserve of 0 keeps
+    /// none; a negative one is a mistake and keeps the default.
+    /// </summary>
     public int EffectiveGoldReserve() =>
-        IgnorePriceLimits ? NoGoldReserve : GoldReserve > 0 ? GoldReserve : DefaultGoldReserve;
+        IgnorePriceLimits ? NoGoldReserve : GoldReserve >= NoGoldReserve ? GoldReserve : DefaultGoldReserve;
 
     /// <summary>
     /// The threat that sends a character running: career.minThreatToFlee, or the default when

@@ -55,6 +55,20 @@ public static class AmbitionRules
     private const string VeteranMarker = "veteran";
     private const string DespiseMarker = "despise";
 
+    /// <summary>Ends a table word that is a root, not a whole word: "wrestl*".</summary>
+    private const char StemMark = '*';
+
+    // Endings a whole table word may carry and still be that word: "trolls", "liches".
+    private static readonly string[] PluralEndings = ["s", "es"];
+
+    // The skills that rise in a fight: the weapon skills, and the tactics, anatomy and parry
+    // checks every swing or block makes.
+    private static readonly SkillName[] FightSkills =
+    [
+        SkillName.Swords, SkillName.Fencing, SkillName.Macing, SkillName.Archery, SkillName.Wrestling,
+        SkillName.Tactics, SkillName.Anatomy, SkillName.Parry
+    ];
+
     // The trade a background names, and the skill that trade trains. First match wins,
     // so a more specific phrase must come before a shorter one it contains, and a
     // smith's sword must be read as smithing before "sword" is read as swordplay.
@@ -62,84 +76,88 @@ public static class AmbitionRules
     [
         ("cuts wood", SkillLumberjacking),
         ("woodcutter", SkillLumberjacking),
-        ("lumber", SkillLumberjacking),
+        ("lumber*", SkillLumberjacking),
         ("miner", SkillMining),
         ("mining", SkillMining),
         ("mine", SkillMining),
         ("vein", SkillMining),
         ("ore", SkillMining),
-        ("fish", SkillFishing),
-        ("blacksmith", nameof(SkillName.Blacksmith)),
-        ("smith", nameof(SkillName.Blacksmith)),
+        ("fish*", SkillFishing),
+        ("blacksmith*", nameof(SkillName.Blacksmith)),
+        ("smith*", nameof(SkillName.Blacksmith)),
         ("forge", nameof(SkillName.Blacksmith)),
-        ("smelt", nameof(SkillName.Blacksmith)),
+        ("smelt*", nameof(SkillName.Blacksmith)),
         ("anvil", nameof(SkillName.Blacksmith)),
         ("ingot", nameof(SkillName.Blacksmith)),
-        ("armor", nameof(SkillName.Blacksmith)),
+        ("armor*", nameof(SkillName.Blacksmith)),
         ("plate", nameof(SkillName.Blacksmith)),
         ("chain", nameof(SkillName.Blacksmith)),
         ("shield", nameof(SkillName.Blacksmith)),
-        ("tailor", nameof(SkillName.Tailoring)),
-        ("leather", nameof(SkillName.Tailoring)),
+        ("tailor*", nameof(SkillName.Tailoring)),
+        ("leather*", nameof(SkillName.Tailoring)),
         ("sew", nameof(SkillName.Tailoring)),
-        ("weave", nameof(SkillName.Tailoring)),
+        ("sewing", nameof(SkillName.Tailoring)),
+        ("weav*", nameof(SkillName.Tailoring)),
         ("cloak", nameof(SkillName.Tailoring)),
         ("boots", nameof(SkillName.Tailoring)),
-        ("dye", nameof(SkillName.Tailoring)),
+        ("dye*", nameof(SkillName.Tailoring)),
         ("carpenter", nameof(SkillName.Carpentry)),
         ("carpentry", nameof(SkillName.Carpentry)),
         ("furniture", nameof(SkillName.Carpentry)),
         ("chair", nameof(SkillName.Carpentry)),
         ("masonry", nameof(SkillName.Carpentry)),
-        ("tinker", nameof(SkillName.Tinkering)),
-        ("clock", nameof(SkillName.Tinkering)),
-        ("cook", nameof(SkillName.Cooking)),
-        ("bake", nameof(SkillName.Cooking)),
+        ("tinker*", nameof(SkillName.Tinkering)),
+        ("clock*", nameof(SkillName.Tinkering)),
+        ("cook*", nameof(SkillName.Cooking)),
+        ("bake*", nameof(SkillName.Cooking)),
         ("bread", nameof(SkillName.Cooking)),
         ("recipe", nameof(SkillName.Cooking)),
         ("kitchen", nameof(SkillName.Cooking)),
         ("feast", nameof(SkillName.Cooking)),
-        ("alchem", nameof(SkillName.Alchemy)),
+        ("alchem*", nameof(SkillName.Alchemy)),
         ("potion", nameof(SkillName.Alchemy)),
-        ("scribe", nameof(SkillName.Inscribe)),
-        ("write", nameof(SkillName.Inscribe)),
-        ("cartograph", nameof(SkillName.Cartography)),
+        ("scribe*", nameof(SkillName.Inscribe)),
+        ("writ*", nameof(SkillName.Inscribe)),
+        ("cartograph*", nameof(SkillName.Cartography)),
         ("bowyer", nameof(SkillName.Fletching)),
-        ("fletch", nameof(SkillName.Fletching)),
+        ("fletch*", nameof(SkillName.Fletching)),
         ("bows", nameof(SkillName.Fletching)),
-        ("archer", SkillArchery),
-        ("tame", nameof(SkillName.AnimalTaming)),
+        ("archer*", SkillArchery),
+        ("tame*", nameof(SkillName.AnimalTaming)),
         ("taming", nameof(SkillName.AnimalTaming)),
         ("beast", nameof(SkillName.AnimalTaming)),
         ("animal", nameof(SkillName.AnimalTaming)),
         ("horse", nameof(SkillName.AnimalTaming)),
         ("ostard", nameof(SkillName.AnimalTaming)),
         ("riding", nameof(SkillName.AnimalTaming)),
-        ("breed", nameof(SkillName.AnimalTaming)),
+        ("breed*", nameof(SkillName.AnimalTaming)),
         ("bond", nameof(SkillName.AnimalTaming)),
         ("pet", nameof(SkillName.AnimalTaming)),
         ("stray", nameof(SkillName.AnimalTaming)),
         ("bird", nameof(SkillName.AnimalTaming)),
         ("command", nameof(SkillName.AnimalTaming)),
-        ("veterinar", nameof(SkillName.Veterinary)),
+        ("veterinar*", nameof(SkillName.Veterinary)),
         ("healer", nameof(SkillName.Healing)),
         ("thief", nameof(SkillName.Stealing)),
         ("steal", nameof(SkillName.Stealing)),
+        ("stealing", nameof(SkillName.Stealing)),
         ("stolen", nameof(SkillName.Stealing)),
         ("rob", nameof(SkillName.Stealing)),
+        ("robb*", nameof(SkillName.Stealing)),
         ("heist", nameof(SkillName.Stealing)),
         ("purse", nameof(SkillName.Stealing)),
         ("fence", nameof(SkillName.Stealing)),
-        ("lockpick", nameof(SkillName.Lockpicking)),
+        ("lockpick*", nameof(SkillName.Lockpicking)),
         ("lock", nameof(SkillName.Lockpicking)),
-        ("snoop", nameof(SkillName.Snooping)),
+        ("locked", nameof(SkillName.Lockpicking)),
+        ("snoop*", nameof(SkillName.Snooping)),
         ("stealth", nameof(SkillName.Stealth)),
         ("hiding", nameof(SkillName.Hiding)),
         ("bard", nameof(SkillName.Musicianship)),
-        ("music", nameof(SkillName.Musicianship)),
+        ("music*", nameof(SkillName.Musicianship)),
         ("paladin", nameof(SkillName.Chivalry)),
-        ("necromancy", nameof(SkillName.Necromancy)),
-        ("spellweaving", nameof(SkillName.Spellweaving)),
+        ("necroman*", nameof(SkillName.Necromancy)),
+        ("spellweav*", nameof(SkillName.Spellweaving)),
         ("mage", SkillMagery),
         ("wizard", SkillMagery),
         ("magery", SkillMagery),
@@ -149,32 +167,32 @@ public static class AmbitionRules
         ("tactics", nameof(SkillName.Tactics)),
         ("anatomy", nameof(SkillName.Anatomy)),
         ("parry", nameof(SkillName.Parry)),
-        ("wrestl", nameof(SkillName.Wrestling)),
+        ("parrying", nameof(SkillName.Parry)),
+        ("wrestl*", nameof(SkillName.Wrestling)),
         ("red", nameof(SkillName.Tactics)),
         ("fighting", nameof(SkillName.Tactics)),
         ("sparring", nameof(SkillName.Tactics)),
-        ("pk", nameof(SkillName.Tactics)),
+        ("pk*", nameof(SkillName.Tactics)),
         ("militia", nameof(SkillName.Tactics)),
         ("siege", nameof(SkillName.Tactics)),
-        ("protect", nameof(SkillName.Tactics)),
-        ("defend", nameof(SkillName.Tactics)),
+        ("protect*", nameof(SkillName.Tactics)),
+        ("defend*", nameof(SkillName.Tactics)),
         ("fencing", nameof(SkillName.Fencing)),
         ("mace", nameof(SkillName.Macing)),
         ("dagger", nameof(SkillName.Fencing)),
-        ("duel", SkillSwords),
-        ("swordsman", SkillSwords),
-        ("sword", SkillSwords)
+        ("duel*", SkillSwords),
+        ("sword*", SkillSwords)
     ];
 
     // Words that say a character knows its own streets and could want to see further.
     private static readonly string[] WanderWords =
     [
         "errands", "every street", "every town", "every market", "every mountain", "every shrine",
-        "every dungeon", "every corner", "see the", "travel", "visit", "sail", "reach"
+        "every dungeon", "every corner", "see the", "travel*", "visit*", "sail*", "reach"
     ];
 
     // Words that say a want is a hunt. A hunt counts only when it names a creature below.
-    private static readonly string[] HuntWords = ["hunt", "kill", "slay", "defeat", "take", "bring down", "fight", "clear"];
+    private static readonly string[] HuntWords = ["hunt*", "kill*", "slay*", "defeat*", "take", "bring down", "fight*", "clear"];
 
     // Creatures a want can name, and the spawn role the hunt catalog files them under.
     // A longer name comes before a shorter one it contains.
@@ -192,7 +210,7 @@ public static class AmbitionRules
         ("balron", "Balron"),
         ("daemon", "Daemon"),
         ("ettin", "Ettin"),
-        ("cyclop", "Cyclops"),
+        ("cyclop*", "Cyclops"),
         ("titan", "Titan"),
         ("skeleton", CreatureSkeleton),
         ("zombie", "Zombie"),
@@ -202,7 +220,7 @@ public static class AmbitionRules
         ("harpies", "Harpy"),
         ("ratmen", "Ratman"),
         ("ratman", "Ratman"),
-        ("lizardm", "Lizardman"),
+        ("lizardm*", "Lizardman"),
         ("gazer", "Gazer"),
         ("ophidian", "OphidianWarrior"),
         ("terathan", "TerathanWarrior"),
@@ -459,8 +477,9 @@ public static class AmbitionRules
         a.Kind is AmbitionKind.Kills ||
         (a.Kind is AmbitionKind.Skill && IsFightSkill(a.Target));
 
-    /// <summary>A weapon skill rises in a fight, not at a work site.</summary>
-    public static bool IsFightSkill(string skill) => skill is SkillSwords or SkillArchery;
+    /// <summary>A fight skill (<see cref="FightSkills"/>) rises in a fight, not at a work site.</summary>
+    public static bool IsFightSkill(string skill) =>
+        Enum.TryParse(skill, ignoreCase: true, out SkillName name) && Array.IndexOf(FightSkills, name) >= 0;
 
     /// <summary>The skill a Skill ambition names, or null for any other ambition.</summary>
     public static string SkillOf(Ambition a) => a.Kind is AmbitionKind.Skill ? a.Target : null;
@@ -634,21 +653,50 @@ public static class AmbitionRules
         return false;
     }
 
-    // A word counts only at the start of a word, so "mage" does not match inside "image".
+    // A word counts only at the start of a word, so "mage" does not match inside "image". It
+    // must also end the word, alone or with a plural ending: "red" matches "reds", never
+    // "redeem", and "forge" never "forgets". A word that ends in StemMark is a root and
+    // matches every word it starts: "wrestl*" matches "wrestler" and "wrestling".
     private static bool HasWord(string text, string word)
     {
-        var index = text.IndexOf(word, StringComparison.OrdinalIgnoreCase);
+        var isStem = word.EndsWith(StemMark);
+        var key = isStem ? word[..^1] : word;
+        var index = text.IndexOf(key, StringComparison.OrdinalIgnoreCase);
 
         while (index >= 0)
         {
-            if (index == 0 || !char.IsLetter(text[index - 1]))
+            if ((index == 0 || !char.IsLetter(text[index - 1])) && (isStem || EndsWord(text, index + key.Length)))
             {
                 return true;
             }
 
-            index = text.IndexOf(word, index + 1, StringComparison.OrdinalIgnoreCase);
+            index = text.IndexOf(key, index + 1, StringComparison.OrdinalIgnoreCase);
         }
 
         return false;
     }
+
+    // True when the text's word ends at the index, or after a plural ending there.
+    private static bool EndsWord(string text, int at)
+    {
+        if (WordEndsAt(text, at))
+        {
+            return true;
+        }
+
+        for (var i = 0; i < PluralEndings.Length; i++)
+        {
+            var ending = PluralEndings[i];
+
+            if (string.Compare(text, at, ending, 0, ending.Length, StringComparison.OrdinalIgnoreCase) == 0 &&
+                WordEndsAt(text, at + ending.Length))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool WordEndsAt(string text, int at) => at >= text.Length || !char.IsLetter(text[at]);
 }

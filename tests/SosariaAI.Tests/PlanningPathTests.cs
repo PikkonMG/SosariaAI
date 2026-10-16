@@ -34,7 +34,7 @@ public class PlanningPathTests
 
         Assert.True(Ask(path, PlanTrigger.PlayerRequest, Noon));
         var raw = provider.Send(path, WorkerFacts());
-        var accepted = path.Deliver(raw, 1, WorkerId, AcceptContext(WorkerId), timedOut: false);
+        var accepted = path.Deliver(raw, 1, WorkerId, AcceptContext(), timedOut: false);
 
         Assert.Equal(BrainProviders.DecisionKind, provider.LastCallKind);
         Assert.True(accepted.Accepted);
@@ -100,7 +100,7 @@ public class PlanningPathTests
             WorkerPlanJson("other goal"),
             2,
             WorkerId,
-            AcceptContext(WorkerId, path.Plan.Revision),
+            AcceptContext(),
             timedOut: false
         );
 
@@ -109,6 +109,54 @@ public class PlanningPathTests
         Assert.Equal(firstId, path.Plan.Id);
         Assert.Equal(1, path.Diag.StaleReplies);
         Assert.Equal("better tools", path.Plan.Goal);
+    }
+
+    [Fact]
+    public void DuplicateReply_AfterTheAskIsSettled_IsStale()
+    {
+        var path = ReadyWorker();
+        var firstId = path.Plan.Id;
+
+        var again = path.Deliver(WorkerPlanJson("other goal"), 1, WorkerId, AcceptContext(), timedOut: false);
+
+        Assert.False(again.Accepted);
+        Assert.True(again.Stale);
+        Assert.Equal(firstId, path.Plan.Id);
+    }
+
+    [Fact]
+    public void StaleFailure_LeavesTheOpenAskInFlight()
+    {
+        // A failure for an older request cleared the newer ask and counted as its failure.
+        var path = new PlanningPath();
+        path.MarkEnqueued(2, Noon);
+
+        var late = path.Deliver(null, 1, WorkerId, AcceptContext(), timedOut: true);
+
+        Assert.False(late.Accepted);
+        Assert.True(late.Stale);
+        Assert.True(path.InFlight);
+        Assert.Equal(0, path.ConsecutiveFailures);
+        Assert.Equal(2, path.PendingRequestId);
+
+        Assert.True(path.Deliver(WorkerPlanJson(), 2, WorkerId, AcceptContext(), timedOut: false).Accepted);
+        Assert.False(path.InFlight);
+    }
+
+    [Fact]
+    public void DeadCharacter_ReplyIsRejected_AndTheAskIsSettled()
+    {
+        // A dead character's reply never reached the path, so the ask stayed in flight forever.
+        var path = new PlanningPath();
+        path.MarkEnqueued(1, Noon);
+
+        var dead = path.Deliver(WorkerPlanJson(), 1, WorkerId, AcceptContext(alive: false), timedOut: false);
+
+        Assert.False(dead.Accepted);
+        Assert.Equal(PlanValidator.RejectDead, dead.Rejection);
+        Assert.Null(path.Plan);
+        Assert.False(path.InFlight);
+        Assert.True(Ask(path, PlanTrigger.Died, Noon.AddMinutes(1)));
     }
 
     [Fact]
@@ -144,7 +192,7 @@ public class PlanningPathTests
         var path = new PlanningPath();
         Assert.True(Ask(path, PlanTrigger.PlayerRequest, Noon, budgetOk: true));
         path.MarkEnqueued(1, Noon);
-        var timedOut = path.Deliver(null, 1, WorkerId, AcceptContext(WorkerId), timedOut: true);
+        var timedOut = path.Deliver(null, 1, WorkerId, AcceptContext(), timedOut: true);
         Assert.False(timedOut.Accepted);
         Assert.Equal("timeout", timedOut.Rejection);
         Assert.Equal(PlanControl.ControllerFallback, path.Diag.Controller);
@@ -237,7 +285,7 @@ public class PlanningPathTests
     {
         var path = new PlanningPath();
         path.MarkEnqueued(1, Noon);
-        var accepted = path.Deliver(FighterPlanJson(), 1, FighterId, AcceptContext(FighterId, skills: FighterSkills()), false);
+        var accepted = path.Deliver(FighterPlanJson(), 1, FighterId, AcceptContext(FighterSkills()), false);
         Assert.True(accepted.Accepted);
         var catalog = Catalog(SkillKinds.UpgradeGear, SkillKinds.Hunt, SkillKinds.BankDeposit, SkillKinds.Heal);
         var world = new WorldFacts(80, 0, 0, 0, false, false, "", "britain", true, false, "", true, false, 0, 80, false);
@@ -258,7 +306,7 @@ public class PlanningPathTests
         Assert.True(death.RequestRevision);
         path.MarkEnqueued(2, Noon.AddMinutes(21));
 
-        var revised = path.Deliver(FighterReviseJson(), 2, FighterId, AcceptContext(FighterId, path.PendingRevision, FighterSkills()), false);
+        var revised = path.Deliver(FighterReviseJson(), 2, FighterId, AcceptContext(FighterSkills()), false);
         Assert.True(revised.Accepted);
         Assert.Equal(SkillKinds.Heal, path.Plan.CurrentSkill);
         Assert.Contains("death", path.Plan.Reason, StringComparison.OrdinalIgnoreCase);
@@ -271,7 +319,7 @@ public class PlanningPathTests
         path.NoteAgreement();
         Assert.True(Ask(path, PlanTrigger.Invitation, Noon));
         path.MarkEnqueued(1, Noon);
-        var accepted = path.Deliver(SocialPlanJson(), 1, SocialId, AcceptContext(SocialId, skills: SocialSkills(), people: [PartnerId]), false);
+        var accepted = path.Deliver(SocialPlanJson(), 1, SocialId, AcceptContext(SocialSkills(), people: [PartnerId]), false);
         Assert.True(accepted.Accepted);
         Assert.Equal(PlanTrigger.Invitation, path.Plan.Trigger);
 
@@ -293,12 +341,12 @@ public class PlanningPathTests
     [Fact]
     public void ParsePlan_ReadsStructuredReply_AndOldChoose()
     {
-        var plan = ReplyParser.ParsePlan(WorkerPlanJson(), WorkerId, 0, 1);
+        var plan = ReplyParser.ParsePlan(WorkerPlanJson(), WorkerId, 1);
         Assert.Equal("better tools", plan.Goal);
         Assert.Equal(3, plan.Steps.Count);
         Assert.Equal(SkillKinds.Mine, plan.Steps[0].SkillKind);
 
-        var legacy = ReplyParser.ParsePlan("""{"choose":"Mine","say":"To the hills.","mood":"grim"}""", WorkerId, 0, 2);
+        var legacy = ReplyParser.ParsePlan("""{"choose":"Mine","say":"To the hills.","mood":"grim"}""", WorkerId, 2);
         Assert.Equal(SkillKinds.Mine, legacy.Steps[0].SkillKind);
     }
 
@@ -320,7 +368,7 @@ public class PlanningPathTests
     {
         var path = new PlanningPath();
         path.MarkEnqueued(1, Noon);
-        var accepted = path.Deliver(WorkerPlanJson(), 1, WorkerId, AcceptContext(WorkerId), false);
+        var accepted = path.Deliver(WorkerPlanJson(), 1, WorkerId, AcceptContext(), false);
         Assert.True(accepted.Accepted);
         return path;
     }
@@ -344,15 +392,12 @@ public class PlanningPathTests
         );
 
     private static PlanAcceptContext AcceptContext(
-        string characterId,
-        int revision = 0,
         IReadOnlyList<string> skills = null,
-        IReadOnlyList<string> people = null
+        IReadOnlyList<string> people = null,
+        bool alive = true
     ) =>
         new(
-            characterId,
-            revision,
-            Alive: true,
+            Alive: alive,
             OffWorld: false,
             Noon,
             skills ?? WorkerSkills(),
@@ -363,7 +408,7 @@ public class PlanningPathTests
         );
 
     private static PlanProposal Proposal(string id, IReadOnlyList<ModelPlanStep> steps) =>
-        new(id, 0, "goal", "reason", StepProof.SuccessItemObtained, steps, 1);
+        new(id, "goal", "reason", StepProof.SuccessItemObtained, steps, 1);
 
     private static Situation QuietWork() => new()
     {

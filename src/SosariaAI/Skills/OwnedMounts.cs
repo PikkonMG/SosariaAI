@@ -1,5 +1,8 @@
 using System.Collections.Generic;
+using Server;
 using Server.Mobiles;
+using SosariaAI.Behaviour;
+using SosariaAI.Configuration;
 using SosariaAI.Mobiles;
 using SosariaAI.Navigation;
 
@@ -13,13 +16,19 @@ namespace SosariaAI.Skills;
 /// </summary>
 public static class OwnedMounts
 {
-    /// <summary>The nearest ready mount the character controls, within range, else null.</summary>
+    /// <summary>
+    /// The nearest ready mount the character controls, within range, else null. A mount the
+    /// Mount job rests for after failing at it three times the same way is passed over: the
+    /// job learns its mount only from this search, so its start never saw the rest.
+    /// </summary>
     public static BaseMount Nearest(SosariaCharacter rider, int range)
     {
         if (rider == null || rider.Deleted || !People.InWorld(rider))
         {
             return null;
         }
+
+        var now = Core.Now;
 
         var mounts = new List<BaseMount>();
         var scores = new List<(bool Owned, int Chebyshev)>();
@@ -36,7 +45,8 @@ public static class OwnedMounts
                 continue;
             }
 
-            if (!MountRules.GenderAllowed(rider.Female, mount.AllowMaleRider, mount.AllowFemaleRider))
+            if (!MountRules.GenderAllowed(rider.Female, mount.AllowMaleRider, mount.AllowFemaleRider) ||
+                JobTargetRest.Rests(rider, SkillKinds.Mount, JobTargetRest.KeyOf(mount), now))
             {
                 continue;
             }

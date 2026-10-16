@@ -768,8 +768,12 @@ public static partial class CombatBrain
         return -1;
     }
 
-    /// <summary>The nearest hostile that rates as a threat, or -1.</summary>
-    private static int NearestRated(Memory memory)
+    /// <summary>
+    /// The nearest hostile on this character that rates as a threat, or -1. One not on it is
+    /// no chaser: read on every hostile in sight, a runner turned on an idle monster and pulled
+    /// it into the run.
+    /// </summary>
+    private static int NearestChaser(Memory memory)
     {
         var nearest = -1;
 
@@ -777,7 +781,7 @@ public static partial class CombatBrain
         {
             var sighting = memory.Foes[i];
 
-            if (!sighting.Harmless && sighting.Mobile.Alive &&
+            if (!sighting.Harmless && sighting.AttacksSelf && sighting.Mobile.Alive &&
                 (nearest < 0 || sighting.Distance < memory.Foes[nearest].Distance))
             {
                 nearest = i;
@@ -787,8 +791,12 @@ public static partial class CombatBrain
         return nearest;
     }
 
-    /// <summary>The nearest hostile still hitting this character, for when the current foe falls.</summary>
-    private static Mobile NearestAttacker(SosariaCharacter character, Memory memory)
+    /// <summary>
+    /// The nearest hostile still hitting this character, for when the current foe falls;
+    /// <paramref name="passOver"/> aside. The foe lost past the grace is passed over: handed
+    /// back, it was chased and lost again, the fight never ending on a foe out of reach.
+    /// </summary>
+    private static Mobile NearestAttacker(SosariaCharacter character, Memory memory, Mobile passOver = null)
     {
         Mobile nearest = null;
         var best = int.MaxValue;
@@ -798,7 +806,7 @@ public static partial class CombatBrain
             var sighting = memory.Foes[i];
             var mobile = sighting.Mobile;
 
-            if (mobile is { Deleted: false, Alive: true } && mobile.Map == character.Map &&
+            if (mobile != passOver && mobile is { Deleted: false, Alive: true } && mobile.Map == character.Map &&
                 mobile.Combatant == character && sighting.Distance < best)
             {
                 nearest = mobile;

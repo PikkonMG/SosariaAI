@@ -13,7 +13,4 @@ public static class RecoveryRules
         !inCombat && hitsFraction < RecoverBelowHitsFraction;
 
     public static bool IsFit(double hitsFraction) => hitsFraction >= FitHitsFraction;
-
-    public static bool ShouldSeekHealer(double hitsFraction, int bandageCount, int potionCount) =>
-        NeedsRecovery(hitsFraction, false) && bandageCount <= 0 && potionCount <= 0;
 }

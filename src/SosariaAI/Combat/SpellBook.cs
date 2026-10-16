@@ -32,18 +32,13 @@ public enum SpellKind
 public readonly record struct SpellStock(long Bits)
 {
     private const long NoBits = 0;
-    private const long EveryBit = ~NoBits;
     private const long One = 1;
 
     public static SpellStock None => new(NoBits);
 
-    public static SpellStock All => new(EveryBit);
-
     public bool Has(SpellKind kind) => (Bits & Bit(kind)) != NoBits;
 
     public SpellStock With(SpellKind kind) => new(Bits | Bit(kind));
-
-    public SpellStock Without(SpellKind kind) => new(Bits & ~Bit(kind));
 
     private static long Bit(SpellKind kind) => One << (int)kind;
 }

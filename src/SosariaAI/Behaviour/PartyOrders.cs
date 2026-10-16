@@ -91,7 +91,7 @@ public static class PartyOrders
 
         if (help != PartyHelpKind.None)
         {
-            return PartyOrderRules.MayCallHelp(speakerInParty: true, human) && TakeHelp(listener, speaker, party, help);
+            return PartyOrderRules.MayCallHelp(human) && TakeHelp(listener, speaker, party, help);
         }
 
         var kind = PartyOrderRules.ReadOrder(text, out var remainder);
@@ -204,10 +204,40 @@ public static class PartyOrders
     {
         Drop(character);
         Waits.Remove(character.Serial);
-        GaveUp.Remove((character.Serial, character.Serial));
         Still.Remove(character.Serial);
         Fighting.Remove(character.Serial);
         LastTrip.Remove(character.Serial);
+
+        // A give-up names the character as the leader or as the member waited for.
+        foreach (var (key, _) in GaveUp)
+        {
+            if (key.Leader == character.Serial || key.Caller == character.Serial)
+            {
+                GaveUp.Remove(key);
+            }
+        }
+    }
+
+    /// <summary>
+    /// True once the leader may wait for this member again. A give-up whose rest passed is
+    /// dropped here, so a person who left the party does not stay in the table for good.
+    /// </summary>
+    private static bool WaitRested(Serial leader, Serial member, DateTime now)
+    {
+        var key = (leader, member);
+
+        if (!GaveUp.TryGetValue(key, out var gaveUpAt))
+        {
+            return true;
+        }
+
+        if (!PartyOrderRules.WaitRested(gaveUpAt, now))
+        {
+            return false;
+        }
+
+        GaveUp.Remove(key);
+        return true;
     }
 
     private static void Take(SosariaCharacter member, Mobile leader, PartyOrderKind kind, string remainder)
@@ -500,7 +530,7 @@ public static class PartyOrders
         foreach (var member in members)
         {
             if (!member.Alive || member is SosariaCharacter bot && Current(bot) is { } order && !PartyOrderRules.CountsForLag(order.Kind) ||
-                !PartyOrderRules.WaitRested(GaveUp.GetValueOrDefault((leader.Serial, member.Serial)), now))
+                !WaitRested(leader.Serial, member.Serial, now))
             {
                 continue;
             }

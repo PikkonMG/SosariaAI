@@ -40,27 +40,37 @@ public static class MeleeTacticsRules
         hereSlots - standSlots >= WallGainSlots &&
         idleFoesThere <= idleFoesHere;
 
+    /// <summary>A fighter healing out steps back while a foe stands this close: in reach, or one step from it.</summary>
+    public const int HealOutTiles = CombatBrain.MeleeRange + FootworkRules.SingleStep;
+
     /// <summary>
-    /// A melee fighter steps out of reach while its own bandage works, then goes back in on the
+    /// A melee fighter keeps out of reach while its own bandage works, then goes back in on the
     /// same foe. Only with a bandage on itself (a heal potion heals at once and needs no room),
-    /// a foe in melee reach, a foe that fights up close (a step does not take it out of a bow's
-    /// or a spell's reach), and ground to step on. The fight must be turning: lost on the trade
-    /// of blows in any era, or below the heal stance line (<see cref="StanceRules.HealStanceHitsFraction"/>)
-    /// where every blow slips the bandage. Pre-AOS any damage slips it, four hit points off the
-    /// heal and two points off its chance each time (PlayerMobile.OnDamage, BandageContext.Slip);
-    /// from AOS on only a blow above 18 from a person or 25 from a monster does.
+    /// a foe that fights up close (a step does not take it out of a bow's or a spell's reach),
+    /// and ground to step on. The fight must be turning: lost on the trade of blows in any era,
+    /// or below the heal stance line (<see cref="StanceRules.HealStanceHitsFraction"/>) where
+    /// every blow slips the bandage. Pre-AOS any damage slips it, four hit points off the heal
+    /// and two points off its chance each time (PlayerMobile.OnDamage, BandageContext.Slip);
+    /// from AOS on only a blow above 18 from a person or 25 from a monster does. It holds until
+    /// the bandage is done, out of reach too: ended by the first step that left the foe's reach,
+    /// it walked straight back in and the next blow slipped the bandage.
     /// </summary>
     public static bool StepsOutToHeal(
         bool bandageOn,
         bool everyBlowSlips,
         double hitsFraction,
         FightOutlook outlook,
-        int adjacentFoes,
         bool foeHitsFromRange,
         bool pinned
     ) =>
-        bandageOn && adjacentFoes > 0 && !foeHitsFromRange && !pinned &&
+        bandageOn && !foeHitsFromRange && !pinned &&
         (outlook == FightOutlook.Losing || everyBlowSlips && hitsFraction < StanceRules.HealStanceHitsFraction);
+
+    /// <summary>
+    /// A fighter keeping out of reach to heal steps back while the nearest foe on it stands
+    /// within <see cref="HealOutTiles"/>, and stands still past it: it does not walk back in.
+    /// </summary>
+    public static bool StepsBack(int nearestFoeDistance) => nearestFoeDistance <= HealOutTiles;
 
     /// <summary>
     /// A melee fighter that ran from a monster goes back for that same monster once it healed

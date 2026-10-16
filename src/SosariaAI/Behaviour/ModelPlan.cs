@@ -61,6 +61,16 @@ public sealed class ModelPlan
     /// <summary>A creation time an older save wrote. Nothing read it; a load skips the line.</summary>
     private const string OldCreatedKey = "created";
 
+    /// <summary>Parts the fields of a step or a result line.</summary>
+    private const char FieldSeparator = '|';
+
+    /// <summary>
+    /// Makes the next character of a step or result field plain text: a separator or a mark
+    /// inside a field. Doubling the separator instead read an empty field as a plain one, and a
+    /// step with no reason lost the whole plan at load.
+    /// </summary>
+    private const char EscapeMark = '\\';
+
     public string Id { get; init; }
 
     public int Revision { get; init; }
@@ -123,15 +133,15 @@ public sealed class ModelPlan
         var lines = new List<string>
         {
             "v" + CodecVersion.ToString(CultureInfo.InvariantCulture),
-            "id=" + Escape(Id),
+            "id=" + Id,
             "rev=" + Revision.ToString(CultureInfo.InvariantCulture),
-            "who=" + Escape(CharacterId),
-            "goal=" + Escape(Goal),
-            "reason=" + Escape(Reason),
-            "success=" + Escape(Success),
+            "who=" + CharacterId,
+            "goal=" + Goal,
+            "reason=" + Reason,
+            "success=" + Success,
             "state=" + State,
             "index=" + Index.ToString(CultureInfo.InvariantCulture),
-            "fail=" + Escape(FailureReason),
+            "fail=" + FailureReason,
             "stepFail=" + StepFailures.ToString(CultureInfo.InvariantCulture),
             "expires=" + Expires.ToUniversalTime().Ticks.ToString(CultureInfo.InvariantCulture),
             "trigger=" + Trigger
@@ -143,8 +153,8 @@ public sealed class ModelPlan
         {
             lines.Add(
                 "step=" +
-                Escape(steps[i].SkillKind) + "|" +
-                Escape(steps[i].Why) + "|" +
+                Escape(steps[i].SkillKind) + FieldSeparator +
+                Escape(steps[i].Why) + FieldSeparator +
                 Escape(steps[i].TargetRef)
             );
         }
@@ -155,8 +165,8 @@ public sealed class ModelPlan
         {
             lines.Add(
                 "result=" +
-                Escape(results[i].SkillKind) + "|" +
-                results[i].Kind + "|" +
+                Escape(results[i].SkillKind) + FieldSeparator +
+                results[i].Kind + FieldSeparator +
                 Escape(results[i].Detail)
             );
         }
@@ -213,7 +223,7 @@ public sealed class ModelPlan
             switch (key)
             {
                 case "id":
-                    id = Unescape(value);
+                    id = value;
                     break;
                 case "rev":
                     if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out revision))
@@ -223,16 +233,16 @@ public sealed class ModelPlan
 
                     break;
                 case "who":
-                    who = Unescape(value);
+                    who = value;
                     break;
                 case "goal":
-                    goal = Unescape(value);
+                    goal = value;
                     break;
                 case "reason":
-                    reason = Unescape(value);
+                    reason = value;
                     break;
                 case "success":
-                    success = Unescape(value);
+                    success = value;
                     break;
                 case "state":
                     if (!Enum.TryParse(value, out state))
@@ -249,7 +259,7 @@ public sealed class ModelPlan
 
                     break;
                 case "fail":
-                    fail = Unescape(value);
+                    fail = value;
                     break;
                 case "stepFail":
                     if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out stepFail))
@@ -385,59 +395,61 @@ public sealed class ModelPlan
     private static bool TryStep(string value, out ModelPlanStep step)
     {
         step = default;
-        var parts = SplitPipe(value);
+        var parts = SplitFields(value);
 
         if (parts.Count != 3 || string.IsNullOrWhiteSpace(parts[0]))
         {
             return false;
         }
 
-        step = new ModelPlanStep(Unescape(parts[0]), Unescape(parts[1]), Unescape(parts[2]));
+        step = new ModelPlanStep(parts[0], parts[1], parts[2]);
         return true;
     }
 
     private static bool TryResult(string value, out PlanResultRecord record)
     {
         record = default;
-        var parts = SplitPipe(value);
+        var parts = SplitFields(value);
 
         if (parts.Count != 3 || !Enum.TryParse(parts[1], out StepResultKind kind))
         {
             return false;
         }
 
-        record = new PlanResultRecord(Unescape(parts[0]), kind, Unescape(parts[2]));
+        record = new PlanResultRecord(parts[0], kind, parts[2]);
         return true;
     }
 
-    private static List<string> SplitPipe(string value)
+    /// <summary>The fields of a step or result line, split at each unmarked separator, the marks taken out.</summary>
+    private static List<string> SplitFields(string value)
     {
         var parts = new List<string>();
         var builder = new StringBuilder();
 
         for (var i = 0; i < value.Length; i++)
         {
-            if (value[i] == '|' && (i + 1 >= value.Length || value[i + 1] != '|'))
+            var c = value[i];
+
+            if (c == EscapeMark && i + 1 < value.Length)
+            {
+                builder.Append(value[++i]);
+            }
+            else if (c == FieldSeparator)
             {
                 parts.Add(builder.ToString());
                 builder.Clear();
-                continue;
             }
-
-            if (value[i] == '|' && i + 1 < value.Length && value[i + 1] == '|')
+            else
             {
-                builder.Append('|');
-                i++;
-                continue;
+                builder.Append(c);
             }
-
-            builder.Append(value[i]);
         }
 
         parts.Add(builder.ToString());
         return parts;
     }
 
+    /// <summary>A step or result field with each separator and mark in it marked as plain text.</summary>
     private static string Escape(string value)
     {
         if (string.IsNullOrEmpty(value))
@@ -445,16 +457,18 @@ public sealed class ModelPlan
             return string.Empty;
         }
 
-        return value.Replace("|", "||", StringComparison.Ordinal);
-    }
+        var builder = new StringBuilder(value.Length);
 
-    private static string Unescape(string value)
-    {
-        if (string.IsNullOrEmpty(value))
+        foreach (var c in value)
         {
-            return string.Empty;
+            if (c is FieldSeparator or EscapeMark)
+            {
+                builder.Append(EscapeMark);
+            }
+
+            builder.Append(c);
         }
 
-        return value.Replace("||", "|", StringComparison.Ordinal);
+        return builder.ToString();
     }
 }

@@ -10,6 +10,8 @@ public class JevJobDeskTests
     private static readonly DateTime Start = new(2026, 9, 24, 12, 0, 0, DateTimeKind.Utc);
     private static readonly Serial Connor = (Serial)0x10u;
     private static readonly TimeSpan Wait = TimeSpan.FromSeconds(3);
+    private const string LowGold = "low on gold";
+    private const string PlayerNear = "a player stands near";
 
     [Fact]
     public void Waiting_HoldsTheCharacterUntilTheWaitRunsOut()
@@ -69,16 +71,37 @@ public class JevJobDeskTests
     }
 
     [Fact]
-    public void NewMoment_OncePerMomentUntilItEnds()
+    public void IsNewMoment_OncePerMarkedMomentUntilItEnds()
     {
-        const string LowGold = "low on gold";
-        const string PlayerNear = "a player stands near";
         var desk = new JevJobDesk();
 
-        Assert.True(desk.NewMoment(Connor, LowGold));
-        Assert.False(desk.NewMoment(Connor, LowGold));
-        Assert.True(desk.NewMoment(Connor, PlayerNear));
-        Assert.False(desk.NewMoment(Connor, null));
-        Assert.True(desk.NewMoment(Connor, PlayerNear));
+        Assert.True(desk.IsNewMoment(Connor, LowGold));
+        desk.MarkMoment(Connor, LowGold);
+        Assert.False(desk.IsNewMoment(Connor, LowGold));
+        Assert.True(desk.IsNewMoment(Connor, PlayerNear));
+        desk.MarkMoment(Connor, PlayerNear);
+        Assert.False(desk.IsNewMoment(Connor, null));
+        Assert.True(desk.IsNewMoment(Connor, PlayerNear));
+    }
+
+    [Fact]
+    public void IsNewMoment_AMomentWhoseAskDidNotGoOutStaysNew()
+    {
+        // A refused ask (cooldown, budget, busy, full queue) used the moment up, so it was never asked.
+        var desk = new JevJobDesk();
+
+        Assert.True(desk.IsNewMoment(Connor, PlayerNear));
+        Assert.True(desk.IsNewMoment(Connor, PlayerNear));
+        desk.MarkMoment(Connor, PlayerNear);
+        Assert.False(desk.IsNewMoment(Connor, PlayerNear));
+    }
+
+    [Fact]
+    public void MarkMoment_NoMomentRecordsNothing()
+    {
+        var desk = new JevJobDesk();
+        desk.MarkMoment(Connor, null);
+
+        Assert.True(desk.IsNewMoment(Connor, LowGold));
     }
 }

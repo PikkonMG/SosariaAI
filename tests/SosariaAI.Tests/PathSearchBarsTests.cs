@@ -173,6 +173,19 @@ public class PathSearchBarsTests
     }
 
     [Fact]
+    public void MayCrossGuardsOn_TheLastWayHomeFromOpenGround()
+    {
+        // Three reds stood at Destard all morning: their only road home clear of the guards ran
+        // over dungeon floors above their reach, they had no recall, and from open ground a red
+        // never planned across the guards.
+        var onOpenGround = new PathSearchBars(new HashSet<int> { GuardedIndex }, Start, noMoongates: false, openAroundStart: false);
+
+        Assert.True(onOpenGround.MayCrossGuardsOn(lastWayHome: true));
+        Assert.False(onOpenGround.MayCrossGuardsOn(lastWayHome: false));
+        Assert.False(onOpenGround.CrossingGuards().MayCrossGuardsOn(lastWayHome: true));
+    }
+
+    [Fact]
     public void MayCrossGuards_AGhostFromAnywhere()
     {
         var ghost = new PathSearchBars(new HashSet<int> { GuardedIndex }, Start, noMoongates: false, openAroundStart: false, ghost: true);

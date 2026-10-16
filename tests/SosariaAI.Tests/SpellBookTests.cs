@@ -74,13 +74,13 @@ public class SpellBookTests
     [Fact]
     public void PickAttack_UnderPressure_OnlyMagicArrow()
     {
-        Assert.Equal(SpellKind.MagicArrow, SpellBook.PickAttack(Grandmaster, FullMana, Adjacent, Pressed, LowRoll, SpellStock.All));
-        Assert.Equal(SpellKind.MagicArrow, SpellBook.PickAttack(Grandmaster, FullMana, Adjacent, Pressed, HighRoll, SpellStock.All));
+        Assert.Equal(SpellKind.MagicArrow, SpellBook.PickAttack(Grandmaster, FullMana, Adjacent, Pressed, LowRoll, TestSpellStock.Every));
+        Assert.Equal(SpellKind.MagicArrow, SpellBook.PickAttack(Grandmaster, FullMana, Adjacent, Pressed, HighRoll, TestSpellStock.Every));
     }
 
     [Fact]
     public void PickAttack_HeldFoe_OpensTheBook() =>
-        Assert.NotEqual(SpellKind.MagicArrow, SpellBook.PickAttack(Grandmaster, FullMana, Adjacent, TopCircle, LowRoll, SpellStock.All));
+        Assert.NotEqual(SpellKind.MagicArrow, SpellBook.PickAttack(Grandmaster, FullMana, Adjacent, TopCircle, LowRoll, TestSpellStock.Every));
 
     [Fact]
     public void WardOf_ReactiveArmorBeforeUor_ProtectionAfter()
@@ -101,8 +101,8 @@ public class SpellBookTests
     [Fact]
     public void PickAttack_Grandmaster_PicksAmongTheStrongestFew()
     {
-        var strongest = SpellBook.PickAttack(Grandmaster, FullMana, OpenGround, TopCircle, LowRoll, SpellStock.All);
-        var weakestInPool = SpellBook.PickAttack(Grandmaster, FullMana, OpenGround, TopCircle, HighRoll, SpellStock.All);
+        var strongest = SpellBook.PickAttack(Grandmaster, FullMana, OpenGround, TopCircle, LowRoll, TestSpellStock.Every);
+        var weakestInPool = SpellBook.PickAttack(Grandmaster, FullMana, OpenGround, TopCircle, HighRoll, TestSpellStock.Every);
         var poolFloor = SpellBook.Attacks[SpellBook.Attacks.Length - SpellBook.PoolDepth].Kind;
 
         Assert.Equal(SpellKind.FlameStrike, strongest);
@@ -112,20 +112,20 @@ public class SpellBookTests
     [Fact]
     public void PickAttack_Novice_StaysInReach()
     {
-        var pick = SpellBook.PickAttack(Novice, FullMana, OpenGround, TopCircle, LowRoll, SpellStock.All);
+        var pick = SpellBook.PickAttack(Novice, FullMana, OpenGround, TopCircle, LowRoll, TestSpellStock.Every);
 
         Assert.Equal(SpellKind.MagicArrow, pick);
     }
 
     [Fact]
     public void PickAttack_LowMana_FallsToArrow() =>
-        Assert.Equal(SpellKind.MagicArrow, SpellBook.PickAttack(Grandmaster, ArrowOnlyMana, OpenGround, TopCircle, LowRoll, SpellStock.All));
+        Assert.Equal(SpellKind.MagicArrow, SpellBook.PickAttack(Grandmaster, ArrowOnlyMana, OpenGround, TopCircle, LowRoll, TestSpellStock.Every));
 
     [Fact]
     public void PickAttack_NoManaOrOutOfReach_IsNull()
     {
-        Assert.Null(SpellBook.PickAttack(Grandmaster, NoMana, OpenGround, TopCircle, LowRoll, SpellStock.All));
-        Assert.Null(SpellBook.PickAttack(Grandmaster, FullMana, TooFar, TopCircle, LowRoll, SpellStock.All));
+        Assert.Null(SpellBook.PickAttack(Grandmaster, NoMana, OpenGround, TopCircle, LowRoll, TestSpellStock.Every));
+        Assert.Null(SpellBook.PickAttack(Grandmaster, FullMana, TooFar, TopCircle, LowRoll, TestSpellStock.Every));
     }
 
     [Fact]
@@ -133,10 +133,10 @@ public class SpellBookTests
     {
         Assert.Equal(
             SpellKind.Paralyze,
-            SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, false, false, AlwaysRoll, NeverRoll, SpellStock.All)
+            SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, false, false, AlwaysRoll, NeverRoll, TestSpellStock.Every)
         );
-        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, true, true, AlwaysRoll, NeverRoll, SpellStock.All));
-        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, FarDistance, TopCircle, false, true, AlwaysRoll, NeverRoll, SpellStock.All));
+        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, true, true, AlwaysRoll, NeverRoll, TestSpellStock.Every));
+        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, FarDistance, TopCircle, false, true, AlwaysRoll, NeverRoll, TestSpellStock.Every));
     }
 
     [Fact]
@@ -144,22 +144,22 @@ public class SpellBookTests
     {
         Assert.Equal(
             SpellKind.Poison,
-            SpellBook.PickUtility(Grandmaster, FullMana, FarDistance, TopCircle, false, false, NeverRoll, AlwaysRoll, SpellStock.All)
+            SpellBook.PickUtility(Grandmaster, FullMana, FarDistance, TopCircle, false, false, NeverRoll, AlwaysRoll, TestSpellStock.Every)
         );
-        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, FarDistance, TopCircle, false, true, NeverRoll, AlwaysRoll, SpellStock.All));
+        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, FarDistance, TopCircle, false, true, NeverRoll, AlwaysRoll, TestSpellStock.Every));
     }
 
     [Fact]
     public void PickUtility_NoParalyzeWhenItsWordsWouldBeBroken() =>
         Assert.Null(
-            SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, Pressed, false, true, AlwaysRoll, NeverRoll, SpellStock.All)
+            SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, Pressed, false, true, AlwaysRoll, NeverRoll, TestSpellStock.Every)
         );
 
     [Fact]
     public void PickUtility_UnskilledOrUnlucky_IsNull()
     {
-        Assert.Null(SpellBook.PickUtility(Novice, FullMana, ClosingDistance, TopCircle, false, false, AlwaysRoll, AlwaysRoll, SpellStock.All));
-        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, false, false, NeverRoll, NeverRoll, SpellStock.All));
+        Assert.Null(SpellBook.PickUtility(Novice, FullMana, ClosingDistance, TopCircle, false, false, AlwaysRoll, AlwaysRoll, TestSpellStock.Every));
+        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, false, false, NeverRoll, NeverRoll, TestSpellStock.Every));
     }
 
     [Fact]
@@ -207,7 +207,6 @@ public class SpellBookTests
         Assert.True(stock.Has(SpellKind.Heal));
         Assert.True(stock.Has(SpellKind.MagicArrow));
         Assert.False(stock.Has(SpellKind.EnergyBolt));
-        Assert.True(SpellStock.All.Has(SpellKind.Dispel));
         Assert.False(SpellStock.None.Has(SpellKind.Heal));
     }
 

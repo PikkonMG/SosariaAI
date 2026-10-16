@@ -171,8 +171,6 @@ public static class BankCrowdRules
 
     public static readonly TimeSpan PromiseHold = TimeSpan.FromSeconds(PromiseSeconds);
 
-    public static readonly TimeSpan LongestHold = TimeSpan.FromMinutes(MaxHoldMinutes * MaxHoldScale);
-
     public static readonly TimeSpan WalkGrace = TimeSpan.FromMinutes(WalkGraceMinutes);
 
     private static readonly (int X, int Y)[] SeatOffsets =
@@ -437,11 +435,12 @@ public static class BankCrowdRules
     public static bool AtBank(Point3D at, Point3D bank) => NavMetric.Chebyshev(at, bank) <= LeaveRange;
 
     /// <summary>
-    /// A member has left the crowd when it stands away from the bank after arriving, never
-    /// arrived within the walk grace, or held its place past the longest hold.
+    /// A member has left the crowd when it never arrived within the walk grace from its claim,
+    /// or, once arrived, stands away from the bank or its hold ran out at <paramref name="holdUntil"/>.
+    /// The hold counts from the arrival, so a long walk never eats into it.
     /// </summary>
-    public static bool HasLeft(bool arrived, bool atBank, TimeSpan held) =>
-        held > LongestHold || (arrived ? !atBank : held > WalkGrace);
+    public static bool HasLeft(bool arrived, bool atBank, TimeSpan sinceClaim, DateTime holdUntil, DateTime now) =>
+        arrived ? !atBank || now >= holdUntil : sinceClaim > WalkGrace;
 
     private static bool Prefer(Destination candidate, Destination current)
     {

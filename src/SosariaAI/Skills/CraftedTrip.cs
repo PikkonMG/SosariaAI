@@ -57,23 +57,24 @@ public sealed class CraftedTrip
             return TickVisit(now);
         }
 
-        var walk = _walk?.Tick() ?? SkillStatus.Failed;
-
-        if (walk != SkillStatus.Done)
+        if (_walk != null)
         {
-            return walk;
+            var walk = _walk.Tick();
+
+            if (walk != SkillStatus.Done)
+            {
+                return walk;
+            }
+
+            _walk = null;
+
+            if (_banked)
+            {
+                return Act();
+            }
         }
 
-        _walk = null;
-
-        if (!_banked)
-        {
-            _banked = true;
-            BankTeller.Withdraw(_buyer, _offer.Price - PackGold());
-            return WalkOn() ? SkillStatus.Running : SkillStatus.Failed;
-        }
-
-        return Act();
+        return _banked ? SkillStatus.Failed : DrawCoin();
     }
 
     public void Abort()
@@ -98,6 +99,29 @@ public sealed class CraftedTrip
             ? new TravelSkill(Crafter.Location, TradeRanges.TalkRange)
             : new TravelSkill(BankTeller.BankToken, NavLimits.BankArrivalRange);
         return _walk.Begin(_buyer);
+    }
+
+    /// <summary>
+    /// At the counter: one "withdraw" a think until the pack holds the price, as a player asks
+    /// again past the banker's ceiling for one withdraw. The trip fails when a withdraw brings
+    /// nothing: no banker heard it, or the box is short.
+    /// </summary>
+    private SkillStatus DrawCoin()
+    {
+        var before = PackGold();
+
+        if (before < _offer.Price &&
+            (!BankTeller.Withdraw(_buyer, _offer.Price - before) || PackGold() <= before))
+        {
+            return SkillStatus.Failed;
+        }
+
+        if (PackGold() < _offer.Price)
+        {
+            return SkillStatus.Running;
+        }
+
+        return WalkOn() ? SkillStatus.Running : SkillStatus.Failed;
     }
 
     private SkillStatus Act()

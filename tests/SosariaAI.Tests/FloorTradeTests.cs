@@ -127,8 +127,8 @@ public class FloorTradeTests
 
         try
         {
-            TestRoutine.Give(idle, new Routine([new RestSkill(RestFor)]));
-            TestRoutine.Give(walking, new Routine([new TravelSkill(Beside(NextTile + NextTile), NextTile)]));
+            TestRoutine.Give(idle, new Routine(new RestSkill(RestFor)));
+            TestRoutine.Give(walking, new Routine(new TravelSkill(Beside(NextTile + NextTile), NextTile)));
 
             Assert.True(TradeMarket.MayAnswer(idle));
             Assert.False(TradeMarket.MayAnswer(walking));
@@ -150,7 +150,7 @@ public class FloorTradeTests
 
         try
         {
-            TestRoutine.Give(smith, new Routine([new RestSkill(RestFor)]));
+            TestRoutine.Give(smith, new Routine(new RestSkill(RestFor)));
 
             var deal = FloorDeal.AnswerWant(fighter, want);
 
@@ -180,7 +180,7 @@ public class FloorTradeTests
 
         try
         {
-            TestRoutine.Give(smith, new Routine([new TravelSkill(Beside(NextTile + NextTile), NextTile)]));
+            TestRoutine.Give(smith, new Routine(new TravelSkill(Beside(NextTile + NextTile), NextTile)));
 
             Assert.Null(FloorDeal.AnswerWant(fighter, want));
             Assert.True(chest.IsChildOf(smith.Backpack));
@@ -269,7 +269,7 @@ public class FloorTradeTests
 
         try
         {
-            TestRoutine.Give(healer, new Routine([new RestSkill(RestFor)]));
+            TestRoutine.Give(healer, new Routine(new RestSkill(RestFor)));
 
             var deal = FloorDeal.AnswerSupply(fighter);
 

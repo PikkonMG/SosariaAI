@@ -63,11 +63,12 @@ public sealed class JevJobDesk
     }
 
     /// <summary>
-    /// True once when a character comes into a big moment: back from death stays one moment
-    /// until the death is no longer recent, a player near stays one until the player leaves. A
-    /// pick with no moment ends the last one.
+    /// True while a character's big moment has not been asked about: back from death stays one
+    /// moment until the death is no longer recent, a player near stays one until the player
+    /// leaves. A pick with no moment ends the last one. Only <see cref="MarkMoment"/> records a
+    /// moment, so a moment whose ask did not go out is still new at the next pick.
     /// </summary>
-    public bool NewMoment(Serial serial, string moment)
+    public bool IsNewMoment(Serial serial, string moment)
     {
         if (moment == null)
         {
@@ -75,13 +76,16 @@ public sealed class JevJobDesk
             return false;
         }
 
-        if (_moments.TryGetValue(serial, out var last) && last == moment)
-        {
-            return false;
-        }
+        return !_moments.TryGetValue(serial, out var last) || last != moment;
+    }
 
-        _moments[serial] = moment;
-        return true;
+    /// <summary>The ask for this moment went out: the same moment is not new again until it ends.</summary>
+    public void MarkMoment(Serial serial, string moment)
+    {
+        if (moment != null)
+        {
+            _moments[serial] = moment;
+        }
     }
 
     /// <summary>Something else took over the character; its open ask no longer applies.</summary>

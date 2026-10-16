@@ -9,10 +9,9 @@ public class LawfulRulesTests
     [Fact]
     public void ShouldWarn_NeedsVictimName()
     {
-        Assert.True(LawfulRules.ShouldWarn(DispositionKind.Lawful, true, true));
-        Assert.False(LawfulRules.ShouldWarn(DispositionKind.Neutral, true, true));
-        Assert.False(LawfulRules.ShouldWarn(DispositionKind.Lawful, false, true));
-        Assert.False(LawfulRules.ShouldWarn(DispositionKind.Lawful, true, false));
+        Assert.True(LawfulRules.ShouldWarn(DispositionKind.Lawful, victimNamed: true));
+        Assert.False(LawfulRules.ShouldWarn(DispositionKind.Neutral, victimNamed: true));
+        Assert.False(LawfulRules.ShouldWarn(DispositionKind.Lawful, victimNamed: false));
     }
 
     [Theory]
@@ -58,19 +57,18 @@ public class LawfulRulesTests
     }
 
     [Fact]
-    public void ShouldHunt_OutsideGuardsWithOddsOrForAFriend()
+    public void ShouldHunt_WithOddsOrForAFriend()
     {
-        Assert.True(LawfulRules.ShouldHunt(underGuards: false, sidePower: 90, outlawPower: 100, outlawOnFriend: false, antiPk: true));
-        Assert.False(LawfulRules.ShouldHunt(underGuards: false, sidePower: 50, outlawPower: 100, outlawOnFriend: false, antiPk: true));
-        Assert.True(LawfulRules.ShouldHunt(underGuards: false, sidePower: 50, outlawPower: 100, outlawOnFriend: true, antiPk: false));
-        Assert.False(LawfulRules.ShouldHunt(underGuards: true, sidePower: 500, outlawPower: 100, outlawOnFriend: true, antiPk: true));
+        Assert.True(LawfulRules.ShouldHunt(sidePower: 90, outlawPower: 100, outlawOnFriend: false, antiPk: true));
+        Assert.False(LawfulRules.ShouldHunt(sidePower: 50, outlawPower: 100, outlawOnFriend: false, antiPk: true));
+        Assert.True(LawfulRules.ShouldHunt(sidePower: 50, outlawPower: 100, outlawOnFriend: true, antiPk: false));
     }
 
     [Fact]
     public void ShouldHunt_AnyOtherBlueLetsARedPassUnlessFarStronger()
     {
         // Every passing blue drew on every red at 0.8: 1,879 reds that had hurt no one died in a night.
-        Assert.False(LawfulRules.ShouldHunt(underGuards: false, sidePower: 140, outlawPower: 100, outlawOnFriend: false, antiPk: false));
-        Assert.True(LawfulRules.ShouldHunt(underGuards: false, sidePower: 150, outlawPower: 100, outlawOnFriend: false, antiPk: false));
+        Assert.False(LawfulRules.ShouldHunt(sidePower: 140, outlawPower: 100, outlawOnFriend: false, antiPk: false));
+        Assert.True(LawfulRules.ShouldHunt(sidePower: 150, outlawPower: 100, outlawOnFriend: false, antiPk: false));
     }
 }

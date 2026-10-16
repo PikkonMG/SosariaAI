@@ -193,7 +193,11 @@ public static partial class CombatBrain
         return SelfCareRules.WantsRoom(facts);
     }
 
-    /// <summary>What the pack and the cooldowns allow. Only the remedies whose cooldown is up are looked for.</summary>
+    /// <summary>
+    /// What the pack and the cooldowns allow. Only the remedies whose cooldown is up are looked
+    /// for, and the reagents only when a spell may be cast: read for every hurt fighter out of a
+    /// fight, the stock was a pack count each think for those who never cast.
+    /// </summary>
     private static CareFacts FactsOf(
         SosariaCharacter character,
         Memory memory,
@@ -211,14 +215,15 @@ public static partial class CombatBrain
         var bandageReady = ignoreCooldowns ||
                            now - memory.NextBandageAt >= 0 && character.Target == null &&
                            BandageContext.GetContext(character) == null;
+        var spellReady = spellsAllowed && IsSpellFighter(character) &&
+                         (ignoreCooldowns || character.Spell == null && memory.CastTarget == null && now - memory.NextSpellCareAt >= 0);
 
         return new CareFacts(
             poisoned,
             Vitals.HitsFraction(character),
             inFight,
             safeCircle,
-            spellsAllowed && IsSpellFighter(character) && (ignoreCooldowns ||
-                              character.Spell == null && memory.CastTarget == null && now - memory.NextSpellCareAt >= 0),
+            spellReady,
             character.Skills.Magery.Value,
             character.Mana,
             potionReady,
@@ -228,7 +233,9 @@ public static partial class CombatBrain
             bandageReady && healing > SelfCareRules.NoSkill && pack.FindItemByType<Bandage>() != null,
             healing,
             character.Skills.Anatomy.Value,
-            StockOf(pack, CareSpells, character)
+            !spellReady ? SpellStock.None
+            : inFight ? memory.Kit.Stock
+            : StockOf(pack, CareSpells, character)
         );
     }
 

@@ -107,4 +107,25 @@ public class BotConversationTrackerTests
         Assert.False(tracker.AreaMayGreet(MeetingRules.BankArea, start.AddSeconds(5), gap));
         Assert.True(tracker.AreaMayGreet(MeetingRules.BankArea, start.AddSeconds(20), gap));
     }
+
+    [Fact]
+    public void Pair_SilentPastForgetAfter_StartsFresh()
+    {
+        // Pairs and speakers were kept for the whole boot; a pair quiet for a day is forgotten.
+        var tracker = new BotConversationTracker();
+        var a = (Serial)7u;
+        var b = (Serial)8u;
+        var c = (Serial)9u;
+        var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var longRest = BotConversationTracker.ForgetAfter * 2;
+        const int maxExchanges = 1;
+
+        tracker.Record(a, b, start, longRest);
+        var later = start + BotConversationTracker.ForgetAfter;
+        Assert.False(tracker.CanGreet(a, b, later, TimeSpan.Zero, longRest, maxExchanges));
+
+        tracker.RecordSpeakerGreet(c, later);
+
+        Assert.True(tracker.CanGreet(a, b, later, TimeSpan.Zero, longRest, maxExchanges));
+    }
 }

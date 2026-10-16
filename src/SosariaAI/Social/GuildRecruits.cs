@@ -75,7 +75,7 @@ public static class GuildRecruits
                     People.InWorld(recruit) &&
                     recruit.Routine?.CurrentSkill is not GuildstoneJoinSkill)
                 {
-                    recruit.AttachRoutine(new Routine([new GuildstoneJoinSkill(guild)]));
+                    recruit.AttachRoutine(new Routine(new GuildstoneJoinSkill(guild)));
                 }
             }
         }

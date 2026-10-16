@@ -38,11 +38,13 @@ public static class HouseBases
     public static void Initialize() => ActivityPulse.MinutePassed += Settle;
 
     /// <summary>
-    /// Reads every hot spot's houses back from the world, places one missing house, and tops
-    /// up the chests. Runs once a minute; a house already standing is never placed again.
+    /// Reads every hot spot's houses back from the world, places one missing house, tops up
+    /// the chests, and forgets retreats whose rest ran out. Runs once a minute; a house already
+    /// standing is never placed again.
     /// </summary>
     public static void Settle()
     {
+        FactionWar.Sweep(LastRetreat, Core.Now, HouseBaseRules.RetreatRest);
         Bases.Clear();
         var placed = false;
 

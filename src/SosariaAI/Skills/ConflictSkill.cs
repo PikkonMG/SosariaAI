@@ -325,7 +325,8 @@ public sealed class ConflictSkill : Skill
 
         if (_hunt != null)
         {
-            return _hunt.Tick();
+            var hunting = _hunt.Tick();
+            return hunting == SkillStatus.Failed ? Fail(_hunt.FailReason) : hunting;
         }
 
         switch (_phase)

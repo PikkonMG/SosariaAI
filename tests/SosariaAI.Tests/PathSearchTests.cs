@@ -20,7 +20,7 @@ public class PathSearchTests
                 {
                     Graph = LineGraph(),
                     Source = "C",
-                    OnComplete = (_, _, _) => { }
+                    OnComplete = (_, _) => { }
                 }
             )
         );
@@ -42,7 +42,7 @@ public class PathSearchTests
                     {
                         Graph = graph,
                         Source = "C",
-                        OnComplete = (p, _, _) =>
+                        OnComplete = (p, _) =>
                         {
                             prev = p;
                             done.Set();

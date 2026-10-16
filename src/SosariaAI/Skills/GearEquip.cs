@@ -13,15 +13,16 @@ using SosariaAI.Spawning;
 namespace SosariaAI.Skills;
 
 /// <summary>
-/// Mobile.AddItem does not check layers, so two items can share one. EquipItem only checks
-/// the item's own layer: a two-handed tool equips over a worn one-handed weapon and the
-/// paperdoll shows both hands full. Conflicting layers must be cleared first.
+/// Mobile.AddItem does not check layers, so two items can share one. EquipItem refuses an
+/// item that a worn one blocks (Mobile.CheckEquip): the piece on its own layer, a two-handed
+/// weapon beside anything in the other hand, a one-handed weapon beside anything but a
+/// shield or a light. What blocks must go to the pack first.
 /// </summary>
 public static class GearEquip
 {
     private static readonly ILogger logger = SosariaLog.For(typeof(GearEquip));
 
-    /// <summary>Layers that must be empty before an item on <paramref name="layer"/> can be worn.</summary>
+    /// <summary>Layers whose worn item can block an item on <paramref name="layer"/>: both hands for either hand.</summary>
     public static IReadOnlyList<Layer> ConflictingLayers(Layer layer) =>
         layer switch
         {
@@ -29,17 +30,20 @@ public static class GearEquip
             _ => [layer]
         };
 
-    /// <summary>Everything worn on layers that block <paramref name="layer"/>, except <paramref name="keep"/>.</summary>
-    public static List<Item> WornConflicts(Mobile mobile, Layer layer, Item keep = null)
+    /// <summary>
+    /// Everything worn that blocks <paramref name="item"/> (<see cref="Blocks"/>). A shield
+    /// stays up beside a one-handed weapon, and the weapon beside a shield.
+    /// </summary>
+    public static List<Item> WornConflicts(Mobile mobile, Item item)
     {
         var conflicts = new List<Item>();
-        var layers = ConflictingLayers(layer);
+        var layers = ConflictingLayers(item.Layer);
 
         for (var i = 0; i < layers.Count; i++)
         {
             var worn = mobile?.FindItemOnLayer(layers[i]);
 
-            if (worn != null && worn != keep)
+            if (worn != null && worn != item && Blocks(mobile, worn, item))
             {
                 conflicts.Add(worn);
             }
@@ -48,22 +52,22 @@ public static class GearEquip
         return conflicts;
     }
 
-    /// <summary>Moves everything on conflicting layers to the backpack. Returns true when the way is clear.</summary>
-    public static bool ClearConflicts(Mobile mobile, Layer layer, Item keep = null)
-    {
-        if (mobile == null)
-        {
-            return false;
-        }
+    /// <summary>
+    /// True when the engine will not wear <paramref name="item"/> and <paramref name="worn"/>
+    /// together: the same test Mobile.CheckEquip makes, each item's own rule both ways.
+    /// </summary>
+    private static bool Blocks(Mobile mobile, Item worn, Item item) =>
+        worn.CheckConflictingLayer(mobile, item, item.Layer) || item.CheckConflictingLayer(mobile, worn, worn.Layer);
 
-        var conflicts = WornConflicts(mobile, layer, keep);
+    /// <summary>Moves everything worn that blocks <paramref name="item"/> to the backpack.</summary>
+    private static void PackConflicts(Mobile mobile, Item item)
+    {
+        var conflicts = WornConflicts(mobile, item);
 
         for (var i = 0; i < conflicts.Count; i++)
         {
             mobile.AddToBackpack(conflicts[i]);
         }
-
-        return true;
     }
 
     /// <summary>Wears a tool, moving whatever is in the way to the backpack.</summary>
@@ -79,22 +83,22 @@ public static class GearEquip
             return true;
         }
 
-        ClearConflicts(mobile, tool.Layer, tool);
+        PackConflicts(mobile, tool);
         return mobile.EquipItem(tool);
     }
 
     /// <summary>
     /// Saves made before layer conflicts were checked can still hold an item in each
-    /// hand, and HasWeapon sees the pair as armed and never repairs it. A shield is
-    /// the only legal partner for a weapon hand. Returns the item that must come
-    /// off, or null when the pair is legal: weapon plus shield.
+    /// hand, and HasWeapon sees the pair as armed and never repairs it. Returns the
+    /// item that must come off, or null when the engine wears the pair (<see cref="Blocks"/>):
+    /// a one-handed weapon with a shield or a light.
     /// </summary>
     public static Item BusyHandConflict(Mobile mobile)
     {
         var one = mobile?.FindItemOnLayer(Layer.OneHanded);
         var two = mobile?.FindItemOnLayer(Layer.TwoHanded);
 
-        if (one == null || two == null || two is BaseShield)
+        if (one == null || two == null || !Blocks(mobile, one, two))
         {
             return null;
         }
@@ -190,13 +194,13 @@ public static class GearEquip
     /// <summary>Moves to the pack each weapon or book in the hands that the person does not fight with (<see cref="IsForeignArm"/>).</summary>
     private static void PutAwayForeignArms(Mobile mobile)
     {
-        var held = WornConflicts(mobile, Layer.OneHanded);
+        var hands = ConflictingLayers(Layer.OneHanded);
 
-        for (var i = 0; i < held.Count; i++)
+        for (var i = 0; i < hands.Count; i++)
         {
-            if (held[i].Movable && IsForeignArm(mobile, held[i]))
+            if (mobile.FindItemOnLayer(hands[i]) is { Movable: true } held && IsForeignArm(mobile, held))
             {
-                mobile.AddToBackpack(held[i]);
+                mobile.AddToBackpack(held);
             }
         }
     }
@@ -247,7 +251,7 @@ public static class GearEquip
 
     /// <summary>
     /// Wears bought gear, moving whatever the slot already wears to the backpack like a
-    /// player changing equipment. A shield stays up beside a one-handed weapon. Anything
+    /// player changing equipment (<see cref="WornConflicts"/>). Anything
     /// that will not equip lands in the pack, and so does a weapon or book the person's build
     /// does not fight with: a fighter's bought travel book put its katana in the pack.
     /// </summary>
@@ -259,19 +263,7 @@ public static class GearEquip
             return;
         }
 
-        var conflicts = WornConflicts(mobile, item.Layer, keep: item);
-
-        for (var i = 0; i < conflicts.Count; i++)
-        {
-            var worn = conflicts[i];
-
-            if (item.Layer == Layer.OneHanded && worn is BaseShield)
-            {
-                continue;
-            }
-
-            mobile.AddToBackpack(worn);
-        }
+        PackConflicts(mobile, item);
 
         if (!mobile.EquipItem(item))
         {
@@ -295,7 +287,7 @@ public static class GearEquip
             return;
         }
 
-        var conflicts = WornConflicts(mobile, piece.Layer, piece);
+        var conflicts = WornConflicts(mobile, piece);
 
         for (var i = 0; i < conflicts.Count; i++)
         {

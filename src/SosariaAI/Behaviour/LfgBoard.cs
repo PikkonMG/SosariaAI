@@ -385,13 +385,21 @@ public static class LfgBoard
     /// A fighter of some standing standing about at a bank, a moongate or a dungeon door calls
     /// a group for its own dungeon or hunt when the shard's next spot call is due: the 1999
     /// bank and gates were where groups formed. The more people online, the sooner the next.
+    /// The search for a run picks dungeons and walks; one that finds none still makes the next
+    /// try wait <see cref="LfgRules.MinSpotCallGap"/>, or every fighter at a bank searched on
+    /// every scan and the shard lagged.
     /// </summary>
     private static void TryPlaceCall(SosariaCharacter character, DateTime now)
     {
         if (now < _nextSpotCall || !LfgRules.Interruptible(character.Routine?.CurrentSkill?.Name) ||
-            !LfgRules.MayCallFromSpot(character.PersonProfile.Tier) || !MayLead(character, now) ||
-            GroupTarget(character) is not { } target)
+            !LfgRules.MayCallFromSpot(character.PersonProfile.Tier) || !MayLead(character, now))
         {
+            return;
+        }
+
+        if (GroupTarget(character) is not { } target)
+        {
+            _nextSpotCall = now + LfgRules.MinSpotCallGap;
             return;
         }
 
@@ -1152,6 +1160,33 @@ public static class LfgBoard
                 Groups.Remove(group.Leader);
             }
         }
+
+        DropWhere(ShoutRolled, (serial, trip) => !OnRun(serial, trip));
+        DropWhere(Volunteers, (_, offer) => !LfgRules.StillVolunteering(offer.At, now));
+        DropWhere(PlayerCalls, (_, call) => now - call.At > LfgRules.PlayerCallWindow);
+    }
+
+    // The character still runs the trip its shout was rolled for; a later run rolls afresh.
+    private static bool OnRun(Serial serial, Skill trip) =>
+        World.FindMobile(serial) is SosariaCharacter { Deleted: false } character &&
+        ReferenceEquals(character.Routine?.CurrentSkill, trip);
+
+    private static void DropWhere<TValue>(Dictionary<Serial, TValue> entries, Func<Serial, TValue, bool> drop)
+    {
+        List<Serial> dropped = null;
+
+        foreach (var (serial, value) in entries)
+        {
+            if (drop(serial, value))
+            {
+                (dropped ??= []).Add(serial);
+            }
+        }
+
+        for (var i = 0; i < (dropped?.Count ?? 0); i++)
+        {
+            entries.Remove(dropped[i]);
+        }
     }
 
     /// <summary>Why a group can no longer go on, or null while it can.</summary>
@@ -1232,8 +1267,9 @@ public static class LfgBoard
 
     /// <summary>Where groups formed: in town or at a bank, by a public moongate, or outside a dungeon door.</summary>
     private static bool AtMeetingSpot(SosariaCharacter character) =>
-        SosariaCharacter.UnderGuards(character) || Meeting.AtMeetingPoint(character.Location, character.HomeFacet) ||
-        BankPlaza.Contains(character.Location, BankPlaza.BankFor(NavWorld.DestinationsFor(character.HomeFacet), character.Location)) ||
+        SosariaCharacter.UnderGuards(character) || Meeting.AtMeetingPoint(character) ||
+        (character.Map != null &&
+         BankPlaza.Contains(character.Location, BankPlaza.BankFor(NavWorld.DestinationsFor(character.Map.Name), character.Location))) ||
         NearMoongate(character) || AtDungeonDoor(character);
 
     private static bool NearMoongate(SosariaCharacter character)

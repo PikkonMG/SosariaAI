@@ -50,7 +50,7 @@ public class DangerRulesTests
         const double Multiple = 1.0;
         const int NoAllies = 0;
 
-        Assert.False(ThreatRating.ShouldEngage(Power, JustOver, Healthy, true, NoAllies, Multiple, ThreatRating.OpenFightHitsFraction, false));
+        Assert.False(ThreatRating.ShouldEngage(Power, JustOver, Healthy, true, NoAllies, Multiple, ThreatRating.OpenFightHitsFraction));
         Assert.True(DangerRules.ShouldFight(Power, JustOver, Healthy, hasHealing: true, alliesPower: NoAllies, threatMultiple: Multiple));
         Assert.False(DangerRules.ShouldFight(Power, FarPast, Healthy, hasHealing: true, alliesPower: NoAllies, threatMultiple: Multiple));
         Assert.False(DangerRules.ShouldFight(Power, JustOver, BelowLine, hasHealing: true, alliesPower: NoAllies, threatMultiple: Multiple));
@@ -78,7 +78,7 @@ public class DangerRulesTests
         const int NoAllies = 0;
         var startable = (int)(Dare * ThreatRating.DefaultThreatMultiple);
 
-        Assert.True(ThreatRating.ShouldEngage(Dare, startable, 1.0, true, NoAllies, ThreatRating.DefaultThreatMultiple, 0, false));
+        Assert.True(ThreatRating.ShouldEngage(Dare, startable, 1.0, true, NoAllies, ThreatRating.DefaultThreatMultiple, 0));
         Assert.False(DangerRules.Overwhelms(startable, Dare, NoAllies, ThreatRating.DefaultThreatMultiple));
     }
 }

@@ -15,8 +15,6 @@ public class CraftOrderRulesTests
     private const double GoodExceptional = 0.4;
     private const double PoorExceptional = 0.02;
     private const double GmPlateChestExceptional = 0.0499;
-    private const int Paid = 1650;
-    private const int PurseBefore = 5000;
     private const uint Crafter = 0x1234;
     private const uint Buyer = 7;
     private const uint FirstPiece = 0x40000001;
@@ -64,13 +62,6 @@ public class CraftOrderRulesTests
     [Fact]
     public void Refusal_AGmSmithTakesAPlateChestOrder() =>
         Assert.Equal(OrderRefusal.None, CraftOrderRules.Refusal(true, EvenChance, GmPlateChestExceptional, 0));
-
-    [Fact]
-    public void CoinCrossed_OnlyWhenThePayerIsShortByThePrice()
-    {
-        Assert.True(CraftOrderRules.CoinCrossed(PurseBefore, PurseBefore - Paid, Paid));
-        Assert.False(CraftOrderRules.CoinCrossed(PurseBefore, PurseBefore, Paid));
-    }
 
     [Theory]
     [InlineData(true, false, true, true)]

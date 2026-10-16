@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Server;
 using Server.Items;
 using Server.Logging;
@@ -36,17 +35,13 @@ public static class BoatRules
     public const int HarborWaterZ = -2;
     public const int ShoreZ = 0;
     public const int PlaceZCapacity = 5;
+
+    /// <summary>
+    /// The small boat facing north: the only way a small ship deed puts one in
+    /// (BaseBoatDeed.OnPlacement fits the new boat's own north ItemID). A fit for another
+    /// facing was refused at placement.
+    /// </summary>
     public const int SmallBoatNorthId = 0x0;
-    public const int SmallBoatEastId = 0x1;
-    public const int SmallBoatSouthId = 0x2;
-    public const int SmallBoatWestId = 0x3;
-    public static readonly int[] SmallBoatItemIds =
-    [
-        SmallBoatNorthId,
-        SmallBoatEastId,
-        SmallBoatSouthId,
-        SmallBoatWestId
-    ];
 
     public const int NoBoatSerial = 0;
 
@@ -117,24 +112,11 @@ public static class BoatRules
             BaseBoat.IsValidLocation(near, map)
         );
 
-        var facings = new MultiComponentList[SmallBoatItemIds.Length];
-        var any = false;
-
-        for (var i = 0; i < SmallBoatItemIds.Length; i++)
-        {
-            var parts = MultiData.GetComponents(SmallBoatItemIds[i]);
-            facings[i] = parts;
-
-            if (parts.Width > 0 && parts.Height > 0)
-            {
-                any = true;
-            }
-        }
-
+        var parts = MultiData.GetComponents(SmallBoatNorthId);
         var waterCells = 0;
         var found = Point3D.Zero;
 
-        if (any && SearchArea(
+        if (parts.Width > 0 && parts.Height > 0 && SearchArea(
             near,
             (x, y) =>
             {
@@ -143,7 +125,7 @@ public static class BoatRules
                     waterCells++;
                 }
 
-                return TryCell(map, x, y, facings, out found);
+                return TryCell(map, x, y, parts, out found);
             }
         ))
         {
@@ -162,7 +144,7 @@ public static class BoatRules
         return false;
     }
 
-    private static bool TryCell(Map map, int x, int y, IReadOnlyList<MultiComponentList> facings, out Point3D fit)
+    private static bool TryCell(Map map, int x, int y, MultiComponentList parts, out Point3D fit)
     {
         fit = Point3D.Zero;
         var land = map.Tiles.GetLandTile(x, y);
@@ -191,18 +173,10 @@ public static class BoatRules
         {
             var at = new Point3D(x, y, heights[i]);
 
-            if (!BaseBoat.IsValidLocation(at, map))
+            if (BaseBoat.IsValidLocation(at, map) && CanFit(map, at, parts))
             {
-                continue;
-            }
-
-            for (var facing = 0; facing < facings.Count; facing++)
-            {
-                if (CanFit(map, at, facings[facing]))
-                {
-                    fit = at;
-                    return true;
-                }
+                fit = at;
+                return true;
             }
         }
 

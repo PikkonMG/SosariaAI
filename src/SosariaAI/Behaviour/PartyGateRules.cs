@@ -47,17 +47,15 @@ public static class PartyGateRules
     /// <summary>Words of power that bring no answer in this time are given up.</summary>
     public static readonly TimeSpan CastLimit = TimeSpan.FromSeconds(20);
 
-    /// <summary>The leader opens the gate when it can; otherwise the first member in party order who can.</summary>
-    public static int PickGater(IReadOnlyList<bool> canGate, int leaderIndex)
+    /// <summary>
+    /// The leader (first in <paramref name="canGate"/>) opens the gate when it can; otherwise
+    /// the first member in party order who can.
+    /// </summary>
+    public static int PickGater(IReadOnlyList<bool> canGate)
     {
         if (canGate == null)
         {
             return NoOne;
-        }
-
-        if (leaderIndex >= 0 && leaderIndex < canGate.Count && canGate[leaderIndex])
-        {
-            return leaderIndex;
         }
 
         for (var i = 0; i < canGate.Count; i++)
@@ -88,10 +86,11 @@ public static class PartyGateRules
 
     /// <summary>
     /// Who of those the caster waits for may step in now: the leader first, so nobody lands
-    /// at the door ahead of it; the rest once the leader is through. The caster itself goes
-    /// last (see <see cref="CasterGoes"/>).
+    /// at the door ahead of it; the rest once the leader is through. A leader that cast the
+    /// gate holds it and goes last (see <see cref="CasterGoes"/>), so the rest step in at once.
     /// </summary>
-    public static bool MayStep(bool isLeader, bool leaderThrough) => isLeader || leaderThrough;
+    public static bool MayStep(bool isLeader, bool leaderThrough, bool leaderCast) =>
+        isLeader || leaderThrough || leaderCast;
 
     /// <summary>The caster steps in once every member it waits for is through, or its hold is up.</summary>
     public static bool CasterGoes(int waitingFor, int through, TimeSpan held) =>

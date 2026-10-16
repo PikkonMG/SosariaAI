@@ -81,9 +81,6 @@ public static class HawkerGoods
                trade?.BurnsStock(item.GetType()) != true;
     }
 
-    /// <summary>Goods that may change hands in a deal, supplies included.</summary>
-    public static bool IsTradable(SosariaCharacter person, Item item) => IsTradable(person, item, CraftMarket.TradeOf(person));
-
     /// <summary>
     /// True when <paramref name="trade"/> makes the item for sale: its craft list holds the type,
     /// and it is not the trade's own working tool.

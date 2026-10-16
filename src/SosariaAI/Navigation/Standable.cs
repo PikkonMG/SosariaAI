@@ -1,8 +1,10 @@
 using System;
 using System.Runtime.CompilerServices;
 using Server;
+using Server.Items;
 using SosariaAI.Mobiles;
 using EngineMovement = Server.Movement.Movement;
+using EngineMovementImpl = Server.Movement.MovementImpl;
 
 namespace SosariaAI.Navigation;
 
@@ -51,7 +53,7 @@ public static class Standable
 
     /// <summary>Surface nearest to <paramref name="nearZ"/>, from <see cref="DropBelow"/> under it to <see cref="ClimbAbove"/> over it.</summary>
     public static bool TryFind(Map map, int x, int y, int nearZ, out int surfaceZ) =>
-        TryFind(map, x, y, nearZ, nearZ - DropBelow, nearZ + ClimbAbove, out surfaceZ);
+        TryFind(map, x, y, nearZ, nearZ - DropBelow, nearZ + ClimbAbove, lastingOnly: false, out surfaceZ);
 
     /// <summary>Surface nearest to the land average, for callers with no height in mind.</summary>
     public static bool TryFindGround(Map map, int x, int y, out int surfaceZ)
@@ -63,7 +65,7 @@ public static class Standable
         }
 
         var average = map.GetAverageZ(x, y);
-        return TryFind(map, x, y, average, average - GroundSpan, average + GroundSpan, out surfaceZ);
+        return TryFind(map, x, y, average, average - GroundSpan, average + GroundSpan, lastingOnly: false, out surfaceZ);
     }
 
     /// <summary>
@@ -96,7 +98,7 @@ public static class Standable
     {
         toZ = fromZ;
 
-        if (!IsLive(map, fromX, fromY) || NavMetric.Chebyshev(new Point3D(toX, toY, fromZ), new Point3D(fromX, fromY, fromZ)) != 1)
+        if (!IsNeighbourStep(map, fromX, fromY, fromZ, toX, toY))
         {
             return false;
         }
@@ -108,6 +110,45 @@ public static class Standable
                DoorTiles.OpensStraightAhead(direction, DoorTiles.ClosedDoorAt(map, toX, toY, fromZ) != null) &&
                ProbeStep(_doorProbe ??= CreateStepProbe(DoorOpeningBody), map, from, direction, out toZ);
     }
+
+    /// <summary>
+    /// One step on the lasting ground (<see cref="GroundWalker"/>): the engine's own movement
+    /// check with every movable item left out and every door opened by the step, unless the
+    /// door is locked or the step is diagonal by a doorway (<see cref="DoorTiles.DiagonalByDoorway"/>).
+    /// </summary>
+    private static bool TryGroundStep(Map map, int fromX, int fromY, int fromZ, int toX, int toY, out int toZ)
+    {
+        toZ = fromZ;
+
+        if (!IsNeighbourStep(map, fromX, fromY, fromZ, toX, toY) ||
+            DoorTiles.DoorwayAt(map, toX, toY, fromZ) is { } door && DoorTiles.StaysShut(door) ||
+            DoorTiles.DiagonalByDoorway(map, fromX, fromY, toX, toY, fromZ))
+        {
+            return false;
+        }
+
+        var ignoredBefore = EngineMovementImpl.IgnoreMovableImpassables;
+        EngineMovementImpl.IgnoreMovableImpassables = true;
+
+        try
+        {
+            return ProbeStep(
+                _doorProbe ??= CreateStepProbe(DoorOpeningBody),
+                map,
+                new Point3D(fromX, fromY, fromZ),
+                Utility.GetDirection(fromX, fromY, toX, toY),
+                out toZ
+            );
+        }
+        finally
+        {
+            EngineMovementImpl.IgnoreMovableImpassables = ignoredBefore;
+        }
+    }
+
+    /// <summary>True when the step leaves a tile of a live map for a tile beside it.</summary>
+    private static bool IsNeighbourStep(Map map, int fromX, int fromY, int fromZ, int toX, int toY) =>
+        IsLive(map, fromX, fromY) && NavMetric.Chebyshev(new Point3D(toX, toY, fromZ), new Point3D(fromX, fromY, fromZ)) == 1;
 
     private static bool ProbeStep(Mobile probe, Map map, Point3D from, Direction direction, out int toZ)
     {
@@ -136,8 +177,37 @@ public static class Standable
             return DoorTiles.HasDoor(map, x, y) ? z : null;
         }
 
+        return new TileWalker(FloorNear, Step, TrapHarms(map));
+    }
+
+    /// <summary>
+    /// The walker on a map's lasting ground, for the checks whose verdict is saved or moves
+    /// world items: the graph build and the boot's floor, pad and link checks
+    /// (<see cref="NavWorld"/>). Land, statics and fixed items count. A movable item never
+    /// does: it is moved or gone by the next boot. Every door counts as shut on its frame, as
+    /// a door rests, and the walker opens it: a straight step into a doorway holds unless the
+    /// door is locked, and a diagonal step into, out of or past a doorway does not, as the
+    /// engine's corner rule refuses it by a shut door. The live walker (<see cref="Walker"/>)
+    /// reads the doors and items as they stand, so a door left open or an item dropped beside
+    /// a pad could change the boot's verdict, and the saved graph kept it for good. The tiles
+    /// hurt are the map's armed traps (<see cref="TrapTiles"/>). World thread only.
+    /// </summary>
+    public static TileWalker GroundWalker(Map map)
+    {
+        bool Step(int fromX, int fromY, int fromZ, int toX, int toY, out int toZ) =>
+            TryGroundStep(map, fromX, fromY, fromZ, toX, toY, out toZ);
+
+        int? FloorNear(int x, int y, int z) =>
+            TryFind(map, x, y, z, z - DropBelow, z + ClimbAbove, lastingOnly: true, out var surface) ? surface : null;
+
+        return new TileWalker(FloorNear, Step, TrapHarms(map));
+    }
+
+    /// <summary>The tiles the map's armed traps hurt, or null for a map with none.</summary>
+    private static Func<int, int, int, bool> TrapHarms(Map map)
+    {
         var traps = TrapTiles.For(map);
-        return new TileWalker(FloorNear, Step, traps.Count == 0 ? null : traps.Harms);
+        return traps.Count == 0 ? null : traps.Harms;
     }
 
     /// <summary>
@@ -179,7 +249,11 @@ public static class Standable
     [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "m_Body")]
     private static extern ref Body BodyOf(Mobile mobile);
 
-    private static bool TryFind(Map map, int x, int y, int nearZ, int minZ, int maxZ, out int surfaceZ)
+    /// <param name="lastingOnly">
+    /// Judge the lasting ground alone (<see cref="FitsOnLastingGround"/>): no movable item
+    /// and no door stands in the way. Otherwise the engine's own fit test judges, every item as it stands.
+    /// </param>
+    private static bool TryFind(Map map, int x, int y, int nearZ, int minZ, int maxZ, bool lastingOnly, out int surfaceZ)
     {
         surfaceZ = nearZ;
 
@@ -193,7 +267,7 @@ public static class Standable
 
         if (LandWalkable(map, x, y))
         {
-            Consider(map, x, y, map.GetAverageZ(x, y), nearZ, minZ, maxZ, ref found, ref bestGap, ref surfaceZ);
+            Consider(map, x, y, map.GetAverageZ(x, y), nearZ, minZ, maxZ, lastingOnly, ref found, ref bestGap, ref surfaceZ);
         }
 
         foreach (var tile in map.Tiles.GetStaticAndMultiTiles(x, y))
@@ -202,7 +276,7 @@ public static class Standable
 
             if (data.Surface && !data.Impassable)
             {
-                Consider(map, x, y, tile.Z + data.CalcHeight, nearZ, minZ, maxZ, ref found, ref bestGap, ref surfaceZ);
+                Consider(map, x, y, tile.Z + data.CalcHeight, nearZ, minZ, maxZ, lastingOnly, ref found, ref bestGap, ref surfaceZ);
             }
         }
 
@@ -217,7 +291,7 @@ public static class Standable
 
             if (data.Surface && !data.Impassable)
             {
-                Consider(map, x, y, item.Z + data.CalcHeight, nearZ, minZ, maxZ, ref found, ref bestGap, ref surfaceZ);
+                Consider(map, x, y, item.Z + data.CalcHeight, nearZ, minZ, maxZ, lastingOnly, ref found, ref bestGap, ref surfaceZ);
             }
         }
 
@@ -232,6 +306,7 @@ public static class Standable
         int nearZ,
         int minZ,
         int maxZ,
+        bool lastingOnly,
         ref bool found,
         ref int bestGap,
         ref int surfaceZ
@@ -249,7 +324,9 @@ public static class Standable
             return;
         }
 
-        if (!map.CanFit(x, y, candidateZ, PersonBody.Height, checkBlocksFit: false, checkMobiles: false))
+        if (lastingOnly
+                ? !FitsOnLastingGround(map, x, y, candidateZ)
+                : !map.CanFit(x, y, candidateZ, PersonBody.Height, checkBlocksFit: false, checkMobiles: false))
         {
             return;
         }
@@ -257,6 +334,53 @@ public static class Standable
         found = true;
         bestGap = gap;
         surfaceZ = candidateZ;
+    }
+
+    /// <summary>
+    /// The engine's fit test for a person standing on a surface at <paramref name="z"/>
+    /// (<see cref="Map.CanFit(int, int, int, int, bool, bool, bool)"/>), with no movable item and no
+    /// door in the way: rising land, a static, a multi part or a fixed item that is a surface
+    /// or impassable and overlaps the person refuses the spot. The surface under the person is
+    /// the candidate itself, so it is not asked again.
+    /// </summary>
+    private static bool FitsOnLastingGround(Map map, int x, int y, int z)
+    {
+        var top = z + PersonBody.Height;
+        var land = map.Tiles.GetLandTile(x, y);
+        map.GetAverageZ(x, y, out var lowZ, out var averageZ, out _);
+
+        if ((TileData.LandTable[land.ID & TileData.MaxLandValue].Flags & TileFlag.Impassable) != 0 &&
+            averageZ > z && top > lowZ)
+        {
+            return false;
+        }
+
+        foreach (var tile in map.Tiles.GetStaticAndMultiTiles(x, y))
+        {
+            var data = TileData.ItemTable[tile.ID & TileData.MaxItemValue];
+
+            if ((data.Surface || data.Impassable) && tile.Z + data.CalcHeight > z && top > tile.Z)
+            {
+                return false;
+            }
+        }
+
+        foreach (var item in map.GetItemsAt(x, y))
+        {
+            if (item.Movable || item is BaseDoor or BaseMulti || item.ItemID > TileData.MaxItemValue)
+            {
+                continue;
+            }
+
+            var data = item.ItemData;
+
+            if ((data.Surface || data.Impassable) && item.Z + data.CalcHeight > z && top > item.Z)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>True when the land tile itself is ground a person could walk on: not water, rock or void.</summary>

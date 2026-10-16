@@ -187,6 +187,7 @@ public static partial class CombatBrain
             Decision = Decision.None;
             FoeLostSince = 0;
             Unreachable = false;
+            NextSwitchAt = 0;
             Turns = 0;
             PickingOff = false;
             EscapeGoal = null;

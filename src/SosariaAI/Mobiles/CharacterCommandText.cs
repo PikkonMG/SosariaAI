@@ -55,6 +55,9 @@ public static class CharacterCommandText
     public static string WroteFile(string path, int count) =>
         $"Wrote {count} characters to {path}.";
 
+    public static string NotWritten(string path, int count) =>
+        $"Could not write {count} characters to {path}; the server log says why.";
+
     public static string ListReport(IReadOnlyList<string> lines, int count)
     {
         var body = lines == null || lines.Count == 0

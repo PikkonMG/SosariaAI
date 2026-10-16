@@ -19,8 +19,6 @@ public static class SosariaSettings
 {
     private static readonly ILogger logger = SosariaLog.For(typeof(SosariaSettings));
 
-    private static bool _accountLoginHooked;
-
     public static TimeSpan MusingInterval { get; private set; }
 
     public static bool LogActivity { get; private set; }
@@ -29,8 +27,8 @@ public static class SosariaSettings
 
     /// <summary>
     /// Gold a character keeps in the bank when it shops for gear. The
-    /// career.ignorePriceLimits test flag zeroes it; an unset or non-positive
-    /// career.goldReserve falls back to the default.
+    /// career.ignorePriceLimits test flag zeroes it; a career.goldReserve of 0 keeps none, and
+    /// a negative one falls back to the default.
     /// </summary>
     public static int GearGoldReserve =>
         Characters?.Career?.EffectiveGoldReserve() ?? CareerSettings.DefaultGoldReserve;
@@ -43,18 +41,14 @@ public static class SosariaSettings
         MusingInterval = MusingRules.IntervalFromMinutes(Characters.MusingIntervalMinutes);
         Journal = new EventJournal(MemoryStore.Shared);
         GuildWars = new GuildWarRegistry();
-
-        if (!_accountLoginHooked)
-        {
-            EventSink.AccountLogin += OnAccountLogin;
-            _accountLoginHooked = true;
-        }
     }
 
     /// <summary>
     /// ModernUO runs Initialize after the tile matrix, the regions and the world are
     /// loaded. Graph generation reads tiles and finds regions, so it cannot run in
-    /// Configure.
+    /// Configure. Saved corpses are cleaned once here, before any client can log in; a corpse
+    /// made later is cleaned where it is made. A world save only asks the memory writer to
+    /// write; the shutdown close waits for it.
     /// </summary>
     public static void Initialize()
     {
@@ -68,9 +62,11 @@ public static class SosariaSettings
         AdventureTracker.Shared.Start();
         ActivityPulse.Start();
         EventSink.Shutdown += PathSearch.Stop;
-        EventSink.WorldSave += MemoryStore.Shared.Flush;
+        EventSink.WorldSave += MemoryStore.Shared.WriteSoon;
         EventSink.Shutdown += AdventureTracker.Shared.Stop;
         EventSink.Shutdown += MemoryStore.Shared.Close;
+        EventSink.Shutdown += ActivityFile.WriteThrough;
+        EventSink.ServerCrashed += OnServerCrashed;
         WarnOffEraFixtures();
     }
 
@@ -97,5 +93,6 @@ public static class SosariaSettings
 
     public static GuildWarRegistry GuildWars { get; private set; } = new GuildWarRegistry();
 
-    private static void OnAccountLogin(AccountLoginEventArgs e) => CorpseSanitizer.CleanWorld();
+    /// <summary>The activity file holds its last lines in a buffer; a crash writes them out.</summary>
+    private static void OnServerCrashed(ServerCrashedEventArgs e) => ActivityFile.WriteThrough();
 }

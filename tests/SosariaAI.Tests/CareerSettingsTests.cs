@@ -14,9 +14,14 @@ public class CareerSettingsTests
         var strict = new CareerSettings { GoldReserve = 150 };
         Assert.Equal(150, strict.EffectiveGoldReserve());
 
-        // An unset or zero reserve still falls back to the default.
-        var unset = new CareerSettings { GoldReserve = 0 };
-        Assert.Equal(CareerSettings.DefaultGoldReserve, unset.EffectiveGoldReserve());
+        Assert.Equal(CareerSettings.DefaultGoldReserve, new CareerSettings().EffectiveGoldReserve());
+    }
+
+    [Fact]
+    public void EffectiveGoldReserve_ZeroKeepsNone_ANegativeOneKeepsTheDefault()
+    {
+        Assert.Equal(CareerSettings.NoGoldReserve, new CareerSettings { GoldReserve = 0 }.EffectiveGoldReserve());
+        Assert.Equal(CareerSettings.DefaultGoldReserve, new CareerSettings { GoldReserve = -1 }.EffectiveGoldReserve());
     }
 
     [Fact]

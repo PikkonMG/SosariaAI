@@ -465,18 +465,17 @@ public sealed class UpgradeGearSkill : Skill
         return !string.IsNullOrWhiteSpace(fallback) && StartWalk(fallback);
     }
 
-    // Over the counter: the piece must be on the vendor's shelf and the pack must pay.
+    // Over the counter: the piece the walk came for must be on the vendor's shelf and the pack must pay.
     private void TryBuyOnce()
     {
-        var offer = OfferFor(_character);
         var pack = _character.Backpack;
 
-        if (offer == null || pack == null)
+        if (pack == null)
         {
             return;
         }
 
-        var types = TypesOf(offer.Value);
+        var types = TypesOf(_offer);
 
         if (types.Count == 0)
         {
@@ -493,10 +492,10 @@ public sealed class UpgradeGearSkill : Skill
             return;
         }
 
-        var old = Wear(offer.Value, bought);
+        var old = Wear(_offer, bought);
         var spent = goldBefore - pack.GetAmount(typeof(Gold));
 
-        if (offer.Value.Kind == GearBuyKind.Spare)
+        if (_offer.Kind == GearBuyKind.Spare)
         {
             LogSpare(bought, spent);
             return;

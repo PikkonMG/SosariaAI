@@ -70,9 +70,6 @@ public static class PracticeSkillTable
         new PracticeSkillRule(SkillKinds.Wrestle, SkillName.Wrestling, PracticeFloor, ClassicCap, TrainedOnly: true)
     );
 
-    /// <summary>Every kind in the table.</summary>
-    public static IReadOnlyCollection<string> Kinds => Rules.Keys;
-
     /// <summary>The kinds only a build that trains their skill practises (<see cref="PracticeSkillRule.TrainedOnly"/>).</summary>
     public static readonly string[] TrainedOnlyKinds = [.. Rules.Values.Where(rule => rule.TrainedOnly).Select(rule => rule.Kind)];
 

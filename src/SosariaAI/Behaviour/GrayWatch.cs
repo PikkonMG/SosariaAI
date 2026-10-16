@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Server;
 using Server.Mobiles;
 using SosariaAI.Combat;
@@ -42,8 +43,8 @@ public sealed class GrayWatch
     public const int CallPercent = 45;
 
     /// <summary>
-    /// The engine clears the flag two minutes after the crime. Nobody starts a fight on a flag
-    /// older than this, so the fight cannot outlive its reason and gray the watcher instead.
+    /// The engine clears the flag two minutes after the latest crime. Nobody starts a fight on a
+    /// crime older than this, so the fight cannot outlive its reason and gray the watcher instead.
     /// </summary>
     public static readonly TimeSpan StaleFlag = TimeSpan.FromSeconds(90);
 
@@ -68,7 +69,6 @@ public sealed class GrayWatch
     public static GrayWatch Shared { get; } = new();
 
     private readonly Dictionary<uint, HashSet<uint>> _watchers = new();
-    private readonly Dictionary<uint, DateTime> _flaggedSince = new();
     private readonly Dictionary<(uint Watcher, uint Gray), DateTime> _brokeOff = new();
     private DateTime _lastSweep;
 
@@ -85,16 +85,13 @@ public sealed class GrayWatch
     public static bool IsWilling(uint serial, bool brave, bool cautious) =>
         serial % PercentScale < (brave ? BraveWillingPercent : cautious ? CautiousWillingPercent : WillingPercent);
 
-    /// <summary>A flag seen first at <paramref name="flaggedSince"/> still has time for a fight.</summary>
-    public static bool FlagFresh(DateTime flaggedSince, DateTime now) =>
-        !TimeRules.Passed(flaggedSince, now, StaleFlag);
-
-    /// <summary>When the watch first saw this gray's flag. The first sighting holds until the gray is dropped.</summary>
-    public DateTime NoteFlag(uint gray, DateTime now)
-    {
-        _flaggedSince.TryAdd(gray, now);
-        return _flaggedSince[gray];
-    }
+    /// <summary>
+    /// True while a flag that runs out at <paramref name="flagEnds"/> still has time for a fight.
+    /// The engine restarts the flag's clock of <paramref name="flagLength"/> at every crime, so a
+    /// gray that steals again is a fresh gray again.
+    /// </summary>
+    public static bool FlagFresh(DateTime flagEnds, TimeSpan flagLength, DateTime now) =>
+        flagEnds - now > flagLength - StaleFlag;
 
     /// <summary>True while this watcher rests from a gray it let go.</summary>
     public bool Resting(uint watcher, uint gray, DateTime now) =>
@@ -142,11 +139,7 @@ public sealed class GrayWatch
     }
 
     /// <summary>The flag lapsed or the gray is gone: nobody answers it any more.</summary>
-    public void Forget(uint gray)
-    {
-        _watchers.Remove(gray);
-        _flaggedSince.Remove(gray);
-    }
+    public void Forget(uint gray) => _watchers.Remove(gray);
 
     /// <summary>
     /// Drops every gray the check calls finished (dead, gone, or its flag lapsed) and every rest
@@ -162,17 +155,9 @@ public sealed class GrayWatch
         _lastSweep = now;
         List<uint> done = null;
 
-        foreach (var gray in _flaggedSince.Keys)
-        {
-            if (finished(gray))
-            {
-                (done ??= []).Add(gray);
-            }
-        }
-
         foreach (var gray in _watchers.Keys)
         {
-            if (!_flaggedSince.ContainsKey(gray) && finished(gray))
+            if (finished(gray))
             {
                 (done ??= []).Add(gray);
             }
@@ -294,7 +279,7 @@ public sealed class GrayWatch
 
             var graySerial = gray.Serial.Value;
 
-            if (!FlagFresh(Shared.NoteFlag(graySerial, now), now))
+            if (!FlagFresh(CriminalClockOf(gray).Next, Mobile.ExpireCriminalDelay, now))
             {
                 continue;
             }
@@ -330,6 +315,11 @@ public sealed class GrayWatch
             return;
         }
     }
+
+    // The engine's own clock on the gray's flag: it runs out ExpireCriminalDelay after the
+    // latest crime. A flag with no clock running reads as long run out.
+    [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "_expireCriminalTimerToken")]
+    private static extern ref TimerExecutionToken CriminalClockOf(Mobile mobile);
 
     // A guildmate or a partymate who flags gray is someone to cover for, not someone to kill.
     private static bool OwnSide(SosariaCharacter character, Mobile gray) =>

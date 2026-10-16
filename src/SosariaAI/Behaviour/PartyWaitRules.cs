@@ -58,8 +58,7 @@ public static class PartyWaitRules
         return now - waitStarted >= waitLimit ? PartyWaitResult.TimedOut : PartyWaitResult.Waiting;
     }
 
-    public static bool ShouldWaitForLag(bool inCombat, int farthestLivingMemberDistance, int lagTiles) =>
-        !inCombat && farthestLivingMemberDistance > lagTiles;
+    public static bool ShouldWaitForLag(int farthestLivingMemberDistance) => farthestLivingMemberDistance > LagTiles;
 
     public static bool ShouldRest(double hitsFraction, double restHitsFraction) =>
         hitsFraction < restHitsFraction;

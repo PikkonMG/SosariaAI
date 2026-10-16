@@ -8,6 +8,7 @@ using Server.Logging;
 using Server.Regions;
 using SosariaAI.Behaviour;
 using SosariaAI.Combat;
+using SosariaAI.Common;
 using SosariaAI.Configuration;
 using SosariaAI.Deliberation;
 using SosariaAI.Logging;
@@ -26,9 +27,14 @@ public static class FleetStatus
     public const string NoJob = "none";
     public const string WroteStatus = "Wrote the status page to {0}.";
 
+    /// <summary>How long a count of the population serves the staff panel before it is taken again.</summary>
+    public static readonly TimeSpan CountsLife = TimeSpan.FromSeconds(30);
+
     private static readonly ILogger logger = SosariaLog.For(typeof(FleetStatus));
     private static List<StuckLine> _stuck = [];
     private static bool _writeFailed;
+    private static FleetCounts _counts;
+    private static DateTime _countedAt;
 
     /// <summary>Characters the watchdog saw standing stalled on its last pass.</summary>
     public static int StuckCount => _stuck.Count;
@@ -88,6 +94,34 @@ public static class FleetStatus
         );
     }
 
+    /// <summary>
+    /// The last count of the population, taken again only once it is older than
+    /// <see cref="CountsLife"/>: the staff panel opens and redraws on every click.
+    /// </summary>
+    public static FleetCounts Counts()
+    {
+        if (_counts == null || TimeRules.Rested(_countedAt, Core.Now, CountsLife))
+        {
+            Count(InWorld());
+        }
+
+        return _counts;
+    }
+
+    private static FleetCounts Count(List<SosariaCharacter> live)
+    {
+        var samples = new List<CharacterSample>(live.Count);
+
+        for (var i = 0; i < live.Count; i++)
+        {
+            samples.Add(Sample(live[i]));
+        }
+
+        _counts = FleetCounts.Of(samples);
+        _countedAt = Core.Now;
+        return _counts;
+    }
+
     private static void OnMinute()
     {
         var live = InWorld();
@@ -101,15 +135,12 @@ public static class FleetStatus
     private static string WriteReport(List<SosariaCharacter> live)
     {
         var now = Core.Now;
-        var counts = new FleetCounts();
+        var counts = Count(live);
         var repeatFailing = 0;
 
         for (var i = 0; i < live.Count; i++)
         {
-            var character = live[i];
-            counts.Add(Sample(character));
-
-            if (RepeatFailure.IsBlocked(character.FailedRoutineCount))
+            if (RepeatFailure.IsBlocked(live[i].FailedRoutineCount))
             {
                 repeatFailing++;
             }

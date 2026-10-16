@@ -6,9 +6,19 @@ namespace SosariaAI.Deliberation;
 
 public sealed class BotConversationTracker
 {
+    /// <summary>
+    /// A pair or a speaker silent this long is forgotten and starts fresh, so the maps hold only
+    /// the people talking lately. The rests and quiets callers wait out are minutes long.
+    /// </summary>
+    public static readonly TimeSpan ForgetAfter = TimeSpan.FromDays(1);
+
+    /// <summary>How often a write looks for pairs and speakers to forget.</summary>
+    public static readonly TimeSpan SweepEvery = TimeSpan.FromHours(1);
+
     private readonly Dictionary<(uint First, uint Second), PairState> _pairs = new();
     private readonly Dictionary<uint, DateTime> _speakerLast = new();
     private readonly Dictionary<string, DateTime> _areaLast = new(StringComparer.Ordinal);
+    private DateTime _lastSweep;
 
     public bool CanGreet(Serial first, Serial second, DateTime now, TimeSpan cooldown) =>
         CanGreet(first, second, now, cooldown, pairRest: cooldown, maxExchanges: int.MaxValue);
@@ -43,6 +53,7 @@ public sealed class BotConversationTracker
 
     public void Record(Serial first, Serial second, DateTime now, TimeSpan pairRest)
     {
+        Sweep(now);
         var key = PairKey(first, second);
 
         if (!_pairs.TryGetValue(key, out var state) || now - state.Last >= pairRest)
@@ -70,8 +81,11 @@ public sealed class BotConversationTracker
         return now - last >= quiet;
     }
 
-    public void RecordSpeakerGreet(Serial speaker, DateTime now) =>
+    public void RecordSpeakerGreet(Serial speaker, DateTime now)
+    {
+        Sweep(now);
         _speakerLast[speaker.Value] = now;
+    }
 
     public bool AreaMayGreet(string area, DateTime now, TimeSpan gap)
     {
@@ -88,6 +102,44 @@ public sealed class BotConversationTracker
         if (!string.IsNullOrEmpty(area))
         {
             _areaLast[area] = now;
+        }
+    }
+
+    private void Sweep(DateTime now)
+    {
+        if (now - _lastSweep < SweepEvery)
+        {
+            return;
+        }
+
+        _lastSweep = now;
+        List<(uint, uint)> quietPairs = null;
+        List<uint> quietSpeakers = null;
+
+        foreach (var (pair, state) in _pairs)
+        {
+            if (now - state.Last >= ForgetAfter)
+            {
+                (quietPairs ??= []).Add(pair);
+            }
+        }
+
+        foreach (var (speaker, last) in _speakerLast)
+        {
+            if (now - last >= ForgetAfter)
+            {
+                (quietSpeakers ??= []).Add(speaker);
+            }
+        }
+
+        for (var i = 0; quietPairs != null && i < quietPairs.Count; i++)
+        {
+            _pairs.Remove(quietPairs[i]);
+        }
+
+        for (var i = 0; quietSpeakers != null && i < quietSpeakers.Count; i++)
+        {
+            _speakerLast.Remove(quietSpeakers[i]);
         }
     }
 

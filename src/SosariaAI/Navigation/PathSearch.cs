@@ -116,7 +116,7 @@ public static class PathSearch
         NavSearch.Explore(
             job.Graph,
             job.Source,
-            job.StopAt,
+            stopAt: null,
             job.GateCost,
             job.Avoid,
             job.IndoorKeep,
@@ -124,7 +124,7 @@ public static class PathSearch
             prev,
             job.Bars
         );
-        Deliver(() => job.OnComplete(prev, cost, job.Epoch));
+        Deliver(() => job.OnComplete(prev, job.Epoch));
     }
 
     private static void Deliver(Action action)
@@ -142,9 +142,8 @@ public static class PathSearch
     {
         public NavGraph Graph { get; init; }
 
+        /// <summary>The node the whole-graph search starts from: a plan's goal, as the walkers come toward it.</summary>
         public string Source { get; init; }
-
-        public string StopAt { get; init; }
 
         public double GateCost { get; init; } = NavSearch.DefaultGateCost;
 
@@ -157,6 +156,7 @@ public static class PathSearch
 
         public int Epoch { get; init; }
 
-        public Action<Dictionary<string, string>, Dictionary<string, double>, int> OnComplete { get; init; }
+        /// <summary>Called on the world thread with each reached node's previous node toward <see cref="Source"/>, and the job's epoch.</summary>
+        public Action<Dictionary<string, string>, int> OnComplete { get; init; }
     }
 }

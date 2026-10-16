@@ -108,7 +108,7 @@ public static partial class CombatBrain
             }
 
             var lost = foe;
-            foe = NearestAttacker(character, memory);
+            foe = NearestAttacker(character, memory, passOver: lost);
 
             if (foe == null)
             {
@@ -163,13 +163,10 @@ public static partial class CombatBrain
             return;
         }
 
+        // A Flee stance passed the run's gates (StanceFor), so the retreat takes.
         if (stance == CombatStance.Flee)
         {
-            if (!TryRetreat(character, memory, foe, ordered: true))
-            {
-                OpenGap(character, memory, foe, FootworkRules.DoubleStep);
-            }
-
+            TryRetreat(character, memory, foe, ordered: true);
             return;
         }
 
@@ -397,7 +394,7 @@ public static partial class CombatBrain
     {
         var picture = memory.Picture;
 
-        if (memory.StandsFast || !FleeRules.MayFlee(GuardsShelter(character), picture.AttackerThreat))
+        if (!MayRun(character, memory))
         {
             return false;
         }
@@ -546,6 +543,14 @@ public static partial class CombatBrain
     public static void RunDecided(SosariaCharacter character, Mobile from, TimeSpan duration) =>
         BreakOff(character, MemoryOf(character), from, ordered: true, duration);
 
+    /// <summary>
+    /// The gates every run from a fight passes, ordered or not: not once a hunted runner stands
+    /// fast in its corner (<see cref="RetreatRules.StandsFast"/>), not where the guards shelter
+    /// it, and not from attackers too weak to be a threat (<see cref="FleeRules.MayFlee"/>).
+    /// </summary>
+    private static bool MayRun(SosariaCharacter character, Memory memory) =>
+        !memory.StandsFast && FleeRules.MayFlee(GuardsShelter(character), memory.Picture.AttackerThreat);
+
     private static TimeSpan FleeSpan() => TimeSpan.FromSeconds(Utility.RandomMinMax(MinFleeSeconds, MaxFleeSeconds));
 
     /// <summary>True when the guards keep this character safe where it stands (<see cref="FleeRules.GuardsShelter"/>).</summary>
@@ -674,6 +679,11 @@ public static partial class CombatBrain
 
     private static void ThinkFlee(SosariaCharacter character, Memory memory)
     {
+        // Time spent running is no trade of blows: the stalemate window (DropsStalemate) starts
+        // afresh once the fight resumes. Kept running, it gave up a fight the runner turned back
+        // to at bay on the minute it had spent running.
+        memory.ProgressFoe = null;
+
         if (!character.CheckFlee())
         {
             if (!RetreatRules.RunsOn(
@@ -720,14 +730,16 @@ public static partial class CombatBrain
             CalmChaser(character, memory);
         }
 
+        // The turn and the stand weigh the power, the nerve and the pack: read on the scan pace,
+        // when the picture they weigh changes, not on every think of the run.
         if (TryRecallOut(character, memory, scanned) || TryFaceChaser(character, memory, picture, scanned) ||
             HidesFromChasers(character, memory, scanned) || VanishesOnTheRun(character, memory, scanned) ||
-            TryTurnOnChaser(character, memory, picture))
+            scanned && TryTurnOnChaser(character, memory, picture))
         {
             return;
         }
 
-        if (WorthStanding(character, memory, picture) && FoeAtBay(character, memory) is { } barelyHurting)
+        if (scanned && WorthStanding(character, memory, picture) && FoeAtBay(character, memory) is { } barelyHurting)
         {
             StandAtBay(character, memory, barelyHurting, BlowsBarelyHurt);
             return;
@@ -743,7 +755,7 @@ public static partial class CombatBrain
         {
             memory.CorneredTicks = 0;
         }
-        else if (++memory.CorneredTicks >= RetreatRules.EscapeStallTicks && NearestRated(memory) is var index and >= 0)
+        else if (++memory.CorneredTicks >= RetreatRules.EscapeStallTicks && NearestChaser(memory) is var index and >= 0)
         {
             StandAtBay(character, memory, memory.Foes[index].Mobile, Cornered);
         }
@@ -775,7 +787,7 @@ public static partial class CombatBrain
 
         ReadThreats(character, memory, memory.FleeFrom);
 
-        if (!RecallOutRules.ContactBroken(memory.Threats.SoonestBlowMs, SlowedByProtection(character)))
+        if (!RecallOutRules.ContactBroken(memory.Threats.SoonestBlowMs, Core.AOS, SlowedByProtection(character)))
         {
             return false;
         }
@@ -1068,14 +1080,15 @@ public static partial class CombatBrain
     }
 
     /// <summary>
-    /// The pack strung out and one chaser runs alone in front: turn and fight it, if it is a
-    /// foe this character would fight alone and it is fit to start. Limited per fight.
+    /// The pack on the runner strung out and one chaser runs alone in front of the others on it:
+    /// turn and fight it, if it is a foe this character would fight alone and it is fit to start.
+    /// Hostiles not on the runner are neither the chaser nor the pack behind it. Limited per fight.
     /// </summary>
     private static bool TryTurnOnChaser(SosariaCharacter character, Memory memory, RoomPicture picture)
     {
-        var lead = NearestRated(memory);
+        var lead = NearestChaser(memory);
 
-        if (lead < 0 || memory.Turns >= RetreatRules.MaxTurns)
+        if (lead < 0 || memory.Turns >= RetreatRules.MaxTurns || !memory.Foes[lead].Acquirable)
         {
             return false;
         }
@@ -1086,8 +1099,8 @@ public static partial class CombatBrain
             ? Math.Min(character.Weapon.MaxRange, FootworkRules.ArcherKeepMaxTiles)
             : FootworkRules.ArcherKeepMaxTiles;
         var straggler = RoomSurvey.IsStraggler(
-            picture.NearestDistance,
-            picture.SecondDistance,
+            chaser.Distance,
+            picture.AttackerSecond,
             ranged,
             FootworkRules.ArcherKeepMinTiles,
             keepMax
@@ -1103,8 +1116,7 @@ public static partial class CombatBrain
             HuntSkill.HasHealing(character),
             alliesPower: 0,
             ThreatMultiple(),
-            startLine,
-            alreadyAttacked: false
+            startLine
         );
 
         if (!RetreatRules.ShouldTurnOnChaser(memory.Turns, chaser.IsPerson, hits >= startLine, straggler, fits))

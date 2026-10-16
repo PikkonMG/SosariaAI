@@ -93,6 +93,57 @@ public static class TeleporterLinking
         Link(nodes, named);
     }
 
+    /// <summary>
+    /// Gates again each teleporter whose two ends already stand as nodes in
+    /// <paramref name="nodes"/>, found by tile as <see cref="FindOrAttach"/> finds them, and
+    /// places no node. A boot drops the gate of a pad it reads as dead (<see cref="DeadPads"/>),
+    /// and the saved graph kept the loss for good once the pad fired again: the Fire pad at
+    /// (5682,1437) lost its gate to Destard on one boot. Returns how many gates were added.
+    /// </summary>
+    public static int Relink(IList<NavNode> nodes, IEnumerable<TeleporterLink> teleporters)
+    {
+        if (nodes == null || teleporters == null)
+        {
+            return 0;
+        }
+
+        var byTile = new Dictionary<(int X, int Y), string>();
+
+        foreach (var node in nodes)
+        {
+            if (node != null && !string.IsNullOrWhiteSpace(node.Name))
+            {
+                byTile.TryAdd((node.X, node.Y), node.Name);
+            }
+        }
+
+        var named = new List<(string SrcName, string DstName, bool Back)>();
+
+        foreach (var link in teleporters)
+        {
+            if (byTile.TryGetValue((link.Sx, link.Sy), out var srcName) && byTile.TryGetValue((link.Dx, link.Dy), out var dstName))
+            {
+                named.Add((srcName, dstName, link.Back));
+            }
+        }
+
+        var before = GateCount(nodes);
+        Link(nodes, named);
+        return GateCount(nodes) - before;
+    }
+
+    private static int GateCount(IList<NavNode> nodes)
+    {
+        var count = 0;
+
+        foreach (var node in nodes)
+        {
+            count += node?.Gates?.Count ?? 0;
+        }
+
+        return count;
+    }
+
     /// <summary>A pad node on the exact teleporter tile. See <see cref="SeedAttach.FindOrAttach"/>.</summary>
     public static string FindOrAttach(IList<NavNode> nodes, Point3D point) =>
         SeedAttach.FindOrAttach(nodes, point, AttachedNamePrefix);

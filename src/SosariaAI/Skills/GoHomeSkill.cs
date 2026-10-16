@@ -118,12 +118,12 @@ public sealed class GoHomeSkill : Skill
         if (character.FailedHomeWalks >= HomeLeash.FailedWalksBeforeMoongate &&
                  !AtHomeGate(character))
         {
-            _walk = new TravelSkill(HomeGate(character), range);
+            _walk = new TravelSkill(HomeGate(character), range, lastWayHome: true);
             _triedGate = true;
         }
         else
         {
-            _walk = new TravelSkill(home, range);
+            _walk = new TravelSkill(home, range, lastWayHome: true);
             _triedDirect = true;
         }
 

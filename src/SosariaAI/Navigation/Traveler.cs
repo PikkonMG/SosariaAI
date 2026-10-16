@@ -345,7 +345,8 @@ public static class Traveler
     /// stopped it for the activity log. Generated edges are trusted: the world generator
     /// walks each one. Only the walker's own walk to its first node is proved here, by a
     /// straight walk or, for the nearest few starts, by a tile route <paramref name="walker"/>
-    /// walks round the obstacle.
+    /// walks round the obstacle. The search from the destination keeps out of buildings, so
+    /// the indoor starts share one search of their own (<see cref="IndoorStartPath"/>).
     /// </summary>
     public static IReadOnlyList<string> FinishPlan(
         NavGraph graph,
@@ -369,12 +370,13 @@ public static class Traveler
         var usable = UsableStarts(graph, from, destinationNode, isIndoor);
         var pathsFound = 0;
         var tileTries = 0;
+        Dictionary<string, string> indoorPrev = null;
 
         for (var i = 0; i < usable.Count; i++)
         {
             var start = usable[i];
             var path = start.Indoor
-                ? NavSearch.FindPath(graph, start.Name, destinationNode, GateCost(), avoid)
+                ? IndoorStartPath(graph, start.Name, destinationNode, usable, avoid, ref indoorPrev)
                 : PathFromExplore(prev, destinationNode, start.Name);
 
             if (path.Count == 0)
@@ -402,6 +404,63 @@ public static class Traveler
 
         whyNone = usable.Count == 0 ? WhyNoStart : pathsFound == 0 ? WhyNoPath : WhyFirstHopsBlocked;
         return [];
+    }
+
+    /// <summary>
+    /// The road from an indoor start to the destination: the walk from that start that passes
+    /// under no roof but the start's own and the destination's (<see cref="NavSearch.FindPath"/>).
+    /// One search from the destination that may enter every indoor start of
+    /// <paramref name="starts"/> serves them all, run on first need into
+    /// <paramref name="fromDestination"/>. A road it finds through another indoor node, or from
+    /// a start the road pieces part from the destination, is searched again from the start
+    /// alone, so each road is one that search finds too. A whole search per indoor start,
+    /// twelve at most, ran on the world thread for every plan from a building.
+    /// </summary>
+    private static IReadOnlyList<string> IndoorStartPath(
+        NavGraph graph,
+        string start,
+        string destinationNode,
+        IReadOnlyList<NavNode> starts,
+        IReadOnlyList<Point3D> avoid,
+        ref Dictionary<string, string> fromDestination
+    )
+    {
+        if (fromDestination == null)
+        {
+            var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { destinationNode };
+
+            for (var i = 0; i < starts.Count; i++)
+            {
+                if (starts[i].Indoor)
+                {
+                    keep.Add(starts[i].Name);
+                }
+            }
+
+            fromDestination = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var cost = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+            NavSearch.Explore(graph, destinationNode, stopAt: null, GateCost(), avoid, keep, cost, fromDestination);
+        }
+
+        var path = PathFromExplore(fromDestination, destinationNode, start);
+
+        return path.Count > 0 && (PassesAnotherRoof(graph, path) || !graph.SameComponent(start, destinationNode))
+            ? NavSearch.FindPath(graph, start, destinationNode, GateCost(), avoid)
+            : path;
+    }
+
+    /// <summary>True when a road passes through an indoor node between its two ends.</summary>
+    private static bool PassesAnotherRoof(NavGraph graph, IReadOnlyList<string> path)
+    {
+        for (var i = 1; i < path.Count - 1; i++)
+        {
+            if (graph.TryGetNode(path[i], out var node) && node.Indoor)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -672,7 +731,7 @@ public static class Traveler
         return false;
     }
 
-    private static (Dictionary<string, string> Prev, int Searches) ExploreToProbe(
+    private static Dictionary<string, string> ExploreToProbe(
         NavGraph graph,
         Point3D origin,
         string probe,
@@ -690,7 +749,7 @@ public static class Traveler
         var cost = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         var prev = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         NavSearch.Explore(graph, probe, stopAt: null, GateCost(), avoid: null, keep, cost, prev);
-        return (prev, 1);
+        return prev;
     }
 
     // Explore builds prev toward its source. Reconstruct(source, target) therefore
@@ -740,8 +799,7 @@ public static class Traveler
             Dictionary<string, string> prev,
             string probe,
             bool lineOnly,
-            bool sealedPocket,
-            int planSearches
+            bool sealedPocket
         )
         {
             _graph = graph;
@@ -751,11 +809,7 @@ public static class Traveler
             _probe = probe;
             _lineOnly = lineOnly;
             _sealedPocket = sealedPocket;
-            PlanSearches = planSearches;
         }
-
-        /// <summary>Graph searches run to build this proof. One search must cover many tiles.</summary>
-        public int PlanSearches { get; }
 
         public bool At(Point3D from)
         {
@@ -834,16 +888,46 @@ public static class Traveler
         return PrepareClearStart(graph, outside, walker, isIndoor).At(outside);
     }
 
+    /// <summary>
+    /// The street-reach proof of <paramref name="origin"/>: the search from the nearest probe
+    /// past any sealed pocket whose route the walk from the origin starts on. Up to
+    /// <see cref="EscapeProbeTries"/> probes are tried; when none serves, the origin is sealed in.
+    /// </summary>
     public static ClearStartProof PrepareClearStart(
         NavGraph graph,
         Point3D origin,
         TileWalker walker,
         Func<int, int, int, bool> isIndoor = null
+    ) =>
+        Prepare(graph, origin, walker, isIndoor, provedAtOrigin: true);
+
+    /// <summary>
+    /// The street-reach proof for the open ground round <paramref name="origin"/>, a spot under a
+    /// roof: one search from the nearest probe past any sealed pocket, proved at each tile the
+    /// walk out reaches (<see cref="BuildingExit"/>). The origin itself is not proved: a route's
+    /// first hops seldom walk straight out from under a roof, so a proof that had to hold there
+    /// ran a search for each of up to <see cref="EscapeProbeTries"/> probes on the world thread,
+    /// then called the building sealed, and the walk out found no tile.
+    /// </summary>
+    public static ClearStartProof PrepareStreetProof(
+        NavGraph graph,
+        Point3D origin,
+        TileWalker walker,
+        Func<int, int, int, bool> isIndoor = null
+    ) =>
+        Prepare(graph, origin, walker, isIndoor, provedAtOrigin: false);
+
+    private static ClearStartProof Prepare(
+        NavGraph graph,
+        Point3D origin,
+        TileWalker walker,
+        Func<int, int, int, bool> isIndoor,
+        bool provedAtOrigin
     )
     {
         if (graph == null || walker == null)
         {
-            return new ClearStartProof(graph, walker, isIndoor, null, null, lineOnly: false, sealedPocket: true, planSearches: 0);
+            return new ClearStartProof(graph, walker, isIndoor, null, null, lineOnly: false, sealedPocket: true);
         }
 
         var main = graph.LargestComponent();
@@ -868,45 +952,41 @@ public static class Traveler
         {
             for (var i = 0; i < far.Count; i++)
             {
-                var (prev, searches) = ExploreToProbe(graph, origin, far[i].Name, isIndoor);
                 var proof = new ClearStartProof(
                     graph,
                     walker,
                     isIndoor,
-                    prev,
+                    ExploreToProbe(graph, origin, far[i].Name, isIndoor),
                     far[i].Name,
                     lineOnly: false,
-                    sealedPocket: false,
-                    planSearches: searches
+                    sealedPocket: false
                 );
 
-                if (proof.At(origin))
+                if (!provedAtOrigin || proof.At(origin))
                 {
                     return proof;
                 }
             }
 
-            return new ClearStartProof(graph, walker, isIndoor, null, null, lineOnly: false, sealedPocket: true, planSearches: far.Count);
+            return new ClearStartProof(graph, walker, isIndoor, null, null, lineOnly: false, sealedPocket: true);
         }
 
         var probe = EscapeProbe(graph, origin, main, int.MaxValue, static _ => true);
 
         if (probe != null)
         {
-            var (prev, searches) = ExploreToProbe(graph, origin, probe.Name, isIndoor);
             return new ClearStartProof(
                 graph,
                 walker,
                 isIndoor,
-                prev,
+                ExploreToProbe(graph, origin, probe.Name, isIndoor),
                 probe.Name,
                 lineOnly: false,
-                sealedPocket: false,
-                planSearches: searches
+                sealedPocket: false
             );
         }
 
-        return new ClearStartProof(graph, walker, isIndoor, null, null, lineOnly: true, sealedPocket: false, planSearches: 0);
+        return new ClearStartProof(graph, walker, isIndoor, null, null, lineOnly: true, sealedPocket: false);
     }
 
     /// <summary>
@@ -1121,7 +1201,12 @@ public static class Traveler
         return true;
     }
 
-    private static double GateCost()
+    /// <summary>
+    /// What a gate weighs in tiles on every road search: the configured <c>nav.gateCost</c>, or
+    /// <see cref="NavSettings.DefaultGateCost"/> when none or a negative one is set. The path
+    /// workers' searches weigh it too, so a plan and its check agree on the road.
+    /// </summary>
+    public static double GateCost()
     {
         var cost = SosariaSettings.Characters?.Nav?.GateCost ?? NavSettings.DefaultGateCost;
         return cost < 0 ? NavSettings.DefaultGateCost : cost;

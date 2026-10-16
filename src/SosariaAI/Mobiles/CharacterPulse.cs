@@ -40,7 +40,6 @@ public sealed class CharacterPulse
         }
 
         _nextThinkAt = Core.TickCount;
-        _timer.Cancel();
         Arm();
     }
 
@@ -52,8 +51,11 @@ public sealed class CharacterPulse
     private long StaggerMs() =>
         _character.Serial.Value % Math.Max(1, (long)_character.ThinkDelay.TotalMilliseconds);
 
+    // One chain only: a wake during a beat arms a timer, and the beat's own re-arm after it
+    // must replace that timer, not run beside it.
     private void Arm()
     {
+        _timer.Cancel();
         var now = Core.TickCount;
         var wakeAt = _nextThinkAt;
         var motor = _character.Motor;

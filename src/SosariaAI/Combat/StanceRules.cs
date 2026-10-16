@@ -157,9 +157,11 @@ public static class StanceRules
         }
 
         // A frozen melee foe is walked away from before the big spell breaks it free; a free one
-        // that the kite could not shake is frozen first.
+        // that the kite could not shake is frozen first. A cornered mage cannot walk away from a
+        // frozen foe, so it presses where it stands.
         if (s.FoeStyle == CombatStyle.Melee &&
-            (s.FoeHeld ? s.FoeDistance < FootworkRules.KiteBandTiles : s.Sticky && s.CanParalyze))
+            (s.FoeHeld ? s.FoeDistance < FootworkRules.KiteBandTiles : s.Sticky) &&
+            Feasible(CombatStance.ParalyzeThenKite, s))
         {
             return CombatStance.ParalyzeThenKite;
         }
@@ -215,7 +217,7 @@ public static class StanceRules
                                  (!s.BlueOnRed || s.Outlook == FightOutlook.Losing),
             CombatStance.Flee or CombatStance.Hold => !PressesRed(s),
             CombatStance.Heal => s.NeedsCare && (s.HasHealPotion || s.HasBandage || s.CanHealSpell),
-            CombatStance.ParalyzeThenKite => s.Caster && (s.FoeHeld || s.CanParalyze),
+            CombatStance.ParalyzeThenKite => s.Caster && (s.FoeHeld ? !s.Cornered : s.CanParalyze),
             CombatStance.Protect => s.CanWard && !s.Warded,
             _ => true
         };

@@ -36,6 +36,14 @@ public static class WorldPlay
     private static readonly Dictionary<Serial, (Serial Target, DateTime At)> _lastOutlawTarget = new();
     private static readonly Dictionary<Serial, (Serial Threat, DateTime At)> _lastRun = new();
 
+    /// <summary>
+    /// Marks past their rest are dropped this often: the tables keyed by person and by pair
+    /// kept every mark for good.
+    /// </summary>
+    private static readonly TimeSpan PruneGap = TimeSpan.FromMinutes(1);
+
+    private static DateTime _lastPrune;
+
     public static void Tick(SosariaCharacter character)
     {
         if (character == null || character.Deleted || character.IsGhost)
@@ -43,6 +51,7 @@ public static class WorldPlay
             return;
         }
 
+        Prune(Core.Now);
         GameParty.ConsiderPlayerInvite(character);
         GameParty.NoticePlayerLeave(character);
         PartyOrders.Consider(character);
@@ -92,11 +101,11 @@ public static class WorldPlay
     {
         if (character.Routine == null)
         {
-            character.AttachRoutine(new Routine([skill]));
+            character.AttachRoutine(new Routine(skill));
         }
         else
         {
-            character.Routine.Replace([skill]);
+            character.Routine.Replace(skill);
         }
     }
 
@@ -268,6 +277,33 @@ public static class WorldPlay
     /// <summary>These two have not fought inside the pair rest.</summary>
     public static bool PairReady(Serial first, Serial second, DateTime now) =>
         TimeRules.Rested(LastPairFight.GetValueOrDefault(PairKey(first, second)), now, PairRest);
+
+    /// <summary>Drops every mark whose rest ran out: one past it changes no answer.</summary>
+    private static void Prune(DateTime now)
+    {
+        if (!TimeRules.Rested(_lastPrune, now, PruneGap))
+        {
+            return;
+        }
+
+        _lastPrune = now;
+        DropRested(LastRally, static at => at, now, RallyCooldown);
+        DropRested(LastPairFight, static at => at, now, PairRest);
+        DropRested(_lastOutlawTarget, static mark => mark.At, now, RetargetWait);
+        DropRested(_lastRun, static run => run.At, now, FleeRules.EpisodeRest);
+        ResurrectOffer.Prune(now);
+    }
+
+    private static void DropRested<TKey, TValue>(Dictionary<TKey, TValue> marks, Func<TValue, DateTime> at, DateTime now, TimeSpan rest)
+    {
+        foreach (var (key, value) in marks)
+        {
+            if (TimeRules.Rested(at(value), now, rest))
+            {
+                marks.Remove(key);
+            }
+        }
+    }
 
     /// <summary>Marks a fight: this person's rally and the pair's rest both start now.</summary>
     public static void NoteFight(SosariaCharacter character, Mobile foe)
@@ -797,7 +833,7 @@ public static class WorldPlay
 
         var antiPk = character.Disposition == DispositionKind.Lawful;
 
-        if (!LawfulRules.ShouldHunt(false, sidePower, CharacterPower.For(outlaw), OutlawOnFriend(character, outlaw), antiPk) ||
+        if (!LawfulRules.ShouldHunt(sidePower, CharacterPower.For(outlaw), OutlawOnFriend(character, outlaw), antiPk) ||
             WouldRunFrom(character, outlaw, IsOutlaw))
         {
             return;
@@ -920,7 +956,7 @@ public static class WorldPlay
         var map = character.Map?.MapID ?? 0;
 
         if (victim != character &&
-            LawfulRules.ShouldWarn(character.Disposition, true, !string.IsNullOrWhiteSpace(victimName)) &&
+            LawfulRules.ShouldWarn(character.Disposition, !string.IsNullOrWhiteSpace(victimName)) &&
             !WarningGate.Shared.ToldLately(outlaw.Serial, map, character.X, character.Y, now) &&
             WarningGate.Shared.TryWarn(character.Serial, victim?.Serial ?? Serial.Zero, outlaw.Serial, now))
         {

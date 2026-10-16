@@ -25,7 +25,7 @@ public class CalledFightTests
     public void JoinAgainst_DungeonTrip_IsHeldNotEnded()
     {
         var crawler = Fighter();
-        var routine = new Routine([new DungeonTripSkill(Point3D.Zero, Hunt(), null)]);
+        var routine = new Routine(new DungeonTripSkill(Point3D.Zero, Hunt(), null));
         TestRoutine.Give(crawler, routine);
         var foe = Fighter();
 
@@ -40,7 +40,7 @@ public class CalledFightTests
     public void JoinAgainst_Hunt_EndsForTheCalledFight()
     {
         var hunter = Fighter();
-        var routine = new Routine([Hunt()]);
+        var routine = new Routine(Hunt());
         TestRoutine.Give(hunter, routine);
 
         hunter.JoinAgainst(Fighter());

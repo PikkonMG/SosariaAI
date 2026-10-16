@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Server;
 using Server.Items;
@@ -8,20 +9,26 @@ namespace SosariaAI.Admin;
 
 /// <summary>
 /// World work behind the staff panel: who is near, and the travel spots for a facet. Game
-/// thread only.
+/// thread only. Landing the spots reads many tiles, so a facet's spots are kept while
+/// <see cref="PanelRules.SpotsFresh"/> holds.
 /// </summary>
 public static class PanelActions
 {
-    public static List<SosariaCharacter> LiveNear(Mobile staff)
-    {
-        var near = new List<SosariaCharacter>();
+    /// <summary>A facet's landed towns and dungeons, and the nav graph they were landed on.</summary>
+    public sealed record FacetSpots(NavGraph Graph, DateTime LandedAt, List<TravelSpot> Towns, List<TravelSpot> Dungeons);
 
-        foreach (var character in FleetStatus.InWorld())
+    private static readonly Dictionary<Map, FacetSpots> SpotsByMap = new();
+
+    /// <summary>Live characters within <see cref="PanelRules.NearRange"/> tiles of the staff member.</summary>
+    public static int CountNear(Mobile staff)
+    {
+        var near = 0;
+
+        foreach (var character in staff.Map.GetMobilesInRange<SosariaCharacter>(staff.Location, PanelRules.NearRange))
         {
-            if (character.Map == staff.Map &&
-                NavMetric.Chebyshev(character.Location, staff.Location) <= PanelRules.NearRange)
+            if (!character.Deleted && People.InWorld(character))
             {
-                near.Add(character);
+                near++;
             }
         }
 
@@ -29,21 +36,34 @@ public static class PanelActions
     }
 
     /// <summary>
-    /// The towns this era's world has (<see cref="WorldPlaces"/>), landed near the engine's
-    /// own go location.
+    /// The towns and the dungeons this era's world has (<see cref="WorldPlaces"/>), each landed
+    /// beside its door: a town near the engine's own go location, a dungeon by the teleporter
+    /// pad or cave mouth a player goes in by (<see cref="PlaceRules"/>). A grouping region such
+    /// as "Misc Dungeons" is listed as the dungeons it holds. The list does not ask whether a
+    /// walk reaches the door: staff must reach every one.
     /// </summary>
-    public static List<TravelSpot> TownSpots(Map map) => LandedPlaces(map, WorldPlaces.For(map).Towns);
+    public static FacetSpots TravelSpots(Map map)
+    {
+        var graph = NavWorld.GraphFor(map.Name);
+        var now = Core.Now;
 
-    /// <summary>
-    /// The dungeons this era's world has, by their real names, each landed beside its real
-    /// door: the teleporter pad or cave mouth a player goes in by (<see cref="PlaceRules"/>).
-    /// A grouping region such as "Misc Dungeons" is listed as the dungeons it holds. The list
-    /// does not ask whether a walk reaches the door: staff must reach every one.
-    /// </summary>
-    public static List<TravelSpot> DungeonSpots(Map map) => LandedPlaces(map, WorldPlaces.For(map).Dungeons);
+        if (SpotsByMap.TryGetValue(map, out var kept) &&
+            PanelRules.SpotsFresh(ReferenceEquals(kept.Graph, graph), kept.LandedAt, now))
+        {
+            return kept;
+        }
 
-    private static List<TravelSpot> LandedPlaces(Map map, IEnumerable<Place> places) =>
-        Landed(map, PanelRules.PlaceSpots(places), GatePads(NavWorld.GraphFor(map.Name)));
+        var pads = GatePads(graph);
+        var places = WorldPlaces.For(map);
+        kept = new FacetSpots(
+            graph,
+            now,
+            Landed(map, PanelRules.PlaceSpots(places.Towns), pads),
+            Landed(map, PanelRules.PlaceSpots(places.Dungeons), pads)
+        );
+        SpotsByMap[map] = kept;
+        return kept;
+    }
 
     /// <summary>
     /// Each spot moved to the tile <see cref="PanelRules.Landing"/> picks, one per name and

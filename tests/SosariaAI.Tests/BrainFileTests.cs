@@ -111,6 +111,19 @@ public class BrainFileTests
     }
 
     [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Normalize_ReplacesAChatInFlightLimitThatLetsNoCallOut(int limit)
+    {
+        // At zero or below every chat and persona call is dropped as "already in flight".
+        var config = new BrainConfiguration { MaxConcurrentRequests = limit };
+
+        config.Normalize();
+
+        Assert.Equal(BrainConfiguration.DefaultMaxConcurrentRequests, config.MaxConcurrentRequests);
+    }
+
+    [Theory]
     [InlineData("planner", BrainConfiguration.PartyOrdersPlanner)]
     [InlineData(" Planner ", BrainConfiguration.PartyOrdersPlanner)]
     [InlineData("direct", BrainConfiguration.PartyOrdersDirect)]

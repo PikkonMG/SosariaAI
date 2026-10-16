@@ -29,16 +29,6 @@ public class BoatRulesTests
         Assert.True(BoatRules.IsWaterStatic(BoatRules.StaticWaterMin));
         Assert.True(BoatRules.IsWaterStatic(BoatRules.StaticWaterMax));
         Assert.False(BoatRules.IsWaterStatic(1));
-        Assert.Equal(
-            new[]
-            {
-                BoatRules.SmallBoatNorthId,
-                BoatRules.SmallBoatEastId,
-                BoatRules.SmallBoatSouthId,
-                BoatRules.SmallBoatWestId
-            },
-            BoatRules.SmallBoatItemIds
-        );
     }
 
     [Fact]

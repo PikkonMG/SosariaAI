@@ -60,10 +60,12 @@ public class RecallChoiceTests
         var places = MemoryChoiceRules.FriendDeathPlaces(memory.Store, Halvard.Id, Now, DeathMemory);
 
         Assert.Equal([Despise], places);
-        Assert.True(DeathAvoid.FriendFellAt(places, null, Despise));
-        Assert.True(DeathAvoid.FriendFellAt(places, "despise", null));
-        Assert.False(DeathAvoid.FriendFellAt(places, Covetous, Shame));
-        Assert.False(DeathAvoid.FriendFellAt(null, Despise, Despise));
+        Assert.True(DeathAvoid.FriendFellAt(places, Despise));
+        Assert.True(DeathAvoid.FriendFellAt(places, "despise"));
+        Assert.False(DeathAvoid.FriendFellAt(places, null));
+        Assert.False(DeathAvoid.FriendFellAt(places, Covetous));
+        Assert.False(DeathAvoid.FriendFellAt(places, Shame));
+        Assert.False(DeathAvoid.FriendFellAt(null, Despise));
     }
 
     [Fact]

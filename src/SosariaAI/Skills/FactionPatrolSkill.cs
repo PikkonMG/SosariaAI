@@ -21,6 +21,9 @@ public sealed class FactionPatrolSkill : Skill
 {
     public const string SkillName = "FactionPatrol";
 
+    /// <summary>The leader died on the patrol.</summary>
+    public const string DiedWhy = "died on the patrol";
+
     private SosariaCharacter _character;
     private TravelSkill _walk;
     private HomeRange _home;
@@ -58,9 +61,14 @@ public sealed class FactionPatrolSkill : Skill
 
     public override SkillStatus Tick()
     {
-        if (_character == null || _character.Deleted || !_character.Alive)
+        if (_character == null || _character.Deleted)
         {
-            return Finish(SkillStatus.Failed);
+            return Finish(Fail(LeftWorldReason));
+        }
+
+        if (!_character.Alive)
+        {
+            return Finish(Fail(DiedWhy));
         }
 
         var now = Core.Now;
@@ -133,11 +141,12 @@ public sealed class FactionPatrolSkill : Skill
             return SkillStatus.Running;
         }
 
+        var walkWhy = _walk.FailReason;
         _walk = null;
 
         if (status == SkillStatus.Failed)
         {
-            return Finish(SkillStatus.Failed);
+            return Finish(Fail(walkWhy));
         }
 
         _arrivedAt = now;
@@ -146,6 +155,7 @@ public sealed class FactionPatrolSkill : Skill
         return SkillStatus.Running;
     }
 
+    /// <summary>Starts the ride to the target. False, with the walk's reason noted, when no ride starts.</summary>
     private bool StartWalk()
     {
         _walk = new TravelSkill(_target, FactionRules.SpotRadius);
@@ -155,8 +165,9 @@ public sealed class FactionPatrolSkill : Skill
             return true;
         }
 
+        var why = _walk.FailReason;
         _walk = null;
-        return false;
+        return CannotStart(why);
     }
 
     // The mark, alive and seen within intercept range out of the guards' reach.

@@ -16,7 +16,6 @@ public sealed record BrainResult(
     string Act = null,
     bool FromParty = false,
     string CharacterId = null,
-    int PlanRevision = 0,
     string Raw = null,
     int InputTokens = 0,
     JevAsk Ask = JevAsk.Plain,

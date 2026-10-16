@@ -155,8 +155,7 @@ public class PartyOrderRulesTests
         Assert.True(PartyOrderRules.MayOrder(speakerLeads: true, speakerIsHuman: true));
         Assert.False(PartyOrderRules.MayOrder(speakerLeads: true, speakerIsHuman: false));
         Assert.False(PartyOrderRules.MayOrder(speakerLeads: false, speakerIsHuman: true));
-        Assert.True(PartyOrderRules.MayCallHelp(speakerInParty: true, speakerIsHuman: true));
-        Assert.False(PartyOrderRules.MayCallHelp(speakerInParty: true, speakerIsHuman: false));
-        Assert.False(PartyOrderRules.MayCallHelp(speakerInParty: false, speakerIsHuman: true));
+        Assert.True(PartyOrderRules.MayCallHelp(speakerIsHuman: true));
+        Assert.False(PartyOrderRules.MayCallHelp(speakerIsHuman: false));
     }
 }

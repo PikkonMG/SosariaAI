@@ -208,6 +208,31 @@ public class PromptBuilderTests
     }
 
     [Fact]
+    public void DescribeEvent_Attacked_ListsTheRoutinesItAsksToChooseFrom()
+    {
+        // The decide shape asks for a routine id, and the attacked prompt named none to pick from.
+        var evt = new BrainEvent(
+            BrainEventKind.Attacked,
+            (Serial)1u,
+            "Connor",
+            "Bran",
+            (Serial)2u,
+            true,
+            "Hits 40 percent.\n- flee: run for town\n- fight: stand and fight",
+            "mining",
+            "Britain, Felucca",
+            new System.DateTime(2026, 1, 1)
+        );
+
+        var text = PromptBuilder.DescribeEvent(evt);
+
+        Assert.StartsWith("A player named Bran attacks you.", text);
+        Assert.Contains("Hits 40 percent.", text);
+        Assert.Contains("- flee: run for town", text);
+        Assert.Contains("- fight: stand and fight", text);
+    }
+
+    [Fact]
     public void DescribeEvent_Plan_AsksForAGoalAndSteps()
     {
         var evt = new BrainEvent(

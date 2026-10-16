@@ -5,6 +5,7 @@ using Server.Mobiles;
 using Server.Regions;
 using SosariaAI.Behaviour;
 using SosariaAI.Combat;
+using SosariaAI.Common;
 using SosariaAI.Mobiles;
 using SosariaAI.Navigation;
 
@@ -52,7 +53,7 @@ public static class TamingGrounds
     private static readonly Dictionary<string, BaseCreature> Samples = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Dictionary<(Serial Tamer, Point3D Ground), DateTime> DryUntil = new();
     private static readonly Dictionary<Serial, (Point3D Ground, Map Map, string Dungeon)> Claims = new();
-    private static readonly Dictionary<Serial, (TamingGround Ground, DateTime At, int Followers, int Taming, bool Practises)> Picks = new();
+    private static readonly Dictionary<Serial, (TamingGround Ground, DateTime At, Map Map, int Followers, int Taming, bool Practises)> Picks = new();
     private static DateTime _sampledAt;
 
     /// <summary>What the engine says about this beast's kind.</summary>
@@ -133,7 +134,9 @@ public static class TamingGrounds
 
     /// <summary>
     /// The ground this tamer goes to next, or null when no beast suits it: a ground where a live
-    /// beast of its kind it may try stands now (<see cref="HoldsQuarry"/>).
+    /// beast of its kind it may try stands now (<see cref="HoldsQuarry"/>). No ground is a pick
+    /// too and holds as long: the readiness check asks on every choice, and a tamer with no
+    /// ground ranked the whole catalog each time.
     /// </summary>
     public static TamingGround Pick(SosariaCharacter tamer)
     {
@@ -142,22 +145,28 @@ public static class TamingGrounds
             return null;
         }
 
+        var now = Core.Now;
         var taming = (int)tamer.Skills.AnimalTaming.Value;
         var practises = Practises(tamer);
 
-        if (Picks.TryGetValue(tamer.Serial, out var kept) && Core.Now - kept.At < PickKeep &&
-            kept.Followers == tamer.Followers && kept.Taming == taming && kept.Practises == practises && kept.Ground != null &&
-            !IsDry(tamer, kept.Ground.Place.Arrival) && !IsCrowded(tamer, kept.Ground.Place.Arrival) &&
-            HoldsQuarry(tamer, tamer.Map, kept.Ground, FactsOf(tamer)))
+        if (Picks.TryGetValue(tamer.Serial, out var kept) && now - kept.At < PickKeep && kept.Map == tamer.Map &&
+            kept.Followers == tamer.Followers && kept.Taming == taming && kept.Practises == practises &&
+            (kept.Ground == null || StillHolds(tamer, kept.Ground)))
         {
             return kept.Ground;
         }
 
         var ranked = Ranked(tamer, tamer.Map, tamer.HomeSpot, 1, liveOnly: true);
         var pick = ranked.Count == 0 ? null : ranked[0];
-        Picks[tamer.Serial] = (pick, Core.Now, tamer.Followers, taming, practises);
+        PruneWhere(Picks, entry => now - entry.At >= PickKeep);
+        Picks[tamer.Serial] = (pick, now, tamer.Map, tamer.Followers, taming, practises);
         return pick;
     }
+
+    /// <summary>A kept ground is open to the tamer, not crowded, and still holds a beast for it.</summary>
+    private static bool StillHolds(SosariaCharacter tamer, TamingGround ground) =>
+        !IsDry(tamer, ground.Place.Arrival) && !IsCrowded(tamer, ground.Place.Arrival) &&
+        HoldsQuarry(tamer, tamer.Map, ground, FactsOf(tamer));
 
     /// <summary>
     /// Up to <paramref name="max"/> grounds for this tamer, best first, each one it can reach
@@ -314,8 +323,22 @@ public static class TamingGrounds
     /// <summary>The tamer found no beast here: it tries other ground for a while.</summary>
     public static void MarkDry(SosariaCharacter tamer, Point3D ground)
     {
-        DryUntil[(tamer.Serial, ground)] = Core.Now + DryFor;
+        var now = Core.Now;
+        PruneWhere(DryUntil, until => now >= until);
+        DryUntil[(tamer.Serial, ground)] = now + DryFor;
         Picks.Remove(tamer.Serial);
+    }
+
+    /// <summary>Drops the entries <paramref name="stale"/> names: a lapsed mark or pick is never read again.</summary>
+    private static void PruneWhere<TKey, TValue>(Dictionary<TKey, TValue> entries, Func<TValue, bool> stale)
+    {
+        foreach (var (key, value) in entries)
+        {
+            if (stale(value))
+            {
+                entries.Remove(key);
+            }
+        }
     }
 
     private static bool IsDry(SosariaCharacter tamer, Point3D ground) =>
@@ -337,7 +360,9 @@ public static class TamingGrounds
     /// <summary>One live wild beast of each tamable kind in the world, looked over again every <see cref="SampleRefresh"/>.</summary>
     private static void EnsureSamples()
     {
-        if (Samples.Count > 0 && Core.Now - _sampledAt < SampleRefresh)
+        // A world with no tamable beast alive is looked over again on the same clock: an
+        // empty sample once sent every ranking through every mobile in the world.
+        if (!TimeRules.Rested(_sampledAt, Core.Now, SampleRefresh))
         {
             return;
         }

@@ -58,12 +58,6 @@ public static class CraftOrderRules
     public static bool Expired(DateTime placedAt, DateTime now) => now - placedAt >= PickupWindow;
 
     /// <summary>
-    /// True when the payer's coin went over in a trade window: its purse is short by the price.
-    /// The payee's pack is no proof: a full pack drops the coin at its feet.
-    /// </summary>
-    public static bool CoinCrossed(int payerBefore, int payerNow, int price) => payerBefore - payerNow >= price;
-
-    /// <summary>
     /// True when a ready order is offered to a buyer who came by: once per arrival. A buyer in
     /// range is remembered in <paramref name="offered"/> and forgotten when it walks off.
     /// </summary>

@@ -152,4 +152,24 @@ public class HarvestPatchesTests
         Assert.True(HarvestPatches.HasNoOutlet(Olaf, Now));
         Assert.False(HarvestPatches.HasNoOutlet(Olaf, Now + HarvestPatches.NoOutletRest));
     }
+
+    [Fact]
+    public void Forget_AGoneWorkerLeavesNoNoteBehind()
+    {
+        const uint Gone = 0x7B0006;
+        const uint Stays = 0x7B0007;
+
+        HarvestPatches.NoteDry(Gone, SkillKinds.Lumberjack, Now + Rest);
+        HarvestPatches.NoteDry(Gone, SkillKinds.Mine, Now + Rest);
+        HarvestPatches.NoteLoaded(Gone, Now + HarvestPatches.LoadedRest);
+        HarvestPatches.NoteNoOutlet(Gone, Now + HarvestPatches.NoOutletRest);
+        HarvestPatches.NoteDry(Stays, SkillKinds.Mine, Now + Rest);
+
+        HarvestPatches.Forget(Gone);
+
+        Assert.False(HarvestPatches.IsDry(Gone, SkillKinds.Lumberjack, Now));
+        Assert.False(HarvestPatches.IsDry(Gone, SkillKinds.Mine, Now));
+        Assert.False(HarvestPatches.HasNoOutlet(Gone, Now));
+        Assert.True(HarvestPatches.IsDry(Stays, SkillKinds.Mine, Now));
+    }
 }

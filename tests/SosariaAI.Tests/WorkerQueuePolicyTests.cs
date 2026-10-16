@@ -27,6 +27,5 @@ public class WorkerQueuePolicyTests
             WorkerQueuePolicy.Next(true, false, WorkerQueuePolicy.MaxHighBeforeNormal)
         );
         Assert.Equal(WorkerQueuePolicy.Pick.Normal, WorkerQueuePolicy.Next(false, true, 0));
-        Assert.Equal(WorkerQueuePolicy.Pick.None, WorkerQueuePolicy.Next(false, false, 0));
     }
 }

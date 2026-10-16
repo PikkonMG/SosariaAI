@@ -171,9 +171,9 @@ public static class FootworkRules
     /// <summary>Pre-AOS a Magic Arrow's damage lands this long after it is aimed (SpellHelper.OldDamageDelay).</summary>
     public const int SpellDamageDelayMs = 500;
 
-    /// <summary>From the first word to the blow: how long a Magic Arrow takes to break a foe's spell.</summary>
-    public static int ArrowBreakMs(bool slowedByProtection) =>
-        CastTiming.CastDelayMs(CastTiming.FirstCircle, slowedByProtection) + CursorAnswerMs + SpellDamageDelayMs;
+    /// <summary>From the first word to the blow: how long a Magic Arrow takes to break a foe's spell in this era.</summary>
+    public static int ArrowBreakMs(bool aos, bool slowedByProtection) =>
+        CastTiming.CastDelayMs(CastTiming.FirstCircle, aos, slowedByProtection) + CursorAnswerMs + SpellDamageDelayMs;
 
     /// <summary>
     /// A person casting is worth breaking: melee turns on a caster in reach, and a mage throws

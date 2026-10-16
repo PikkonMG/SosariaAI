@@ -22,7 +22,6 @@ public static partial class Brain
 {
     private static readonly TimeSpan JevUsageCheck = TimeSpan.FromMinutes(1);
     private static readonly JevJobDesk _jobDesk = new();
-    private static readonly Dictionary<Serial, DateTime> _lastBankAt = new();
     private static readonly HashSet<Serial> _backFromDungeon = new();
     private static readonly HashSet<long> _jevRequests = new();
     private static JevUsage _jevUsage;
@@ -129,7 +128,7 @@ public static partial class Brain
 
         var options = JevJobOptions.From(scored);
         var moment = JevDecisionRules.Moment(new MomentFacts(situation.DiedRecently, backFromDungeon, PlayerNear(character)));
-        moment = _jobDesk.NewMoment(character.Serial, moment) ? moment : null;
+        moment = _jobDesk.IsNewMoment(character.Serial, moment) ? moment : null;
 
         if (JevDecisionRules.JobKind(_settings.JevScope == BrainConfiguration.JevScopeAll, moment) is not { } kind)
         {
@@ -197,6 +196,7 @@ public static partial class Brain
         }
 
         _jobDesk.Open(character.Serial, new JevJobAsk(requestId, now, options, providerName));
+        _jobDesk.MarkMoment(character.Serial, moment);
         TestNoteEnqueue?.Invoke(BrainProviders.DecisionKind, BrainEventKind.Decide);
         return true;
     }
@@ -308,7 +308,7 @@ public static partial class Brain
     private static bool MayGreet(SosariaCharacter character, DateTime now) =>
         NearbyName(character) != null && _botTalk.SpeakerMayGreet(character.Serial, now, MeetingRules.SpeakerQuiet);
 
-    private static void NoteBankVisit(SosariaCharacter character) => _lastBankAt[character.Serial] = Core.Now;
+    private static void NoteBankVisit(SosariaCharacter character) => character.LastBankAt = Core.Now;
 
     /// <summary>A dungeon run that got inside ended: the next job pick is a big moment (<see cref="AskJobChoice"/>).</summary>
     private static void NoteBackFromDungeon(SosariaCharacter character)
@@ -371,9 +371,7 @@ public static partial class Brain
             GoodsToSell = situation.HasSellGoods,
             SinceHunt = needs.TimeSinceHunt,
             SinceRest = needs.TimeSinceRest,
-            SinceBank = _lastBankAt.TryGetValue(character.Serial, out var banked)
-                ? NeedsBrain.ElapsedSince(banked, now)
-                : TimeSpan.MaxValue,
+            SinceBank = NeedsBrain.ElapsedSince(character.LastBankAt, now),
             ThreatInSight = situation.MustFlee,
             RecentRuns = situation.RecentRuns,
             DiedRecently = situation.DiedRecently,

@@ -69,16 +69,13 @@ public static class DecisionEvents
     /// <summary>
     /// Seeing a player is not a reason to drop a dungeon, a hunt or a red's conflict run.
     /// Bayta left Despise at the bank because PlayerNoticed picked hunt, and a red camping
-    /// Destard is there for the players it notices.
+    /// Destard is there for the players it notices. An attack or a plan may replace any job
+    /// but a flight or a ghost's walk: its answer comes back after the character already ran
+    /// or died, and a picked routine would pull it back into the fight.
     /// </summary>
     public static bool MayReplaceJob(BrainEventKind kind, string currentSkillKind)
     {
-        if (kind == BrainEventKind.Attacked)
-        {
-            return true;
-        }
-
-        if (kind == BrainEventKind.Plan)
+        if (kind is BrainEventKind.Attacked or BrainEventKind.Plan)
         {
             return currentSkillKind is not SkillKinds.Flee and not GhostSkill.SkillName;
         }

@@ -136,8 +136,8 @@ public class FootworkRulesTests
     [Fact]
     public void CanBreakCast_OnlyAPersonWithEnoughWordsLeft()
     {
-        var arrow = FootworkRules.ArrowBreakMs(slowedByProtection: false);
-        var flameStrike = CastTiming.CastDelayMs(SpellBook.FlameStrike.Circle, false);
+        var arrow = FootworkRules.ArrowBreakMs(aos: false, slowedByProtection: false);
+        var flameStrike = CastTiming.CastDelayMs(SpellBook.FlameStrike.Circle, aos: false, slowedByProtection: false);
 
         Assert.True(FootworkRules.CanBreakCast(true, flameStrike, arrow));
         Assert.False(FootworkRules.CanBreakCast(false, flameStrike, arrow));

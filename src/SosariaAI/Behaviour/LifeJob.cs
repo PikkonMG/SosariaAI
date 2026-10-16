@@ -406,7 +406,9 @@ public static class JobRules
         var factor = Full;
         var outing = job is JobKind.Hunt or JobKind.Dungeon;
 
-        if (outing && (situation.DiedRecently || situation.AvoidHuntPlace))
+        var avoidsPlace = job == JobKind.Hunt ? situation.AvoidHuntGround : situation.AvoidDungeon;
+
+        if (outing && (situation.DiedRecently || avoidsPlace))
         {
             factor *= MemoryChoiceRules.HuntCut;
         }

@@ -159,7 +159,6 @@ public sealed class JevWorker : ProviderWorker
                     Act: actName,
                     request.FromParty,
                     request.CharacterId,
-                    request.PlanRevision,
                     RawOf(request, next, act, gate, intent),
                     reply.InputTokens,
                     request.Ask,

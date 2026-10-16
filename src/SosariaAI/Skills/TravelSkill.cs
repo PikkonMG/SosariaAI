@@ -81,6 +81,9 @@ public sealed class TravelSkill : Skill
     private readonly bool _arrivalFloor;
     private readonly bool _exactTarget;
     private readonly bool _avoidPads;
+
+    /// <summary>A walk home that may cross the guards when nothing else gets it there (<see cref="PathSearchBars.MayCrossGuardsOn"/>).</summary>
+    private readonly bool _lastWayHome;
     private readonly IReadOnlyList<Point3D> _keepClear;
     private Point3D _resolvedTarget;
     private GoToSkill _walk;
@@ -148,6 +151,8 @@ public sealed class TravelSkill : Skill
     /// from remembered danger: a blue's dungeon walk from the reds' own town gate.
     /// Set <paramref name="onFoot"/> for a trip that must not start by magic: a red gang that
     /// rides out on foot together, where one mate's own recall left it alone at the camp.
+    /// Set <paramref name="lastWayHome"/> for the walk home, which crosses the guards when no
+    /// road clear of them and no recall gets the walker there.
     /// Set <paramref name="shunsDanger"/> for a trip the walker may give up: its road is read once
     /// the search finds it, and a road past a place in the road search's keep-away list recalls
     /// over it or ends the trip (<see cref="DangerousRoadWhy"/>).
@@ -160,7 +165,8 @@ public sealed class TravelSkill : Skill
         bool avoidPads = false,
         IReadOnlyList<Point3D> keepClear = null,
         bool onFoot = false,
-        bool shunsDanger = false
+        bool shunsDanger = false,
+        bool lastWayHome = false
     )
     {
         _target = target;
@@ -171,6 +177,7 @@ public sealed class TravelSkill : Skill
         _keepClear = keepClear;
         _onFoot = onFoot;
         _shunsDanger = shunsDanger;
+        _lastWayHome = lastWayHome;
     }
 
     public override string Name => SkillKinds.GoTo;
@@ -663,12 +670,12 @@ public sealed class TravelSkill : Skill
             {
                 Graph = graph,
                 Source = destName,
-                GateCost = NavSearch.DefaultGateCost,
+                GateCost = Traveler.GateCost(),
                 Avoid = avoid,
                 IndoorKeep = keep,
                 Bars = bars,
                 Epoch = epoch,
-                OnComplete = (prev, _, jobEpoch) => OnGraphPlan(graph, catalog, planned, prev, avoid, bars, jobEpoch)
+                OnComplete = (prev, jobEpoch) => OnGraphPlan(graph, catalog, planned, prev, avoid, bars, jobEpoch)
             }
         );
 
@@ -879,7 +886,8 @@ public sealed class TravelSkill : Skill
     /// already under the guards plans once more across them, by the least guarded way out
     /// (<see cref="PathSearchBars.CrossingGuards"/>): every step there is a risk anyway. A red
     /// on open ground never walks into a town: the engine sends a guard the moment it steps in
-    /// near a townsperson, and 11 of 57 reds that crossed died on the way in one run. The goal
+    /// near a townsperson, and 11 of 57 reds that crossed died on the way in one run. The one
+    /// exception is the last way home (<see cref="PathSearchBars.MayCrossGuardsOn"/>). The goal
     /// itself is never under the guards (<see cref="RedBarred"/>), and a guarded moongate pad
     /// stays barred. False when the search was not a murderer's barred one, found a road, or no
     /// recall or second search could start.
@@ -896,7 +904,7 @@ public sealed class TravelSkill : Skill
             return true;
         }
 
-        if (!bars.MayCrossGuards)
+        if (!bars.MayCrossGuardsOn(_lastWayHome))
         {
             return false;
         }

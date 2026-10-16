@@ -45,12 +45,14 @@ public static class NavStore
 
     /// <summary>
     /// The graph a nav file holds. A walking link longer than a leg becomes a teleporter
-    /// (<see cref="NavGates.InferLongConnects"/>). A file with no facet takes
-    /// <paramref name="facet"/>. Null when the file holds no node list.
+    /// (<see cref="NavGates.InferLongConnects"/>), as files written before gates were saved
+    /// hold them. A file with no facet takes <paramref name="facet"/>. Null when the file holds
+    /// no node list, or was written in a format newer than <see cref="NavFile.CurrentFormat"/>:
+    /// this build cannot read what that one meant, and builds the graph again.
     /// </summary>
     internal static NavGraph FromFile(NavFile file, string facet)
     {
-        if (file?.Nodes == null)
+        if (file?.Nodes == null || file.Format > NavFile.CurrentFormat)
         {
             return null;
         }

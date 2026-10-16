@@ -5,9 +5,14 @@ namespace SosariaAI.Tests;
 
 public class CastTimingTests
 {
-    private const int FirstCircleMs = 750;
-    private const int FlameStrikeMs = 2250;
-    private const int ProtectedFirstCircleMs = 1250;
+    // MagerySpell.GetCastDelay before AOS: 0.5 + 0.25 * (circle - 1) seconds, Protection aside.
+    private const int PreAosFirstCircleMs = 500;
+    private const int PreAosFlameStrikeMs = 2000;
+
+    // MagerySpell.CastDelayBase from AOS on: (3 + circle - 1) * 0.25 seconds, Protection two ticks more.
+    private const int AosFirstCircleMs = 750;
+    private const int AosFlameStrikeMs = 2250;
+    private const int AosProtectedFirstCircleMs = 1250;
     private const int MonsterStepMs = 200;
     private const int SlowStepMs = 400;
     private const int Reach = 1;
@@ -19,11 +24,22 @@ public class CastTimingTests
     private const long FiveStepsMs = 5 * MonsterStepMs;
 
     [Fact]
-    public void CastDelayMs_MatchesTheEngineTicks()
+    public void CastDelayMs_PreAos_MatchesTheEngineTicks()
     {
-        Assert.Equal(FirstCircleMs, CastTiming.CastDelayMs(CastTiming.FirstCircle, slowedByProtection: false));
-        Assert.Equal(FlameStrikeMs, CastTiming.CastDelayMs(SpellBook.FlameStrike.Circle, slowedByProtection: false));
-        Assert.Equal(ProtectedFirstCircleMs, CastTiming.CastDelayMs(CastTiming.FirstCircle, slowedByProtection: true));
+        Assert.Equal(PreAosFirstCircleMs, CastTiming.CastDelayMs(CastTiming.FirstCircle, aos: false, slowedByProtection: false));
+        Assert.Equal(PreAosFlameStrikeMs, CastTiming.CastDelayMs(SpellBook.FlameStrike.Circle, aos: false, slowedByProtection: false));
+    }
+
+    [Fact]
+    public void CastDelayMs_PreAos_ProtectionSlowsNothing() =>
+        Assert.Equal(PreAosFirstCircleMs, CastTiming.CastDelayMs(CastTiming.FirstCircle, aos: false, slowedByProtection: true));
+
+    [Fact]
+    public void CastDelayMs_Aos_MatchesTheEngineTicks()
+    {
+        Assert.Equal(AosFirstCircleMs, CastTiming.CastDelayMs(CastTiming.FirstCircle, aos: true, slowedByProtection: false));
+        Assert.Equal(AosFlameStrikeMs, CastTiming.CastDelayMs(SpellBook.FlameStrike.Circle, aos: true, slowedByProtection: false));
+        Assert.Equal(AosProtectedFirstCircleMs, CastTiming.CastDelayMs(CastTiming.FirstCircle, aos: true, slowedByProtection: true));
     }
 
     [Fact]
@@ -38,8 +54,8 @@ public class CastTimingTests
     [Fact]
     public void SafeCircle_AdjacentAndReady_OnlyTheFirstCirclePreAos()
     {
-        Assert.Equal(CastTiming.FirstCircle, CastTiming.SafeCircle(0, false, firstCircleShrugsHits: true));
-        Assert.Equal(CastTiming.NoCircle, CastTiming.SafeCircle(0, false, firstCircleShrugsHits: false));
+        Assert.Equal(CastTiming.FirstCircle, CastTiming.SafeCircle(0, aos: false, slowedByProtection: false));
+        Assert.Equal(CastTiming.NoCircle, CastTiming.SafeCircle(0, aos: true, slowedByProtection: false));
     }
 
     [Fact]
@@ -47,17 +63,18 @@ public class CastTimingTests
     {
         var blow = CastTiming.BlowInMs(SixTiles, Reach, SlowStepMs, SwingNow, held: false);
 
-        Assert.Equal(SpellBook.MindBlast.Circle, CastTiming.SafeCircle(blow, false, firstCircleShrugsHits: true));
+        Assert.Equal(SpellBook.EnergyBolt.Circle, CastTiming.SafeCircle(blow, aos: false, slowedByProtection: false));
+        Assert.Equal(SpellBook.MindBlast.Circle, CastTiming.SafeCircle(blow, aos: true, slowedByProtection: false));
     }
 
     [Fact]
     public void SafeCircle_AHeldFoe_OpensEveryCircle() =>
-        Assert.Equal(CastTiming.TopCircle, CastTiming.SafeCircle(CastTiming.NoBlowMs, false, firstCircleShrugsHits: true));
+        Assert.Equal(CastTiming.TopCircle, CastTiming.SafeCircle(CastTiming.NoBlowMs, aos: false, slowedByProtection: false));
 
     [Fact]
     public void Holds_KeepsTheMargin()
     {
-        Assert.True(CastTiming.Holds(FirstCircleMs, FirstCircleMs + CastTiming.BlowMarginMs));
-        Assert.False(CastTiming.Holds(FirstCircleMs, FirstCircleMs + CastTiming.BlowMarginMs - 1));
+        Assert.True(CastTiming.Holds(PreAosFirstCircleMs, PreAosFirstCircleMs + CastTiming.BlowMarginMs));
+        Assert.False(CastTiming.Holds(PreAosFirstCircleMs, PreAosFirstCircleMs + CastTiming.BlowMarginMs - 1));
     }
 }

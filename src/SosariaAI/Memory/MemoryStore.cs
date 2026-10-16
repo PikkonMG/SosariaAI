@@ -18,7 +18,8 @@ namespace SosariaAI.Memory;
 /// met, the bonds between them, the adventures they shared, the places they saw, and the shard
 /// news. Game code reads and changes RAM only and never touches the disk. Changes go into a
 /// queue that one background writer thread drains in one transaction every
-/// <see cref="DrainIntervalMs"/>, and on <see cref="Flush"/> and <see cref="Close"/>.
+/// <see cref="DrainIntervalMs"/>, and on <see cref="WriteSoon"/>, <see cref="Flush"/> and
+/// <see cref="Close"/>. Only <see cref="Flush"/> and <see cref="Close"/> wait for the disk.
 /// When the file cannot open, the store runs empty in RAM and writes nothing.
 /// </summary>
 public sealed class MemoryStore
@@ -63,6 +64,7 @@ public sealed class MemoryStore
     private readonly Dictionary<long, Adventure> _adventures = new();
     private readonly Dictionary<string, List<long>> _adventuresByPerson = new(StringComparer.Ordinal);
     private readonly Dictionary<string, HashSet<string>> _places = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _firstKillers = new(StringComparer.Ordinal);
     private List<ShardEvent> _savedNews = [];
     private long _lastAdventureId;
     private DiskWriter _disk;
@@ -123,6 +125,12 @@ public sealed class MemoryStore
 
         Volatile.Write(ref _disk, new DiskWriter(database, path, _pending));
     }
+
+    /// <summary>
+    /// Asks the writer to write every queued change now and returns at once. A world save
+    /// calls this: the world is paused while it saves and must not wait for the disk.
+    /// </summary>
+    public void WriteSoon() => Volatile.Read(ref _disk)?.Ask();
 
     /// <summary>Writes every queued change now and waits for the writer.</summary>
     public void Flush() => Volatile.Read(ref _disk)?.Flush();
@@ -269,6 +277,11 @@ public sealed class MemoryStore
             {
                 NotePerson(members[i].Person, stored.EndedAt);
                 AdventureIdsOf(members[i].Person.Id).Add(stored.Id);
+
+                if (stored.Kind == AdventureKinds.FirstKill && members[i].Role == AdventureRoles.Killer)
+                {
+                    _firstKillers.Add(members[i].Person.Id);
+                }
             }
 
             Queue(new AdventureWrite(stored));
@@ -290,6 +303,19 @@ public sealed class MemoryStore
             }
 
             return stored.Id;
+        }
+    }
+
+    /// <summary>
+    /// True when this person ever made a first kill. Kept apart from <see cref="AdventuresOf"/>:
+    /// RAM holds only a window of each person's adventures, and a red with many heavier ones
+    /// would lose its first kill from that window and make a second.
+    /// </summary>
+    public bool HasFirstKill(string personId)
+    {
+        lock (_ram)
+        {
+            return personId != null && _firstKillers.Contains(personId);
         }
     }
 
@@ -538,6 +564,7 @@ public sealed class MemoryStore
             Trim(indexed[i]);
         }
 
+        _firstKillers.UnionWith(snapshot.FirstKillers);
         _savedNews = snapshot.News;
         _lastAdventureId = snapshot.LastAdventureId;
     }
@@ -549,6 +576,7 @@ public sealed class MemoryStore
         _adventures.Clear();
         _adventuresByPerson.Clear();
         _places.Clear();
+        _firstKillers.Clear();
         _savedNews = [];
         _lastAdventureId = NoAdventure;
     }
@@ -801,17 +829,20 @@ public sealed class MemoryStore
             _thread.Start();
         }
 
-        public void Flush()
+        public void Flush() => Ask()?.Task.Wait(FlushWaitMs);
+
+        /// <summary>Wakes the writer to drain now; null once it stops. The source completes when the drain ends.</summary>
+        public TaskCompletionSource Ask()
         {
             if (_stopping)
             {
-                return;
+                return null;
             }
 
             var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             _flushes.Enqueue(done);
             _wake.Set();
-            done.Task.Wait(FlushWaitMs);
+            return done;
         }
 
         public void Stop()

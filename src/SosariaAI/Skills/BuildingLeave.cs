@@ -49,7 +49,7 @@ public sealed class BuildingLeave
         }
 
         var walker = Standable.Walker(map);
-        var street = Traveler.PrepareClearStart(graph, from, walker);
+        var street = Traveler.PrepareStreetProof(graph, from, walker);
 
         return BuildingExit.Find(
             from,

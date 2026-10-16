@@ -14,7 +14,6 @@ public class MeleeTacticsRulesTests
     private const int NoIdleFoes = 0;
     private const int OneIdleFoe = 1;
     private const int Adjacent = 1;
-    private const int NoneAdjacent = 0;
     private const double Healthy = 0.9;
     private const double BelowHealLine = 0.3;
     private const double AboveHealLine = 0.6;
@@ -71,9 +70,18 @@ public class MeleeTacticsRulesTests
     [Fact]
     public void StepsOutToHeal_OnlyFromAFoeUpCloseWithGroundToStepOn()
     {
-        Assert.False(StepsOut(everyBlowSlips: true, BelowHealLine, FightOutlook.Losing, adjacent: NoneAdjacent));
         Assert.False(StepsOut(everyBlowSlips: true, BelowHealLine, FightOutlook.Losing, foeHitsFromRange: true));
         Assert.False(StepsOut(everyBlowSlips: true, BelowHealLine, FightOutlook.Losing, pinned: true));
+    }
+
+    [Fact]
+    public void StepsBack_WhileAFoeIsNear_StandsPastIt()
+    {
+        // Out of reach after one step, the fighter walked back in and the next blow slipped the bandage.
+        Assert.True(MeleeTacticsRules.StepsBack(Adjacent));
+        Assert.True(MeleeTacticsRules.StepsBack(MeleeTacticsRules.HealOutTiles));
+        Assert.False(MeleeTacticsRules.StepsBack(MeleeTacticsRules.HealOutTiles + 1));
+        Assert.False(MeleeTacticsRules.StepsBack(RoomSurvey.NoDistance));
     }
 
     [Fact]
@@ -106,11 +114,10 @@ public class MeleeTacticsRulesTests
         double hitsFraction,
         FightOutlook outlook,
         bool bandageOn = true,
-        int adjacent = Adjacent,
         bool foeHitsFromRange = false,
         bool pinned = false
     ) =>
-        MeleeTacticsRules.StepsOutToHeal(bandageOn, everyBlowSlips, hitsFraction, outlook, adjacent, foeHitsFromRange, pinned);
+        MeleeTacticsRules.StepsOutToHeal(bandageOn, everyBlowSlips, hitsFraction, outlook, foeHitsFromRange, pinned);
 
     private static bool ComesBack(
         double hitsFraction,

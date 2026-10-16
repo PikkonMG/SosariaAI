@@ -13,6 +13,7 @@ internal sealed record MemorySnapshot(
     List<Adventure> Adventures,
     List<(string OwnerId, string Place)> Places,
     List<ShardEvent> News,
+    List<string> FirstKillers,
     long LastAdventureId
 );
 
@@ -130,6 +131,13 @@ internal sealed class MemoryDatabase : IDisposable
         "SELECT id, weight, ended_at, told_count FROM adventures WHERE weight < $kept";
 
     private const string DeleteAdventureSql = "DELETE FROM adventures WHERE id = $id";
+
+    // Every killer of a first kill, beyond the window of adventures the load keeps per person.
+    private const string FirstKillersSql = """
+        SELECT DISTINCT m.person_id
+        FROM adventure_members m JOIN adventures a ON a.id = m.adventure_id
+        WHERE a.kind = $kind AND m.role = $role
+        """;
 
     private const string UnsharedBondsSql =
         "SELECT owner_id, other_id, score, shared_count, last_seen_at FROM bonds WHERE shared_count = 0";
@@ -265,11 +273,25 @@ internal sealed class MemoryDatabase : IDisposable
         var adventures = LoadAdventures(recent, heaviest);
         var news = LoadNews(newsSince, newsCap);
 
+        var firstKillers = new List<string>();
+        using (var killers = _connection.CreateCommand())
+        {
+            killers.CommandText = FirstKillersSql;
+            killers.Parameters.AddWithValue("$kind", AdventureKinds.FirstKill);
+            killers.Parameters.AddWithValue("$role", AdventureRoles.Killer);
+            using var reader = killers.ExecuteReader();
+
+            while (reader.Read())
+            {
+                firstKillers.Add(reader.GetString(0));
+            }
+        }
+
         using var last = _connection.CreateCommand();
         last.CommandText = "SELECT COALESCE(MAX(id), 0) FROM adventures";
         var lastId = Convert.ToInt64(last.ExecuteScalar());
 
-        return new MemorySnapshot(people, bonds, adventures, places, news, lastId);
+        return new MemorySnapshot(people, bonds, adventures, places, news, firstKillers, lastId);
     }
 
     private List<Adventure> LoadAdventures(int recent, int heaviest)

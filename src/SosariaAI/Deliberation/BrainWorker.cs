@@ -150,7 +150,6 @@ public sealed class BrainWorker : ProviderWorker
                     act,
                     request.FromParty,
                     request.CharacterId,
-                    request.PlanRevision,
                     content,
                     ProviderName: request.ProviderName
                 );
@@ -200,7 +199,7 @@ public sealed class BrainWorker : ProviderWorker
     }
 
     private static bool HasPlanSteps(string content, BrainRequest request) =>
-        ReplyParser.ParsePlan(content, request.CharacterId, request.PlanRevision, request.RequestId) is { Steps.Count: > 0 };
+        ReplyParser.ParsePlan(content, request.CharacterId, request.RequestId) is { Steps.Count: > 0 };
 
     // "thinking": false (the default) asks the model not to think, unless the endpoint refused
     // that once. "thinking": true sends the operator's reasoningEffort level, or nothing.

@@ -173,6 +173,7 @@ public static class CharacterSpawner
             return;
         }
 
+        ChooseReds(requests, work, existing);
         PumpSlice(work, 0);
     }
 
@@ -209,7 +210,7 @@ public static class CharacterSpawner
     {
         ReportCrowdedSites();
         LifecycleClock.AfterWorldLoad();
-        MemoryStore.Shared.Flush();
+        MemoryStore.Shared.WriteSoon();
     }
 
     /// <summary>
@@ -667,15 +668,40 @@ public static class CharacterSpawner
     }
 
     /// <summary>
+    /// Chooses each facet's reds before the first slice, from the people the bind already
+    /// made and the save already read: a slice must not compose a whole facet or walk the
+    /// world.
+    /// </summary>
+    private static void ChooseReds(List<FacetSpawnRequest> requests, List<SpawnWork> work, List<SosariaCharacter> existing)
+    {
+        var redsInSave = RedIdsIn(existing);
+
+        for (var i = 0; i < requests.Count; i++)
+        {
+            var request = requests[i];
+            var definitions = new Dictionary<string, CharacterDefinition>(StringComparer.Ordinal);
+
+            for (var w = 0; w < work.Count; w++)
+            {
+                if (ReferenceEquals(work[w].Request, request))
+                {
+                    definitions[work[w].Entry.UniqueId] = work[w].Definition;
+                }
+            }
+
+            RedRosters.AddOrUpdate(request, RedRoster(request, definitions, redsInSave));
+        }
+    }
+
+    /// <summary>
     /// The red gang of this plan entry, or <see cref="PkGangRules.NoGang"/> for a blue. The
-    /// facet's reds are chosen once per boot plan and kept for every entry after.
+    /// facet's reds are chosen once per boot plan (<see cref="ChooseReds"/>).
     /// </summary>
     private static int RedGangOf(FacetSpawnRequest request, SpawnPlanEntry entry)
     {
         if (!RedRosters.TryGetValue(request, out var roster))
         {
-            roster = RedRoster(request);
-            RedRosters.Add(request, roster);
+            return PkGangRules.NoGang;
         }
 
         foreach (var (id, gang) in roster)
@@ -689,7 +715,13 @@ public static class CharacterSpawner
         return PkGangRules.NoGang;
     }
 
-    private static List<(string Id, int Gang)> RedRoster(FacetSpawnRequest request)
+    /// <param name="definitions">The person made for each plan entry, by its unique id.</param>
+    /// <param name="redsInSave">The ids of the saved people with a red count.</param>
+    private static List<(string Id, int Gang)> RedRoster(
+        FacetSpawnRequest request,
+        Dictionary<string, CharacterDefinition> definitions,
+        List<string> redsInSave
+    )
     {
         var roster = new List<(string Id, int Gang)>();
         var maps = SosariaSettings.Characters?.Maps;
@@ -718,7 +750,6 @@ public static class CharacterSpawner
             return roster;
         }
 
-        var redsInSave = RedIdsInSave();
         var savedReds = new List<string>();
         var ids = new string[entries.Count];
         var isVeteran = new bool[entries.Count];
@@ -738,13 +769,12 @@ public static class CharacterSpawner
 
             // The person the copy is, not the template it was made from: a copy of a
             // swordsman template can roll a miner, and a red miner walks the roads unarmed.
-            var uniqueId = FacetIds.Prefix(request.Facet, slot.UniqueId);
-            var definition = Person(request, slot.TemplateId, uniqueId);
-
-            if (definition == null)
+            if (!definitions.TryGetValue(slot.UniqueId, out var definition))
             {
                 continue;
             }
+
+            var uniqueId = FacetIds.Prefix(request.Facet, slot.UniqueId);
 
             var build = BuildPresets.Resolve(definition.Build);
             var profile = PersonProfileRules.Roll(uniqueId, definition);
@@ -774,14 +804,14 @@ public static class CharacterSpawner
         return roster;
     }
 
-    /// <summary>The ids of the people the world save holds with a red count.</summary>
-    private static List<string> RedIdsInSave()
+    /// <summary>The ids of the saved people still kept with a red count.</summary>
+    private static List<string> RedIdsIn(List<SosariaCharacter> saved)
     {
         var ids = new List<string>();
 
-        foreach (var mobile in World.Mobiles.Values)
+        foreach (var character in saved)
         {
-            if (mobile is SosariaCharacter { Deleted: false } character && PkRules.IsRed(character.Kills) &&
+            if (!character.Deleted && PkRules.IsRed(character.Kills) &&
                 !string.IsNullOrWhiteSpace(character.CharacterId))
             {
                 ids.Add(character.CharacterId);

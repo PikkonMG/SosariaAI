@@ -11,7 +11,6 @@ namespace SosariaAI.Tests;
 
 public class PracticeSkillTests : IDisposable
 {
-    private const int ExpectedKindCount = 17;
     private const int ExpectedCompanyReachTiles = 8;
     private const double ExpectedPracticeMin = 0;
     private const double ClassicMax = 100;
@@ -33,7 +32,16 @@ public class PracticeSkillTests : IDisposable
 
     public void Dispose() => TestMap.Remove(_placed);
 
-    public static TheoryData<string> TableKinds() => new(PracticeSkillTable.Kinds);
+    /// <summary>Every plain practice kind the table holds.</summary>
+    private static readonly string[] PlainPracticeKinds =
+    [
+        SkillKinds.Anatomy, SkillKinds.Archery, SkillKinds.ArmsLore, SkillKinds.Camp, SkillKinds.EvalInt,
+        SkillKinds.Fence, SkillKinds.Forensic, SkillKinds.Herd, SkillKinds.ItemId, SkillKinds.Mace,
+        SkillKinds.Music, SkillKinds.Necro, SkillKinds.Parry, SkillKinds.Sword, SkillKinds.Tactics,
+        SkillKinds.Taste, SkillKinds.Wrestle
+    ];
+
+    public static TheoryData<string> TableKinds() => new(PlainPracticeKinds);
 
     [Theory]
     [InlineData(SkillKinds.Anatomy, SkillName.Anatomy, ClassicMax)]
@@ -61,10 +69,6 @@ public class PracticeSkillTests : IDisposable
         Assert.Equal(ExpectedPracticeMin, rule.PracticeMin);
         Assert.Equal(practiceMax, rule.PracticeMax);
     }
-
-    [Fact]
-    public void Table_HoldsEveryPlainPracticeKind() =>
-        Assert.Equal(ExpectedKindCount, PracticeSkillTable.Kinds.Count);
 
     [Fact]
     public void Table_KnowsNoSkillWithItsOwnClass()

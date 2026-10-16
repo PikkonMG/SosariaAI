@@ -58,7 +58,6 @@ public sealed class HuntSkill : Skill, IHuntingSkill
     private Skill _walk;
     private Skill _waitWalk;
     private TravelSkill _toArea;
-    private TravelSkill _healerWalk;
     private RestSkill _rest;
     private SosariaCharacter _character;
     private string _approachWhy;
@@ -317,8 +316,6 @@ public sealed class HuntSkill : Skill, IHuntingSkill
         _walk = null;
         _toArea?.Abort();
         _toArea = null;
-        _healerWalk?.Abort();
-        _healerWalk = null;
         _rest?.Abort();
         _rest = null;
         Restore();
@@ -334,7 +331,6 @@ public sealed class HuntSkill : Skill, IHuntingSkill
         _walk?.Resume(held);
         _waitWalk?.Resume(held);
         _toArea?.Resume(held);
-        _healerWalk?.Resume(held);
         _rest?.Resume(held);
     }
 
@@ -396,34 +392,6 @@ public sealed class HuntSkill : Skill, IHuntingSkill
     private SkillStatus TickRest()
     {
         _recovering = true;
-        var pack = _character.Backpack;
-        var bandages = pack?.GetAmount(typeof(Bandage)) ?? 0;
-        var potions = pack?.GetAmount(typeof(GreaterHealPotion)) ?? 0;
-
-        if (RecoveryRules.ShouldSeekHealer(Vitals.HitsFraction(_character), bandages, potions))
-        {
-            if (_healerWalk == null)
-            {
-                _healerWalk = new TravelSkill("healer", CharactersFile.DefaultGoToRange);
-
-                if (!_healerWalk.Begin(_character))
-                {
-                    _healerWalk = new TravelSkill(BankTeller.BankToken, CharactersFile.DefaultGoToRange);
-                    _healerWalk.Begin(_character);
-                }
-
-                LogRecovery();
-            }
-
-            var walkStatus = _healerWalk.Tick();
-
-            if (walkStatus == SkillStatus.Running)
-            {
-                return SkillStatus.Running;
-            }
-
-            _healerWalk = null;
-        }
 
         if (_rest == null)
         {
@@ -701,8 +669,7 @@ public sealed class HuntSkill : Skill, IHuntingSkill
             hasHealing: true,
             Party.AlliesPower(_character),
             multiple,
-            ThreatRating.OpenFightHitsFraction,
-            alreadyAttacked: false
+            ThreatRating.OpenFightHitsFraction
         );
     }
 
@@ -832,8 +799,6 @@ public sealed class HuntSkill : Skill, IHuntingSkill
         _walk = null;
         _toArea?.Abort();
         _toArea = null;
-        _healerWalk?.Abort();
-        _healerWalk = null;
         _rest?.Abort();
         _rest = null;
         _character?.RestoreTownStance();

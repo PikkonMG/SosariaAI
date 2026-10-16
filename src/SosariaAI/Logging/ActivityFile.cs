@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Threading;
 
 namespace SosariaAI.Logging;
 
@@ -11,7 +12,10 @@ namespace SosariaAI.Logging;
 /// per-character line goes here. Warnings and the minute summary also reach the console.
 /// Each boot starts a fresh file, and the last run's file moves to <see cref="RunsFolder"/>,
 /// named for the time it ended. Only the last boot was kept once: a six-hour run of 800
-/// people was lost to two short boots the next morning.
+/// people was lost to two short boots the next morning. Lines wait in a buffer that a
+/// background timer writes out every <see cref="FlushInterval"/>: a write per line held the
+/// world thread on the disk. Shutdown and a crash switch the file to
+/// <see cref="WriteThrough"/>.
 /// </summary>
 public static class ActivityFile
 {
@@ -26,8 +30,12 @@ public static class ActivityFile
     private const string RunStampFormat = "yyyyMMdd-HHmmss";
     private const string TimeFormat = "HH:mm:ss";
 
+    /// <summary>How often the buffered lines are written to the disk.</summary>
+    public static readonly TimeSpan FlushInterval = TimeSpan.FromSeconds(1);
+
     private static readonly object Gate = new();
     private static StreamWriter _writer;
+    private static Timer _flusher;
 
     public static string Path { get; private set; }
 
@@ -49,7 +57,23 @@ public static class ActivityFile
                 KeepRun(System.IO.Path.Combine(directory, RunsFolder));
             }
 
-            _writer = new StreamWriter(Path, append: false) { AutoFlush = true };
+            _writer = new StreamWriter(Path, append: false);
+            _flusher = new Timer(_ => Flush(), null, FlushInterval, FlushInterval);
+        }
+    }
+
+    /// <summary>
+    /// Writes the buffer out and sends every later line straight to the disk, for the lines a
+    /// shutdown or a crash still logs.
+    /// </summary>
+    public static void WriteThrough()
+    {
+        lock (Gate)
+        {
+            if (_writer != null)
+            {
+                _writer.AutoFlush = true;
+            }
         }
     }
 
@@ -87,10 +111,20 @@ public static class ActivityFile
         }
     }
 
-    public static void Close()
+    private static void Flush()
     {
         lock (Gate)
         {
+            _writer?.Flush();
+        }
+    }
+
+    private static void Close()
+    {
+        lock (Gate)
+        {
+            _flusher?.Dispose();
+            _flusher = null;
             _writer?.Dispose();
             _writer = null;
         }

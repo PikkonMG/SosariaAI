@@ -96,10 +96,11 @@ public static class Recall
 
     /// <summary>
     /// What this person did today and yesterday, oldest first, at most <paramref name="max"/>
-    /// of the newest.
+    /// of the newest. The days are the server's local days, as the day part reads them
+    /// (<see cref="Behaviour.DayShapeRules.LocalHour"/>).
     /// </summary>
     public static IReadOnlyList<string> Days(MemoryStore store, string personId, DateTime now, int max) =>
-        Latest(store, personId, now, max, now.Date.AddDays(-RecentDays));
+        Latest(store, personId, now, max, LocalDate(now).AddDays(-RecentDays).ToUniversalTime());
 
     /// <summary>
     /// This person's newest adventures that ended at or after <paramref name="since"/> (any
@@ -190,10 +191,10 @@ public static class Recall
             ? text
             : Regex.Replace(text, $@"\b{Regex.Escape(name)}\b", match => match.Value + SelfMark, RegexOptions.IgnoreCase);
 
-    /// <summary>"today", "yesterday", or "3 days ago", by calendar day.</summary>
+    /// <summary>"today", "yesterday", or "3 days ago", by the server's local calendar day.</summary>
     public static string WhenWord(DateTime at, DateTime now)
     {
-        var days = Math.Max(SameDay, (int)(now.Date - at.Date).TotalDays);
+        var days = Math.Max(SameDay, (int)(LocalDate(now) - LocalDate(at)).TotalDays);
 
         return days switch
         {
@@ -202,6 +203,12 @@ public static class Recall
             _ => string.Format(CultureInfo.InvariantCulture, DaysAgoFormat, days)
         };
     }
+
+    /// <summary>
+    /// The server's local calendar day of a game time, by the same clock as the day part
+    /// (<see cref="Behaviour.DayShapeRules.LocalHour"/>): a time of unspecified kind is UTC.
+    /// </summary>
+    private static DateTime LocalDate(DateTime utc) => utc.ToLocalTime().Date;
 
     private static bool Mentions(string text, string word) => text.Contains(word, StringComparison.OrdinalIgnoreCase);
 }

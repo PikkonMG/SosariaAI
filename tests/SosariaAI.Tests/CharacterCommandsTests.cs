@@ -136,6 +136,10 @@ public class CharacterCommandsTests
             "Wrote 2 characters to /tmp/sosaria-list.txt.",
             CharacterCommandText.WroteFile("/tmp/sosaria-list.txt", 2)
         );
+        Assert.StartsWith(
+            "Could not write 2 characters to /tmp/sosaria-list.txt",
+            CharacterCommandText.NotWritten("/tmp/sosaria-list.txt", 2)
+        );
     }
 
     [Fact]

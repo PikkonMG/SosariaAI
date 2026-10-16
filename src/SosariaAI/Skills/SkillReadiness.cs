@@ -21,7 +21,8 @@ namespace SosariaAI.Skills;
 /// stock, carried, on a shelf in reach at a price it can pay or held up at the bank; for a
 /// cartographer map work or the makings of a map; for stealth the Hiding and the light armour
 /// the engine asks, for a mount a rider on foot with its own mount in reach, and for
-/// sightseeing a place near home to look at. A crafter's own harvest waits
+/// sightseeing a place near home to look at, and for magery a hurt to heal or fair game in
+/// sight with the reagents to cast. A crafter's own harvest waits
 /// until it runs low and cannot buy any stock. Each test is
 /// the one the skill itself runs, so the scorer drops a job
 /// that would fail at its start instead of picking it, failing, and picking it again at
@@ -36,7 +37,7 @@ public static class SkillReadiness
         SkillKinds.DetectHidden, SkillKinds.RemoveTrap, SkillKinds.Lockpick, SkillKinds.Poison,
         SkillKinds.Mine, SkillKinds.Lumberjack, SkillKinds.Fish, SkillKinds.Smith, SkillKinds.Tailor, SkillKinds.Carpentry,
         SkillKinds.Fletch, SkillKinds.Alchemy, SkillKinds.Inscription, SkillKinds.Tinker, SkillKinds.Cartography,
-        SkillKinds.Stealth, SkillKinds.Mount, SkillKinds.Sightsee, .. PracticeSkillTable.TrainedOnlyKinds
+        SkillKinds.Stealth, SkillKinds.Mount, SkillKinds.Sightsee, SkillKinds.Mage, .. PracticeSkillTable.TrainedOnlyKinds
     ];
 
     /// <summary>The gated skills among the character's routines whose precondition fails where it stands.</summary>
@@ -85,6 +86,7 @@ public static class SkillReadiness
             SkillKinds.Stealth => StealthRules.MayBegin(character, Stealth.HidingRequirement),
             SkillKinds.Mount => MountRules.RiderMayMount(character.Mounted) && OwnedMounts.Nearest(character, MountRules.SearchTiles) != null,
             SkillKinds.Sightsee => SightseeSkill.HasPlace(character),
+            SkillKinds.Mage => MageSkill.HasWork(character),
             _ when PracticeSkillTable.TryGet(kind, out var practice) => PracticeSkillTable.MayBegin(practice, character),
             _ when CraftCareerRules.TradeByKind(kind) is { } trade => CanCraft(character, trade),
             _ => true

@@ -81,7 +81,11 @@ public sealed record Situation
 
     public bool BeyondLeash { get; init; }
 
-    public bool AvoidHuntPlace { get; init; }
+    /// <summary>The person died lately on its hunt ground, or a close friend fell there.</summary>
+    public bool AvoidHuntGround { get; init; }
+
+    /// <summary>The person died lately in its dungeon, or a close friend fell there.</summary>
+    public bool AvoidDungeon { get; init; }
 
     public bool CanUpgradeGear { get; init; }
 
