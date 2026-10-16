@@ -463,6 +463,8 @@ engine's own for the running era.
   caster stands still and casts nothing but a cure. After the fight it
   meditates. A summoned foe (an energy vortex, blade spirits, an elemental) gets
   Dispel in place of damage when the engine's dispel chance is 50% or more.
+  A foe mage that stands off does not walk in to hit: while it is not casting,
+  any spell is open; while it is, only a spell whose words end before its own.
   Every spell it picks, an attack, a heal, Paralyze, the ward or the burst, is
   one whose reagents are in its pack. A mage with the reagents for no attack it
   can cast starts no fight and leaves the one it is in: the log says `has no

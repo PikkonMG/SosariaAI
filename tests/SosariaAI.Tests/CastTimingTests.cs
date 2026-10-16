@@ -22,6 +22,9 @@ public class CastTimingTests
     private const long SwingIn2Seconds = 2000;
     private const long LongAgo = -5000;
     private const long FiveStepsMs = 5 * MonsterStepMs;
+    private const long NotCasting = 0;
+    private const long FoeWordsLeftMs = 1300;
+    private const int ThirdCircle = 3;
 
     [Fact]
     public void CastDelayMs_PreAos_MatchesTheEngineTicks()
@@ -77,4 +80,26 @@ public class CastTimingTests
         Assert.True(CastTiming.Holds(PreAosFirstCircleMs, PreAosFirstCircleMs + CastTiming.BlowMarginMs));
         Assert.False(CastTiming.Holds(PreAosFirstCircleMs, PreAosFirstCircleMs + CastTiming.BlowMarginMs - 1));
     }
+
+    [Fact]
+    public void SpellBlowInMs_AMageStandingOffThatIsNotCasting_LeavesEveryCircleOpen()
+    {
+        var blow = CastTiming.SpellBlowInMs(NotCasting, held: false);
+
+        Assert.Equal(CastTiming.NoBlowMs, blow);
+        Assert.Equal(CastTiming.TopCircle, CastTiming.SafeCircle(blow, aos: false, slowedByProtection: false));
+    }
+
+    [Fact]
+    public void SpellBlowInMs_AMageMidWords_OpensWhatEndsBeforeItsSpellLands()
+    {
+        var blow = CastTiming.SpellBlowInMs(FoeWordsLeftMs, held: false);
+
+        Assert.Equal(FoeWordsLeftMs, blow);
+        Assert.Equal(ThirdCircle, CastTiming.SafeCircle(blow, aos: false, slowedByProtection: false));
+    }
+
+    [Fact]
+    public void SpellBlowInMs_AHeldMage_LandsNothing() =>
+        Assert.Equal(CastTiming.NoBlowMs, CastTiming.SpellBlowInMs(FoeWordsLeftMs, held: true));
 }

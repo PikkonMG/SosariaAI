@@ -111,7 +111,9 @@ public static partial class CombatBrain
         var distance = NavMetric.Chebyshev(character.Location, mobile.Location);
         var reach = mobile.Weapon?.MaxRange ?? MeleeRange;
         var held = mobile.Paralyzed || mobile.Frozen;
-        var blow = CastTiming.BlowInMs(distance, reach, StepMsOf(mobile), mobile.NextCombatTime - now, held);
+        var blow = distance > reach && StyleOfFoe(mobile) == CombatStyle.Mage
+            ? CastTiming.SpellBlowInMs(FoeCastLeftMs(mobile), held)
+            : CastTiming.BlowInMs(distance, reach, StepMsOf(mobile), mobile.NextCombatTime - now, held);
 
         read.SoonestBlowMs = Math.Min(read.SoonestBlowMs, blow);
         read.NearestDistance = Math.Min(read.NearestDistance, distance);

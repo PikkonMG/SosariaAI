@@ -58,6 +58,17 @@ public static class CastTiming
         return Math.Max(walkMs, Math.Max(0, swingReadyInMs));
     }
 
+    /// <summary>
+    /// When a foe that fights with spells, standing off its reach, can land its next blow: when
+    /// its words end, if it is casting; while it is not casting, nothing is on its way. It does
+    /// not walk in to punch, so it is not read as a fighter that will: every mage within a few
+    /// tiles of a mounted mage read as a blow in a third of a second, and two mages traded Magic
+    /// Arrows and nothing else. Whether it breaks a long spell with an arrow is its own choice,
+    /// the gamble a player takes on every big cast.
+    /// </summary>
+    public static long SpellBlowInMs(long castLeftMs, bool held) =>
+        held || castLeftMs <= 0 ? NoBlowMs : castLeftMs;
+
     /// <summary>True when an action that needs <paramref name="needMs"/> of peace finishes before the soonest blow.</summary>
     public static bool Holds(int needMs, long soonestBlowMs) =>
         soonestBlowMs == NoBlowMs || soonestBlowMs - BlowMarginMs >= needMs;
