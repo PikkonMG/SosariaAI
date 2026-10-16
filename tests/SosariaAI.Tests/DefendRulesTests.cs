@@ -1,3 +1,5 @@
+using System;
+using SosariaAI.Behaviour;
 using SosariaAI.Combat;
 using Xunit;
 
@@ -78,4 +80,21 @@ public class DefendRulesTests
     [InlineData(false, false, false)]
     public void RunsBare_AnUnarmedPersonRunsFromAPerson(bool foeIsPerson, bool armed, bool runs) =>
         Assert.Equal(runs, DefendRules.RunsBare(foeIsPerson, armed));
+
+    [Fact]
+    public void FreshBlow_InsideTheUnderAttackWindow()
+    {
+        var now = new DateTime(2026, 10, 16, 9, 0, 0);
+
+        Assert.True(DefendRules.FreshBlow(now - DefendRules.UnderAttackWindow + TimeSpan.FromSeconds(1), now));
+        Assert.False(DefendRules.FreshBlow(now - DefendRules.UnderAttackWindow, now));
+    }
+
+    [Fact]
+    public void BarsLeisure_OnlyLeisureWhileUnderAttack()
+    {
+        Assert.True(DefendRules.BarsLeisure(underAttack: true, RoutineFamily.Leisure));
+        Assert.False(DefendRules.BarsLeisure(underAttack: true, RoutineFamily.Rest));
+        Assert.False(DefendRules.BarsLeisure(underAttack: false, RoutineFamily.Leisure));
+    }
 }

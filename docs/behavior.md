@@ -405,6 +405,9 @@ The fight rules pick every stance. No model is asked unless `brain.json` sets
   side, or a friend's pet), with nothing next to itself, holds its ground and
   casts or shoots from where it stands. The log says `holds its ground and
   shoots at <foe>` (or `casts <spell> at <foe>`).
+- A person under attack takes no visit, tavern, stroll or sightseeing job. It
+  counts as under attack for 10 seconds after a blow traded with someone it
+  still sees. It fights, runs, or heads home instead.
 - A fight that goes nowhere is given up. When the foe's hits are not down by at
   least 10% of its full hits after a minute (its own healing counted), the
   fighter drops the foe and leaves it be for 2 minutes. The log says `gives up

@@ -1597,6 +1597,33 @@ public partial class SosariaCharacter : PlayerMobile
     public bool StoodDownFrom(Mobile foe) =>
         foe != null && foe.Serial == LastStandDownFoe && GuardLineRules.InStandDownGrace(LastStandDownAt, Core.Now);
 
+    /// <summary>
+    /// Someone in sight landed a blow on this person, or took one from it, inside the
+    /// under-attack window (<see cref="Situation.UnderAttack"/>, <see cref="DefendRules.FreshBlow"/>).
+    /// </summary>
+    private bool UnderAttack()
+    {
+        var now = Core.Now;
+        return FreshBlowIn(Aggressors, now, theirBlow: true) || FreshBlowIn(Aggressed, now, theirBlow: false);
+    }
+
+    private bool FreshBlowIn(List<AggressorInfo> trades, DateTime now, bool theirBlow)
+    {
+        foreach (var trade in trades)
+        {
+            var other = theirBlow ? trade.Attacker : trade.Defender;
+
+            if (other is { Deleted: false, Alive: true } && other != this && other.Map == Map &&
+                DefendRules.FreshBlow(trade.LastCombatTime, now) && InRange(other.Location, RangePerception) &&
+                People.Perceives(this, other))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>True inside the grace for the person this character last ran from.</summary>
     public bool RanFromLately(Mobile foe) =>
         foe != null && foe.Serial == LastRanFrom && GuardLineRules.InStandDownGrace(LastRanFromAt, Core.Now);
@@ -2076,6 +2103,7 @@ public partial class SosariaCharacter : PlayerMobile
             LastWalkFailed = LastWalkFailed,
             IsGhost = IsGhost,
             InCombat = Combatant != null,
+            UnderAttack = UnderAttack(),
             Role = Build?.Role ?? CharacterRole.Worker,
             HasHarvestGoods = hasGoods,
             HasLootGoods = hasLoot,

@@ -554,6 +554,11 @@ public static class ActionScorer
             return "hits are full";
         }
 
+        if (DefendRules.BarsLeisure(situation?.UnderAttack == true, FamilyOf(candidate)))
+        {
+            return DefendRules.UnderAttackWhy;
+        }
+
         if (candidate.SkillKind == SkillKinds.Conflict &&
             situation?.Disposition != DispositionKind.Outlaw &&
             situation?.IsPkHunter != true &&

@@ -1,3 +1,6 @@
+using System;
+using SosariaAI.Behaviour;
+
 namespace SosariaAI.Combat;
 
 /// <summary>
@@ -42,4 +45,20 @@ public static class DefendRules
     /// of 1,354 break-offs in one run were dead within thirty seconds.
     /// </summary>
     public static bool RunsBare(bool foeIsPerson, bool armed) => foeIsPerson && !armed;
+
+    /// <summary>A blow this recent, from an attacker still in sight, means the person is under attack.</summary>
+    public static readonly TimeSpan UnderAttackWindow = TimeSpan.FromSeconds(10);
+
+    /// <summary>Why a social job waits while the person is under attack, for the logs.</summary>
+    public const string UnderAttackWhy = "under attack";
+
+    /// <summary>The last blow between the two landed inside <see cref="UnderAttackWindow"/>.</summary>
+    public static bool FreshBlow(DateTime lastBlow, DateTime now) => now - lastBlow < UnderAttackWindow;
+
+    /// <summary>
+    /// No visit, tavern, stroll or sightseeing while under attack: the person fights, runs or
+    /// heads home. A Chaos fighter hunted through Britain by an Order mage set off to visit a
+    /// player and greeted a passer-by between the Explosions, and died ten seconds later.
+    /// </summary>
+    public static bool BarsLeisure(bool underAttack, RoutineFamily family) => underAttack && family == RoutineFamily.Leisure;
 }

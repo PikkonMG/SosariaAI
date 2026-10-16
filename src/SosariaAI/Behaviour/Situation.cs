@@ -22,6 +22,12 @@ public sealed record Situation
 
     public bool InCombat { get; init; }
 
+    /// <summary>
+    /// Someone in sight landed a blow on this person, or took one from it, inside
+    /// <see cref="Combat.DefendRules.UnderAttackWindow"/> (see <see cref="Combat.DefendRules.BarsLeisure"/>).
+    /// </summary>
+    public bool UnderAttack { get; init; }
+
     public CharacterRole Role { get; init; } = CharacterRole.Worker;
 
     /// <summary>The pack or the pack beast holds harvest a live shop in reach buys.</summary>

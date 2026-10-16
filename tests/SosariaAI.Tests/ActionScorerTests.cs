@@ -1592,6 +1592,22 @@ public class ActionScorerTests
         );
 
     [Fact]
+    public void Unavailable_UnderAttack_NoVisitOrTavern_ButFleeAndHome()
+    {
+        // A Chaos fighter hunted through Britain by an Order mage set off to visit a player and
+        // greeted a passer-by between the Explosions, and died ten seconds later.
+        var hunted = OutOfTownNearHome(DispositionKind.Lawful) with { UnderAttack = true };
+
+        Assert.Equal(DefendRules.UnderAttackWhy, ActionScorer.Unavailable(Candidate(SkillKinds.Visit), hunted, null, PkSeek));
+        Assert.Equal(DefendRules.UnderAttackWhy, ActionScorer.Unavailable(Candidate(SkillKinds.Tavern), hunted, null, PkSeek));
+        Assert.NotEqual(DefendRules.UnderAttackWhy, ActionScorer.Unavailable(Candidate(SkillKinds.Flee), hunted, null, PkSeek));
+        Assert.NotEqual(
+            DefendRules.UnderAttackWhy,
+            ActionScorer.Unavailable(Candidate(SkillKinds.Visit), hunted with { UnderAttack = false }, null, PkSeek)
+        );
+    }
+
+    [Fact]
     public void Unavailable_HurtBlueWithAPkReport_StillAnswersIt() =>
         Assert.Null(
             ActionScorer.Unavailable(
