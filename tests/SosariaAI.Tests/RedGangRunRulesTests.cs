@@ -193,4 +193,13 @@ public class RedGangRunRulesTests
 
         return picks;
     }
+
+    [Fact]
+    public void BarredUnarmed_APvpOrDungeonRunWithoutArms()
+    {
+        Assert.True(RedGangRunRules.BarredUnarmed(SkillKinds.Conflict, lacksArms: true));
+        Assert.True(RedGangRunRules.BarredUnarmed(SkillKinds.Dungeon, lacksArms: true));
+        Assert.False(RedGangRunRules.BarredUnarmed(SkillKinds.Hunt, lacksArms: true));
+        Assert.False(RedGangRunRules.BarredUnarmed(SkillKinds.Conflict, lacksArms: false));
+    }
 }

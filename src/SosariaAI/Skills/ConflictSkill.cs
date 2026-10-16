@@ -131,11 +131,13 @@ public sealed class ConflictSkill : Skill
 
     /// <summary>
     /// True when this red would set out on a run now: nothing turns its run back
-    /// (<see cref="WhyNotSetOut(SosariaCharacter)"/>) and it does not sit out the runs after a
-    /// death (<see cref="RedGangRunRules.RestsAfterDeath"/>).
+    /// (<see cref="WhyNotSetOut(SosariaCharacter)"/>), it does not sit out the runs after a
+    /// death (<see cref="RedGangRunRules.RestsAfterDeath"/>), and it has its arms
+    /// (<see cref="RedGangRunRules.BarredUnarmed"/>).
     /// </summary>
     public static bool SetsOut(SosariaCharacter red) =>
-        WhyNotSetOut(red) == HuntEndReason.None && !RedGangRunRules.RestsAfterDeath(red.LastDeathAt, Core.Now);
+        WhyNotSetOut(red) == HuntEndReason.None && !RedGangRunRules.RestsAfterDeath(red.LastDeathAt, Core.Now) &&
+        SpareKit.Armed(red);
 
     /// <summary>
     /// True when this PK hunter rides out now (<see cref="RedSightingRules.HunterRides"/>): a
@@ -217,6 +219,11 @@ public sealed class ConflictSkill : Skill
             if (RedGangRunRules.RestsAfterDeath(character.LastDeathAt, Core.Now))
             {
                 return CannotStart(RestsAfterDeathWhy);
+            }
+
+            if (!SpareKit.Armed(character))
+            {
+                return CannotStart(RedGangRunRules.UnarmedWhy);
             }
 
             var stay = WhyNotSetOut(character);

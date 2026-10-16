@@ -33,6 +33,9 @@ public static class RecallRules
     /// </summary>
     public const double ScrollMinMagery = 20;
 
+    /// <summary>Recalls a trip to ground with no walk home takes: one out, one back.</summary>
+    public const int RoundTripRecalls = 2;
+
     /// <summary>
     /// Casts in a row before a fizzling trip is walked instead. A shaky caster kept at the
     /// macro: three fizzles in a row at one chance in two or worse were routine.
@@ -194,6 +197,21 @@ public static class RecallRules
         RuneToward(character, goal, minTripTiles) is { } mark
             ? TravelSpells.WhyNotToward(character, TravelSpellKind.Recall, mark)
             : NoRuneWhy;
+
+    /// <summary>
+    /// The recalls a person holds: scrolls and book charges, and one more for each set of the
+    /// spell's reagents when it can cast Recall.
+    /// </summary>
+    public static int RecallsInHand(int scrollsAndCharges, bool castsRecall, int reagentSets) =>
+        scrollsAndCharges + (castsRecall ? reagentSets : 0);
+
+    /// <summary>
+    /// A recall trip leaves the person able to get home: the goal has a walk home, or the
+    /// person holds a recall for the way back too. A red spent the one charge it had for the
+    /// way home on the ride out to Destard, where no road leads back to the Den, and stood
+    /// there for hours with its gang.
+    /// </summary>
+    public static bool RecallsBothWays(int recallsInHand, bool walksHome) => walksHome || recallsInHand >= RoundTripRecalls;
 
     /// <summary>Begins a real Recall toward <paramref name="goal"/>. True when the words of power began.</summary>
     public static bool TryRecallToward(SosariaCharacter character, Point3D goal, int minTripTiles = MinTripTiles) =>

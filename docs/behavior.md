@@ -635,7 +635,11 @@ leaves that foe alone for 2 minutes.
 
 A red gang musters at its point in the Den for 15 to 90 seconds, then rides out
 one way together: each by recall to one rune when every rider can recall, or
-else on foot through the Den gate. At the camp, the first there wait up to two
+else on foot through the Den gate. A rider can recall to a camp only when it can
+also get home from there: on foot, or by a second recall it holds (a scroll, a
+book charge, or a set of the spell's reagents). Destard has no walk back to the
+Den, and reds that spent their last charge on the ride out stood there for
+hours. The same holds for a red's dungeon hall and hunt ground. At the camp, the first there wait up to two
 minutes for the rest. A mate joins a gang's ride only when its own run can
 start: its Conflict job does not rest, and a camp is in its reach.
 
@@ -651,9 +655,11 @@ fighters it sees within 18 tiles are a mob for its pack (3 or more, and more
 than the pack) or have more than 1.25 times the power of the gang near it. The
 log then writes `rides back to the Den from <spot> ... a band of blue fighters
 holds the spot`. A red whose pack is full or whose supplies are short does not
-ride out. A red whose combat kit or weapon is gone does not ride out until it
-re-arms in the Den, when the spare kit bag or the shops can arm it. With nothing
-to re-arm from, it rides out as it is and strips what it can.
+ride out. A red whose combat kit, weapon or body armor is gone does not ride
+out until it re-arms in the Den, when the spare kit bag or the shops can arm it.
+With nothing to re-arm from, it takes no hot-spot run and no dungeon delve: it
+hunts for the gold to buy its arms back. A run refused for this says `it has no
+arms to fight with`.
 
 A red that died sits out every run (hot spot, dungeon, or hunt) for 30 minutes
 after its death. In that time it rides home, re-arms, and hangs about the Den.

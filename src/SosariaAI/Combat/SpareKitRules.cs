@@ -150,8 +150,9 @@ public static class SpareKitRules
     /// <summary>
     /// A red does not ride out while it lacks arms (<see cref="LacksArms"/>); it re-arms in the
     /// Den first, when the bag or the shops can arm it (<paramref name="canReArm"/>). With
-    /// nothing to re-arm from it rides out as it is, strips what it can off the bodies its gang
-    /// makes, and so the plan does not turn back to an empty bank every think.
+    /// nothing to re-arm from it takes no hot-spot run or delve and hunts for the gold to buy
+    /// arms back (<see cref="Behaviour.RedGangRunRules.BarredUnarmed"/>), and so the plan does
+    /// not turn back to an empty bank every think.
     /// </summary>
     public static bool MustReArm(bool red, bool lacksArms, bool canReArm) => red && lacksArms && canReArm;
 

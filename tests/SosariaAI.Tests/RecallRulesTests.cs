@@ -201,4 +201,24 @@ public class RecallRulesTests
         Assert.Null(RecallRules.NoRoadWait(TravelSpells.PlaceWhy));
         Assert.Null(RecallRules.NoRoadWait(null));
     }
+
+    [Fact]
+    public void RecallsInHand_ScrollsChargesAndTheSpellsReagents()
+    {
+        const int ScrollsAndCharges = 1;
+        const int ReagentSets = 3;
+
+        Assert.Equal(ScrollsAndCharges + ReagentSets, RecallRules.RecallsInHand(ScrollsAndCharges, castsRecall: true, ReagentSets));
+        Assert.Equal(ScrollsAndCharges, RecallRules.RecallsInHand(ScrollsAndCharges, castsRecall: false, ReagentSets));
+    }
+
+    [Fact]
+    public void RecallsBothWays_ACampWithNoWalkHomeNeedsARecallBack()
+    {
+        // A red spent the one charge it had for the way home on the ride out to Destard,
+        // where no road leads back to the Den, and stood there for hours.
+        Assert.False(RecallRules.RecallsBothWays(recallsInHand: 1, walksHome: false));
+        Assert.True(RecallRules.RecallsBothWays(RecallRules.RoundTripRecalls, walksHome: false));
+        Assert.True(RecallRules.RecallsBothWays(recallsInHand: 1, walksHome: true));
+    }
 }

@@ -294,6 +294,9 @@ public static class SupplyCheck
         return total;
     }
 
+    /// <summary>Full sets of the travel reagents in the pack: one Recall or Mark each.</summary>
+    public static int TravelReagentSets(Container pack) => pack == null ? 0 : Lowest(pack, TravelReagentTypes);
+
     private static int Lowest(Container pack, Type[] types)
     {
         var lowest = int.MaxValue;

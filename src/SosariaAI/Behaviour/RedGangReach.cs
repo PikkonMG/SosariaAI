@@ -46,14 +46,15 @@ public static class RedGangReach
         return Reaches(
             RuneShelf.BarredFor(red, entry, red.Map),
             Walks(red, red.Location, entry),
-            Recalls(red, goal)
+            RecallsThereAndBack(red, goal)
         );
     }
 
     /// <summary>
     /// Adds to <paramref name="unmet"/> each outing of the war on the reds that cannot start now.
     /// For a red, every outing of its run while it sits out the runs after a death
-    /// (<see cref="RedGangRunRules.RestsAfterDeath"/>), and else each one whose target it cannot
+    /// (<see cref="RedGangRunRules.RestsAfterDeath"/>), the hot-spot run and the delve while it
+    /// lacks arms (<see cref="RedGangRunRules.BarredUnarmed"/>), and else each one whose target it cannot
     /// get to (see <see cref="CanReach"/>): a hot-spot camp, the door of its dungeon hall, its
     /// hunt ground. For a PK hunter, its ride against the reds while it has no word of one and no
     /// standing patrol (<see cref="ConflictSkill.HunterRides"/>). The scorer then never picks
@@ -77,12 +78,13 @@ public static class RedGangReach
         }
 
         var resting = RedGangRunRules.RestsAfterDeath(character.LastDeathAt, Core.Now);
+        var lacksArms = !SpareKit.Armed(character);
 
         for (var i = 0; i < RedGangRunRules.Outings.Length; i++)
         {
             var outing = RedGangRunRules.Outings[i];
 
-            if (resting || !OutingReady(character, outing))
+            if (resting || RedGangRunRules.BarredUnarmed(outing, lacksArms) || !OutingReady(character, outing))
             {
                 unmet.Add(outing);
             }
@@ -106,6 +108,16 @@ public static class RedGangReach
     /// </summary>
     public static bool Recalls(SosariaCharacter red, Point3D goal) =>
         RecallRules.CanRecallSoon(red, goal, RecallRules.NoRoadMinTripTiles);
+
+    /// <summary>
+    /// True when the red recalls to <paramref name="goal"/> (<see cref="Recalls"/>) and can get
+    /// home from there: a walk from the goal to its home, or a second recall in hand
+    /// (<see cref="RecallRules.RecallsBothWays"/>). An outing reached only by a recall that
+    /// leaves the red no way back is out of reach.
+    /// </summary>
+    public static bool RecallsThereAndBack(SosariaCharacter red, Point3D goal) =>
+        Recalls(red, goal) &&
+        RecallRules.RecallsBothWays(RuneKit.RecallsInHand(red), Walks(red, goal, red.HomeSpot));
 
     /// <summary>
     /// True when <paramref name="walker"/> walks from <paramref name="from"/> to the node

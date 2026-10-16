@@ -415,7 +415,7 @@ public static class RedGang
         }
 
         var riders = 1;
-        var canRecall = RedGangReach.Recalls(red, camp) ? 1 : 0;
+        var canRecall = RedGangReach.RecallsThereAndBack(red, camp) ? 1 : 0;
 
         foreach (var mate in _reds)
         {
@@ -424,7 +424,7 @@ public static class RedGang
                 NavMetric.Chebyshev(musterPoint, mate.Location) <= RedGangRules.MusterTiles)
             {
                 riders++;
-                canRecall += RedGangReach.Recalls(mate, camp) ? 1 : 0;
+                canRecall += RedGangReach.RecallsThereAndBack(mate, camp) ? 1 : 0;
             }
         }
 

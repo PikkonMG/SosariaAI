@@ -65,6 +65,18 @@ public static class RedGangRunRules
 
     public static bool IsOuting(string skillKind) => Array.IndexOf(Outings, skillKind) >= 0;
 
+    /// <summary>Why a red without arms takes no hot-spot run or delve, for the logs.</summary>
+    public const string UnarmedWhy = "it has no arms to fight with";
+
+    /// <summary>
+    /// A red that lacks arms (<see cref="SpareKitRules.LacksArms"/>) takes no hot-spot run and
+    /// no delve: it hunts for the gold to buy arms back. Three broke reds rode out to Destard in
+    /// shirts and pants, with nothing in the bank to re-arm from, and stood at the door unable
+    /// to kill anyone. "You don't go red by being a noob."
+    /// </summary>
+    public static bool BarredUnarmed(string outing, bool lacksArms) =>
+        lacksArms && outing is SkillKinds.Conflict or SkillKinds.Dungeon;
+
     /// <summary>
     /// The outing of the next run: a weighted draw by <paramref name="seed"/> over the outings
     /// <paramref name="canRun"/> allows. With none open, the hot-spot run, whose step the plan

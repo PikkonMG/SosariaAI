@@ -137,7 +137,7 @@ public static class HotSpots
             if (HotSpotRules.InReach(
                     RedGangReach.Walks(red, red.Location, camp),
                     NavMetric.ByMoongate(red.Location, spot.Center, gates),
-                    RedGangReach.Recalls(red, camp)
+                    RedGangReach.RecallsThereAndBack(red, camp)
                 ))
             {
                 reach.Add((spot, camp));

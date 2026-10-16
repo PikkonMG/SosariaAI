@@ -583,6 +583,14 @@ public static class RuneKit
     public static int RecallStock(SosariaCharacter character) =>
         (character.Backpack?.GetAmount(typeof(RecallScroll)) ?? 0) + (RuneShelf.Book(character)?.CurCharges ?? 0);
 
+    /// <summary>The recalls the person holds, scrolls, charges and the spell's reagents (<see cref="RecallRules.RecallsInHand"/>).</summary>
+    public static int RecallsInHand(SosariaCharacter character) =>
+        RecallRules.RecallsInHand(
+            RecallStock(character),
+            character.Skills.Magery.Value >= RecallRules.MinMagery,
+            SupplyCheck.TravelReagentSets(character.Backpack)
+        );
+
     private static Runebook AddBook(SosariaCharacter character)
     {
         var book = new Runebook();
