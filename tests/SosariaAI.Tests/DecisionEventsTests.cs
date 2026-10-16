@@ -147,4 +147,23 @@ public class DecisionEventsTests
         Assert.True(DecisionEvents.MayReplaceJob(BrainEventKind.Attacked, SkillKinds.Conflict));
         Assert.True(DecisionEvents.MayReplaceJob(BrainEventKind.Plan, SkillKinds.Conflict));
     }
+
+    [Fact]
+    public void MayReplaceJob_NoticedPlayerOrPlan_LeavesAnAgreedDuelToEndOnItsOwn()
+    {
+        Assert.False(DecisionEvents.MayReplaceJob(BrainEventKind.PlayerNoticed, DuelSkill.SkillName));
+        Assert.False(DecisionEvents.MayReplaceJob(BrainEventKind.Plan, DuelSkill.SkillName));
+        Assert.True(DecisionEvents.MayReplaceJob(BrainEventKind.Attacked, DuelSkill.SkillName));
+    }
+
+    [Fact]
+    public void MayReplaceJob_NoticedPlayer_KeepsTheJobsOthersCountOn()
+    {
+        Assert.False(DecisionEvents.MayReplaceJob(BrainEventKind.PlayerNoticed, SkillKinds.PartyOrder));
+        Assert.False(DecisionEvents.MayReplaceJob(BrainEventKind.PlayerNoticed, SkillKinds.HealMate));
+        Assert.False(DecisionEvents.MayReplaceJob(BrainEventKind.PlayerNoticed, ResurrectAidSkill.SkillName));
+        Assert.False(DecisionEvents.MayReplaceJob(BrainEventKind.PlayerNoticed, ScuffleCallSkill.SkillName));
+        Assert.False(DecisionEvents.MayReplaceJob(BrainEventKind.PlayerNoticed, HouseRetreatSkill.SkillName));
+        Assert.True(DecisionEvents.MayReplaceJob(BrainEventKind.PlayerNoticed, SkillKinds.Loiter));
+    }
 }

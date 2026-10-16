@@ -18,6 +18,14 @@ public static class LawfulRules
     /// </summary>
     public const double CautiousOdds = 1.5;
 
+    /// <summary>
+    /// A spell whose words began as a lawful act lands as a crime when the law changed while it
+    /// was cast: a duel that ended, or a war that stood down. Its cursor is let go: under the
+    /// guards that blow brings a guard down on the caster. A spell that was a crime from its
+    /// first word is the caster's own choice, as a red's is.
+    /// </summary>
+    public static bool BecameCrime(bool crimeAtCast, bool crimeNow) => crimeNow && !crimeAtCast;
+
     /// <summary>A lawful character that sees an outlaw warns its victim, when the victim has a name to call.</summary>
     public static bool ShouldWarn(DispositionKind disposition, bool victimNamed) =>
         disposition == DispositionKind.Lawful && victimNamed;

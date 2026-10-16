@@ -930,7 +930,15 @@ public static partial class Brain
         Consider(Create(BrainEventKind.PlayerNoticed, character, player, ChoicesText(character)));
     }
 
-    private static string CurrentSkillKind(SosariaCharacter character) => ActionId.SkillKindOf(character.ActiveActionId);
+    /// <summary>
+    /// The job running now. A job the world hands out (a duel, a party order, a heal for a
+    /// mate) runs without a scored action, so the action id still names the job before it:
+    /// a duel read as the loiter it replaced, and a noticed player called it off.
+    /// </summary>
+    private static string CurrentSkillKind(SosariaCharacter character) =>
+        character.Routine is { NeedsNext: false, CurrentSkill: { } running }
+            ? running.Name
+            : ActionId.SkillKindOf(character.ActiveActionId);
 
     /// <summary>
     /// The rules' answer when an event decision got no model answer: a fresh pick, but only when

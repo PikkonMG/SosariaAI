@@ -71,4 +71,12 @@ public class LawfulRulesTests
         Assert.False(LawfulRules.ShouldHunt(sidePower: 140, outlawPower: 100, outlawOnFriend: false, antiPk: false));
         Assert.True(LawfulRules.ShouldHunt(sidePower: 150, outlawPower: 100, outlawOnFriend: false, antiPk: false));
     }
+
+    [Theory]
+    [InlineData(false, true, true)]
+    [InlineData(false, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(true, false, false)]
+    public void BecameCrime_OnlyALawfulCastThatTurnedCriminal(bool crimeAtCast, bool crimeNow, bool expected) =>
+        Assert.Equal(expected, LawfulRules.BecameCrime(crimeAtCast, crimeNow));
 }

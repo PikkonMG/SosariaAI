@@ -108,6 +108,9 @@ public static partial class CombatBrain
         public FightOutlook Outlook;
         public Mobile CastTarget;
         public SpellKind CastKind;
+
+        /// <summary>The cast spell was a crime on its target when its words began (<see cref="LawfulRules.BecameCrime"/>).</summary>
+        public bool CastWasCrime;
         public long NextCastAt;
         public long NextSpellCareAt;
         public long NextPotionAt;

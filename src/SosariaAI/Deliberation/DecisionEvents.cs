@@ -71,13 +71,21 @@ public static class DecisionEvents
     /// Bayta left Despise at the bank because PlayerNoticed picked hunt, and a red camping
     /// Destard is there for the players it notices. An attack or a plan may replace any job
     /// but a flight or a ghost's walk: its answer comes back after the character already ran
-    /// or died, and a picked routine would pull it back into the fight.
+    /// or died, and a picked routine would pull it back into the fight. A plan also leaves an
+    /// agreed duel to end on its own: called off mid-fight, the duel's last blow is a crime.
+    /// The jobs others count on (a duel, a party order, a mate's heal or raise, a scuffle
+    /// call, a run home to the house) are never dropped for a noticed player.
     /// </summary>
     public static bool MayReplaceJob(BrainEventKind kind, string currentSkillKind)
     {
-        if (kind is BrainEventKind.Attacked or BrainEventKind.Plan)
+        if (kind == BrainEventKind.Attacked)
         {
             return currentSkillKind is not SkillKinds.Flee and not GhostSkill.SkillName;
+        }
+
+        if (kind == BrainEventKind.Plan)
+        {
+            return currentSkillKind is not SkillKinds.Flee and not GhostSkill.SkillName and not DuelSkill.SkillName;
         }
 
         if (string.IsNullOrWhiteSpace(currentSkillKind))
@@ -123,6 +131,12 @@ public static class DecisionEvents
             and not SkillKinds.EvalInt
             and not SkillKinds.ArmsLore
             and not SkillKinds.ItemId
+            and not DuelSkill.SkillName
+            and not SkillKinds.PartyOrder
+            and not SkillKinds.HealMate
+            and not ResurrectAidSkill.SkillName
+            and not ScuffleCallSkill.SkillName
+            and not HouseRetreatSkill.SkillName
             and not SkillKinds.Discord
             and not SkillKinds.Provoke
             and not SkillKinds.Forensic

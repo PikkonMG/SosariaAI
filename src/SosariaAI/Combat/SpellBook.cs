@@ -141,6 +141,12 @@ public static class SpellBook
     /// <summary>A spell cast on a ghost: its cursor is answered on a body that is not alive, and no other is.</summary>
     public static bool RaisesDead(SpellKind kind) => kind == SpellKind.Resurrection;
 
+    /// <summary>A spell that harms its target: the engine judges it as a blow, not as help.</summary>
+    public static bool IsHarmful(SpellKind kind) =>
+        kind is SpellKind.MagicArrow or SpellKind.Harm or SpellKind.Fireball or SpellKind.Lightning or
+            SpellKind.MindBlast or SpellKind.EnergyBolt or SpellKind.Explosion or SpellKind.FlameStrike or
+            SpellKind.Poison or SpellKind.Paralyze or SpellKind.Dispel;
+
     /// <summary>A character fights with spells once its magery holds the first attack.</summary>
     public static bool IsCaster(double magery) => magery >= MagicArrow.MinMagery;
 

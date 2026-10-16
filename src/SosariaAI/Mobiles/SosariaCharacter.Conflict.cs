@@ -2,6 +2,7 @@ using Server;
 using Server.Mobiles;
 using SosariaAI.Behaviour;
 using SosariaAI.Combat;
+using SosariaAI.Configuration;
 using SosariaAI.Social;
 
 namespace SosariaAI.Mobiles;
@@ -12,6 +13,9 @@ namespace SosariaAI.Mobiles;
 /// </summary>
 public partial class SosariaCharacter : PlayerMobile
 {
+    private const string CrimeHarmed = "harmed";
+    private const string CrimeHelped = "helped";
+
     /// <summary>The red gang this murderer rides with, or <see cref="PkGangRules.NoGang"/>. Set at bind.</summary>
     public int OutlawGang { get; set; } = PkGangRules.NoGang;
 
@@ -20,6 +24,35 @@ public partial class SosariaCharacter : PlayerMobile
         !ConflictLegal(target) && base.IsHarmfulCriminal(target);
 
     public bool ConflictLegal(Mobile target) => FactionWar.LawfulFight(this, target);
+
+    /// <summary>The log names the blow that turned this character gray, once per flag.</summary>
+    public override void OnHarmfulAction(Mobile target, bool isCriminal)
+    {
+        NoteCrime(isCriminal, CrimeHarmed, target);
+        base.OnHarmfulAction(target, isCriminal);
+    }
+
+    /// <summary>The log names the help that turned this character gray, once per flag.</summary>
+    public override void OnBeneficialAction(Mobile target, bool isCriminal)
+    {
+        NoteCrime(isCriminal, CrimeHelped, target);
+        base.OnBeneficialAction(target, isCriminal);
+    }
+
+    private void NoteCrime(bool isCriminal, string act, Mobile target)
+    {
+        if (isCriminal && !Criminal && SosariaSettings.LogActivity)
+        {
+            logger.Information(
+                "{Name} turns gray: it {Act} {Target} at {Location} while running {Job}",
+                Name,
+                act,
+                target?.Name,
+                Location,
+                Routine?.CurrentSkill?.Name
+            );
+        }
+    }
 
     /// <summary>A duel stops at the hit floor: the blow that reaches it ends the duel instead of the duelist.</summary>
     public override void Damage(int amount, Mobile from = null, bool informMount = true, bool ignoreEvilOmen = false)

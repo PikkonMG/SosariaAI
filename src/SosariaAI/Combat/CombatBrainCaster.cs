@@ -40,6 +40,7 @@ public static partial class CombatBrain
     private const string VanishLine = "vanish";
     private const string RecallOutLine = "recall out";
     private const string LeaveHiddenLine = "leave hidden";
+    private const string CrimeCastLine = "crime cast";
 
     // Weak keys: a deleted character's tactics go with it, as its fight memory does.
     private static readonly ConditionalWeakTable<SosariaCharacter, CasterTactics> Tactics = new();
@@ -767,6 +768,7 @@ public static partial class CombatBrain
 
         memory.CastTarget = target;
         memory.CastKind = kind;
+        memory.CastWasCrime = IsCrime(character, kind, target);
 
         // Only a spell that raises a cursor shows whether a blow broke it, so only those count.
         if (SpellBook.RaisesCursor(kind, Core.UOR))
@@ -796,6 +798,20 @@ public static partial class CombatBrain
                 {
                     cursor.Cancel(character, TargetCancelType.Canceled);
                 }
+                else if (LawfulRules.BecameCrime(memory.CastWasCrime, IsCrime(character, memory.CastKind, target)))
+                {
+                    cursor.Cancel(character, TargetCancelType.Canceled);
+
+                    if (LogsOnce(character, CrimeCastLine, target))
+                    {
+                        logger.Information(
+                            "{Name} lets its {Spell} at {Target} go: it would land as a crime now",
+                            character.Name,
+                            memory.CastKind,
+                            target.Name
+                        );
+                    }
+                }
                 else
                 {
                     cursor.Invoke(character, target);
@@ -818,6 +834,11 @@ public static partial class CombatBrain
             }
         }
     }
+
+    /// <summary>The spell on this target is a crime now: a blow on an innocent, or help to a gray or red.</summary>
+    private static bool IsCrime(SosariaCharacter character, SpellKind kind, Mobile target) =>
+        target != null && target != character &&
+        (SpellBook.IsHarmful(kind) ? character.IsHarmfulCriminal(target) : character.IsBeneficialCriminal(target));
 
     private static Spell NewSpell(SpellKind kind, Mobile caster) =>
         kind switch

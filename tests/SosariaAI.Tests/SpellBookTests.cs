@@ -221,4 +221,22 @@ public class SpellBookTests
         Assert.Null(SpellBook.PickAttack(Grandmaster, FullMana, OpenGround, TopCircle, LowRoll, SpellStock.None));
         Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, false, false, AlwaysRoll, AlwaysRoll, arrowOnly));
     }
+
+    [Fact]
+    public void IsHarmful_AttacksAndCursesHarm_CareSpellsHelp()
+    {
+        foreach (var attack in SpellBook.Attacks)
+        {
+            Assert.True(SpellBook.IsHarmful(attack.Kind));
+        }
+
+        Assert.True(SpellBook.IsHarmful(SpellKind.Poison));
+        Assert.True(SpellBook.IsHarmful(SpellKind.Paralyze));
+        Assert.True(SpellBook.IsHarmful(SpellKind.Dispel));
+        Assert.False(SpellBook.IsHarmful(SpellKind.Heal));
+        Assert.False(SpellBook.IsHarmful(SpellKind.Cure));
+        Assert.False(SpellBook.IsHarmful(SpellKind.GreaterHeal));
+        Assert.False(SpellBook.IsHarmful(SpellKind.Resurrection));
+        Assert.False(SpellBook.IsHarmful(SpellKind.Invisibility));
+    }
 }
