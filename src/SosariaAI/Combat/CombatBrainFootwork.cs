@@ -237,9 +237,34 @@ public static partial class CombatBrain
         }
     }
 
-    /// <summary>Why a fighter acts where it stands, for the log.</summary>
-    private static string CommitReason(Memory memory, CombatStance stance) =>
-        stance == CombatStance.Hold ? "holding" : memory.Pinned ? "pinned" : "outpaced";
+    /// <summary>
+    /// Logs once a stand why the fighter <paramref name="act"/> where it stands: it holds its
+    /// ground by choice (<see cref="CombatStance.Hold"/>), or it cannot shake the foe, pinned or
+    /// outpaced. A hold logged as "cannot shake (holding)" read as a fighter caught.
+    /// </summary>
+    private static void NoteStand(SosariaCharacter character, Memory memory, Mobile foe, CombatStance stance, string act)
+    {
+        if (stance == CombatStance.Hold)
+        {
+            if (LogsOnce(character, HoldLine, foe))
+            {
+                logger.Information("{Name} holds its ground and {Act} at {Foe}", character.Name, act, foe.Name);
+            }
+
+            return;
+        }
+
+        if (LogsOnce(character, ShakeLine, foe))
+        {
+            logger.Information(
+                "{Name} cannot shake {Foe} ({Why}) and {Act} where it stands",
+                character.Name,
+                foe.Name,
+                memory.Pinned ? PinnedWhy : OutpacedWhy,
+                act
+            );
+        }
+    }
 
     /// <summary>A person casting within reach is worth a swing more than anything else: it breaks the words.</summary>
     private static Mobile TurnOnCaster(SosariaCharacter character, Memory memory, Mobile foe)

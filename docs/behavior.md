@@ -399,7 +399,14 @@ The fight rules pick every stance. No model is asked unless `brain.json` sets
   is not losing the trade of blows.
 - A caster or an archer whose foe hits a friend (a party mate, a mate of its
   side, or a friend's pet), with nothing next to itself, holds its ground and
-  casts or shoots from where it stands.
+  casts or shoots from where it stands. The log says `holds its ground and
+  shoots at <foe>` (or `casts <spell> at <foe>`).
+- A fight that goes nowhere is given up. When the foe's hits are not down by at
+  least 10% of its full hits after a minute (its own healing counted), the
+  fighter drops the foe and leaves it be for 2 minutes. The log says `gives up
+  on <foe>: a minute of blows changed nothing`. A foe that comes at it again is
+  still fought. An archer and a red who bandaged back every arrow once fought
+  for five hours.
 - Below 35% of its stamina a fighter drinks a refresh potion, in a fight and on
   the run, at most once every 3 seconds. Before AOS a winded fighter swings
   slower, and a shove past a body needs full stamina. A hidden fighter does not

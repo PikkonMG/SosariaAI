@@ -174,6 +174,11 @@ public static partial class CombatBrain
 
         public long NextSongAt;
 
+        /// <summary>The foe the stalemate window watches, when the window began, and the share of its hits then.</summary>
+        public Mobile ProgressFoe;
+        public long ProgressSince;
+        public double ProgressFoeHits;
+
         /// <summary>Drops everything tied to the fight that just ended. Cooldowns stay.</summary>
         public void ForgetFight()
         {
@@ -228,6 +233,9 @@ public static partial class CombatBrain
             RunStartHits = 0;
             PullFrom = null;
             PullSince = 0;
+            ProgressFoe = null;
+            ProgressSince = 0;
+            ProgressFoeHits = 0;
         }
     }
 }

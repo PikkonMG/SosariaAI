@@ -632,16 +632,7 @@ public static partial class CombatBrain
 
             // Pinned, a mage casts each Magic Arrow where it stands (a blow cannot break the
             // first circle before AOS); the tally counts every one, the log says it once a stand.
-            if (LogsOnce(character, ShakeLine, foe))
-            {
-                logger.Information(
-                    "{Name} cannot shake {Foe} ({Why}) and casts {Spell} where it stands",
-                    character.Name,
-                    foe.Name,
-                    CommitReason(memory, stance),
-                    kind
-                );
-            }
+            NoteStand(character, memory, foe, stance, $"casts {kind}");
         }
         else if (memory.KitingSince != 0)
         {

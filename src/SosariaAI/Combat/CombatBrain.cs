@@ -35,6 +35,9 @@ public static partial class CombatBrain
     public const int FoeLostMs = 5000;
 
     public const int MeleeRange = 1;
+
+    /// <summary>A share written as a percent in the log.</summary>
+    public const double Percent = 100;
     public const int MageKeepMax = 8;
     public const int MinFleeSeconds = 10;
     public const int MaxFleeSeconds = 30;
@@ -46,6 +49,10 @@ public static partial class CombatBrain
     private const string Cornered = "cornered";
     private const string PullLine = "pull";
     private const string ShakeLine = "shake";
+    private const string HoldLine = "hold";
+    private const string ShootsAct = "shoots";
+    private const string PinnedWhy = "pinned";
+    private const string OutpacedWhy = "outpaced";
     private const string StepClearLine = "step clear";
     private const string DrawLine = "draw";
     private const string HuntedLine = "hunted";
@@ -118,7 +125,8 @@ public static partial class CombatBrain
         {
             foe = ReconsiderTarget(character, memory, foe);
 
-            if (TryRetreat(character, memory, foe, ordered: false) || TrySing(character, memory, foe))
+            if (TryRetreat(character, memory, foe, ordered: false) || TrySing(character, memory, foe) ||
+                DropsStalemate(character, memory, foe))
             {
                 return;
             }
@@ -354,14 +362,9 @@ public static partial class CombatBrain
 
         if (footwork == Footwork.Commit)
         {
-            if (!memory.Committed && LogsOnce(character, ShakeLine, foe))
+            if (!memory.Committed)
             {
-                logger.Information(
-                    "{Name} cannot shake {Foe} ({Why}) and shoots where it stands",
-                    character.Name,
-                    foe.Name,
-                    CommitReason(memory, stance)
-                );
+                NoteStand(character, memory, foe, stance, ShootsAct);
             }
 
             memory.Committed = true;
@@ -437,6 +440,54 @@ public static partial class CombatBrain
             );
         }
 
+        return true;
+    }
+
+    /// <summary>
+    /// Gives up a fight that goes nowhere (<see cref="FightTrendRules.Stalled"/>): over a whole
+    /// window the foe did not lose its share of hits. The fight ends and the foe is left be for
+    /// the stand-down grace, as one lost past the grace is (<see cref="GiveUpIfLost"/>): calls,
+    /// watches and scans pass it over. A foe that comes at the character again is still fought.
+    /// True when it gave up.
+    /// </summary>
+    private static bool DropsStalemate(SosariaCharacter character, Memory memory, Mobile foe)
+    {
+        var now = Core.TickCount;
+        var foeHits = Vitals.HitsFraction(foe);
+
+        if (memory.ProgressFoe != foe || !FightTrendRules.WindowDone(now - memory.ProgressSince))
+        {
+            if (memory.ProgressFoe != foe)
+            {
+                memory.ProgressFoe = foe;
+                memory.ProgressSince = now;
+                memory.ProgressFoeHits = foeHits;
+            }
+
+            return false;
+        }
+
+        if (!FightTrendRules.Stalled(memory.ProgressFoeHits, foeHits))
+        {
+            memory.ProgressSince = now;
+            memory.ProgressFoeHits = foeHits;
+            return false;
+        }
+
+        if (SosariaSettings.LogActivity)
+        {
+            logger.Information(
+                "{Name} gives up on {Foe}: a minute of blows changed nothing ({Hits:0}% of its hits then, {Now:0}% now)",
+                character.Name,
+                foe.Name,
+                memory.ProgressFoeHits * Percent,
+                foeHits * Percent
+            );
+        }
+
+        character.LastStandDownFoe = foe.Serial;
+        character.LastStandDownAt = Core.Now;
+        EndFight(character, memory);
         return true;
     }
 

@@ -123,6 +123,12 @@ public static class FightTrendRules
     /// <summary>Below this share of hits even a winning trade is left: one bad swing ends it.</summary>
     public const double WinningFloor = 0.25;
 
+    /// <summary>A fight is judged for progress over this long: a minute of the foe's hits.</summary>
+    public const int StalemateMs = 60000;
+
+    /// <summary>A foe must lose at least this share of its full hits in a window, net of its healing.</summary>
+    public const double MinProgressShare = 0.10;
+
     public static FightOutlook Outlook(FightTrend trend, int hits)
     {
         if (trend.SampleMs < MinSampleMs)
@@ -153,6 +159,17 @@ public static class FightTrendRules
 
         return secondsToFall < secondsToWin ? FightOutlook.Losing : FightOutlook.Even;
     }
+
+    /// <summary>A whole stalemate window of the fight has gone by since its start was noted.</summary>
+    public static bool WindowDone(long elapsedMs) => elapsedMs >= StalemateMs;
+
+    /// <summary>
+    /// The foe ended the window less than <see cref="MinProgressShare"/> below the share of its
+    /// hits it began it with: the blows land no faster than it heals, or do not land at all.
+    /// An archer's arrows that a red bandaged back, and two fighters who each stepped out to
+    /// heal in turn, held one fight for five hours; a player gives such a fight up.
+    /// </summary>
+    public static bool Stalled(double foeHitsAtStart, double foeHitsNow) => foeHitsNow > foeHitsAtStart - MinProgressShare;
 
     /// <summary>The blows coming in would take less than a quarter of full hits over the next ten seconds.</summary>
     public static bool LightDamage(FightTrend trend, int hitsMax) =>

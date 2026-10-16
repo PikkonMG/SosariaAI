@@ -95,4 +95,26 @@ public class FightTrendTests
             FightOutlook.Unknown,
             FightTrendRules.Outlook(new FightTrend(1, 12, 150, FightTrendRules.MinSampleMs - 1), hits: 60)
         );
+
+    [Fact]
+    public void Stalled_AFoeThatLostTooLittleOverTheWindow()
+    {
+        // An archer's arrows that a red bandaged back, and two healers trading blows, held one
+        // fight for five hours: the foe ended each minute as hurt as it began it.
+        const double Full = 1.0;
+        const double Hurt = 0.6;
+
+        Assert.True(FightTrendRules.Stalled(Full, Full));
+        Assert.True(FightTrendRules.Stalled(Hurt, Hurt + 0.2));
+        Assert.True(FightTrendRules.Stalled(Full, Full - FightTrendRules.MinProgressShare / 2));
+        Assert.False(FightTrendRules.Stalled(Full, Full - FightTrendRules.MinProgressShare));
+        Assert.False(FightTrendRules.Stalled(Full, Hurt));
+    }
+
+    [Fact]
+    public void StalemateWindow_IsAMinuteOfTheFight()
+    {
+        Assert.False(FightTrendRules.WindowDone(FightTrendRules.StalemateMs - 1));
+        Assert.True(FightTrendRules.WindowDone(FightTrendRules.StalemateMs));
+    }
 }
