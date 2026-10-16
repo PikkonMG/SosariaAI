@@ -136,7 +136,8 @@ public static class CraftStations
     }
 
     /// <summary>
-    /// Where the character works its trade now: the nearest place in reach whose station is
+    /// Where the character works its trade now: its own house when the house holds the trade's
+    /// station (<see cref="HomeWorkshop"/>), else the nearest place in reach whose station is
     /// really there, counting the crafters already standing at each against it, or null when
     /// there is none or every one is full.
     /// </summary>
@@ -145,6 +146,11 @@ public static class CraftStations
         if (!People.InWorld(character) || trade == null)
         {
             return null;
+        }
+
+        if (HomeWorkshop.StationAtHome(character, trade) is { } home)
+        {
+            return home;
         }
 
         var places = Places(character, trade);

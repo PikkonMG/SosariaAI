@@ -407,6 +407,25 @@ public static class AmbitionRules
         };
     }
 
+    /// <summary>
+    /// A character with no house that wants one (<see cref="HouseWantRules"/>) and met a gold
+    /// goal saves next for that house, as 1999 players saved for a deed once the nest egg or
+    /// the boat came first. The house goal itself, once met, gives way to <paramref name="next"/>,
+    /// and the house is bought. Pure.
+    /// </summary>
+    public static Ambition NextForHomeless(Ambition finished, Ambition next, bool hasHouse, Ambition? houseGoal) =>
+        finished.Kind == AmbitionKind.Gold && !HouseWantRules.IsHouseTarget(finished.Target) && !hasHouse &&
+        houseGoal is { } house
+            ? house
+            : next;
+
+    /// <summary>
+    /// True while the character saves its gold for something other than a house: it does not
+    /// spend that gold on a deed.
+    /// </summary>
+    public static bool SavesForOtherThanHouse(Ambition a) =>
+        a.Kind == AmbitionKind.Gold && !HouseWantRules.IsHouseTarget(a.Target) && !IsComplete(a);
+
     private static Ambition WorkerNext(string trade, string town, int pick)
     {
         if (trade is SkillFishing or SkillLumberjacking or SkillMining)

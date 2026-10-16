@@ -186,6 +186,20 @@ public class GoalRulesTests
     }
 
     [Fact]
+    public void Pick_HomeDue_GoesHome()
+    {
+        var goal = GoalRules.Pick(new Situation
+        {
+            Needs = new NeedsSnapshot { HitsFraction = 1 },
+            HasHouse = true,
+            HomeDue = true,
+            Role = CharacterRole.Worker
+        });
+        Assert.Equal(GoalKind.Work, goal.Kind);
+        Assert.Equal(SkillKinds.House, goal.Target);
+    }
+
+    [Fact]
     public void Pick_HealthyDay_PicksAJobNotRecover()
     {
         var goal = GoalRules.Pick(HealthyWorker(), FixedSeed);

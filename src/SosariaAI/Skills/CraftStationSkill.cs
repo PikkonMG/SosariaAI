@@ -155,7 +155,7 @@ public abstract class CraftStationSkill : Skill
 
         CraftTally.NoteSession();
         _phase = Phase.WalkShop;
-        _walk = new TravelSkill(_shop, NavLimits.ShopArrivalRange, arrivalFloor: true);
+        _walk = HomeWalk.To(_character, _shop, NavLimits.ShopArrivalRange, arrivalFloor: true);
         return _walk.Begin(character) || CannotStart("no walk to the shop");
     }
 
@@ -615,7 +615,7 @@ public abstract class CraftStationSkill : Skill
 
         _triedSupply.Add(shop);
         _supplyTrips++;
-        _walk = new TravelSkill(shop, NavLimits.ShopArrivalRange, arrivalFloor: true);
+        _walk = HomeWalk.To(_character, shop, NavLimits.ShopArrivalRange, arrivalFloor: true);
 
         if (!_walk.Begin(_character))
         {
@@ -673,7 +673,7 @@ public abstract class CraftStationSkill : Skill
 
     private SkillStatus WalkBackToStation()
     {
-        _walk = new TravelSkill(_shop, NavLimits.ShopArrivalRange, arrivalFloor: true);
+        _walk = HomeWalk.To(_character, _shop, NavLimits.ShopArrivalRange, arrivalFloor: true);
 
         if (!_walk.Begin(_character))
         {
@@ -962,7 +962,7 @@ public abstract class CraftStationSkill : Skill
         }
 
         _sellTripDone = true;
-        _walk = new TravelSkill(shop, NavLimits.ShopArrivalRange, arrivalFloor: true);
+        _walk = HomeWalk.To(_character, shop, NavLimits.ShopArrivalRange, arrivalFloor: true);
 
         if (!_walk.Begin(_character))
         {

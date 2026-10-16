@@ -504,4 +504,38 @@ public class AmbitionRulesTests
         Assert.True(AmbitionRules.ShouldReseed(swords, UntouchedNestEgg, BuildPresets.MageNovice()));
         Assert.False(AmbitionRules.ShouldReseed(swords, UntouchedNestEgg, BuildPresets.SwordsmanNovice()));
     }
+
+    private const int SmallHouseGold = 43800;
+
+    private static readonly Ambition MetNestEgg =
+        new(AmbitionKind.Gold, AmbitionRules.NestEggTarget, AmbitionRules.DefaultNestEggGold, AmbitionRules.DefaultNestEggGold);
+
+    private static readonly Ambition PlannedNext = new(AmbitionKind.Place, AmbitionRules.PlaceMinoc, AmbitionRules.PlaceGoal, 0);
+
+    private static readonly Ambition SmallHouse = new(AmbitionKind.Gold, HouseWantRules.SmallTarget, SmallHouseGold, 0);
+
+    [Fact]
+    public void NextForHomeless_AMetGoldGoalTurnsToSavingForTheWantedHouse() =>
+        Assert.Equal(SmallHouse, AmbitionRules.NextForHomeless(MetNestEgg, PlannedNext, hasHouse: false, SmallHouse));
+
+    [Fact]
+    public void NextForHomeless_AnOwnerOneWantingNoneOrAMetHouseGoalKeepsThePlannedNext()
+    {
+        var metHouse = SmallHouse with { Progress = SmallHouseGold };
+        var metKills = new Ambition(AmbitionKind.Kills, AmbitionRules.CreatureTroll, AmbitionRules.DefaultKillGoal, AmbitionRules.DefaultKillGoal);
+
+        Assert.Equal(PlannedNext, AmbitionRules.NextForHomeless(MetNestEgg, PlannedNext, hasHouse: true, SmallHouse));
+        Assert.Equal(PlannedNext, AmbitionRules.NextForHomeless(MetNestEgg, PlannedNext, hasHouse: false, houseGoal: null));
+        Assert.Equal(PlannedNext, AmbitionRules.NextForHomeless(metHouse, PlannedNext, hasHouse: false, SmallHouse));
+        Assert.Equal(PlannedNext, AmbitionRules.NextForHomeless(metKills, PlannedNext, hasHouse: false, SmallHouse));
+    }
+
+    [Fact]
+    public void SavesForOtherThanHouse_OnlyAnUnmetGoldGoalForSomethingElse()
+    {
+        Assert.True(AmbitionRules.SavesForOtherThanHouse(MetNestEgg with { Progress = 0 }));
+        Assert.False(AmbitionRules.SavesForOtherThanHouse(MetNestEgg));
+        Assert.False(AmbitionRules.SavesForOtherThanHouse(SmallHouse));
+        Assert.False(AmbitionRules.SavesForOtherThanHouse(PlannedNext));
+    }
 }

@@ -216,6 +216,7 @@ public static class CharactersFile
 
             if (name is FacetNames.Felucca or FacetNames.Trammel)
             {
+                file.HousePlots.Add(GraveyardVendorPlot(name));
                 file.HousePlots.Add(DefaultHousePlot(name));
                 file.Facets[name] = CreateBritainContent();
             }
@@ -286,6 +287,19 @@ public static class CharactersFile
         };
 
     private static MapToggle DisabledMap() => QuietMap(enabled: false, DisabledFacetCount);
+
+    /// <summary>A crafter's vendor house just outside the Britain graveyard, clear of its yard.</summary>
+    private static HousePlot GraveyardVendorPlot(string map) =>
+        new()
+        {
+            Map = map,
+            X = HouseRules.GraveyardPlotX,
+            Y = HouseRules.GraveyardPlotY,
+            Z = HouseRules.GraveyardPlotZ,
+            Vendor = true,
+            Clear = HouseRules.GraveyardClearTiles,
+            Reach = HouseRules.GraveyardReachTiles
+        };
 
     private static HousePlot DefaultHousePlot(string map) =>
         new()

@@ -21,6 +21,19 @@ public static class HouseRules
     public const int DefaultPlotY = 1474;
     public const int DefaultPlotZ = 0;
     public const int PlaceSearchRadius = 12;
+
+    // The Britain graveyard's middle, as the destination list marks it.
+    public const int GraveyardPlotX = 1384;
+    public const int GraveyardPlotY = 1497;
+    public const int GraveyardPlotZ = 10;
+
+    /// <summary>A house keeps this far from the graveyard's middle: outside its yard.</summary>
+    public const int GraveyardClearTiles = 12;
+
+    public const int GraveyardReachTiles = 24;
+
+    /// <summary>A house standing this far past a plot's reach still takes the plot.</summary>
+    public const int PlotTakenMargin = 8;
     public const int PlaceSearchStep = 2;
     public const int BritainTownMaxX = 1740;
     public const int PlaceArrivalTiles = 16;
@@ -49,10 +62,10 @@ public static class HouseRules
     public static bool NearPlot(Point3D here, Point3D plot, int tiles) =>
         NavMetric.Chebyshev(here, plot) <= tiles;
 
-    public static string BoughtLine(string place) =>
+    public static string BoughtLine(string house, string place) =>
         string.IsNullOrWhiteSpace(place)
-            ? "I bought a small house."
-            : $"I placed a small house at {place}.";
+            ? $"I bought {house}."
+            : $"I placed {house} at {place}.";
 
     /// <summary>What an owner keeps in mind when it finds its house gone.</summary>
     public const string FallenLine = "My house fell down while I was away.";
@@ -66,38 +79,47 @@ public static class HouseRules
     public static Point3D PlacementCenter(Point3D click, Point3D offset) =>
         new(click.X - offset.X, click.Y - offset.Y, click.Z - offset.Z);
 
-    public static IEnumerable<Point3D> CandidateSpots(Point3D here, Point3D plot)
+    /// <summary>
+    /// The spots to try for a house on a plot: where the buyer stands, the plot's middle, then a
+    /// grid out to <paramref name="reach"/>; each at least <paramref name="clear"/> tiles from the
+    /// middle and, on the default plot, east of Britain town.
+    /// </summary>
+    public static IEnumerable<Point3D> CandidateSpots(Point3D here, Point3D plot, int clear, int reach)
     {
         var eastOfBritain = plot == DefaultPlot();
 
-        if (!eastOfBritain || OutsideTown(here.X))
+        bool Fits(Point3D spot) =>
+            (!eastOfBritain || OutsideTown(spot.X)) && NavMetric.Chebyshev(spot, plot) is var tiles &&
+            tiles >= clear && tiles <= reach;
+
+        if (Fits(here))
         {
             yield return here;
         }
 
-        if ((!eastOfBritain || OutsideTown(plot.X)) && here != plot)
+        if (here != plot && Fits(plot))
         {
             yield return plot;
         }
 
-        for (var dx = -PlaceSearchRadius; dx <= PlaceSearchRadius; dx += PlaceSearchStep)
+        for (var dx = -reach; dx <= reach; dx += PlaceSearchStep)
         {
-            for (var dy = -PlaceSearchRadius; dy <= PlaceSearchRadius; dy += PlaceSearchStep)
+            for (var dy = -reach; dy <= reach; dy += PlaceSearchStep)
             {
-                if (dx == 0 && dy == 0)
-                {
-                    continue;
-                }
-
                 var spot = new Point3D(plot.X + dx, plot.Y + dy, plot.Z);
 
-                if (eastOfBritain && !OutsideTown(spot.X))
+                if ((dx != 0 || dy != 0) && Fits(spot))
                 {
-                    continue;
+                    yield return spot;
                 }
-
-                yield return spot;
             }
         }
     }
+
+    /// <summary>A house standing this close to a plot's middle takes the plot.</summary>
+    public static bool TakesPlot(Point3D house, Point3D plot, int reach) =>
+        NavMetric.Chebyshev(house, plot) <= reach + PlotTakenMargin;
+
+    /// <summary>A vendor plot is for a crafter; any other plot for anyone.</summary>
+    public static bool MayUsePlot(bool vendorPlot, bool crafter) => !vendorPlot || crafter;
 }

@@ -163,6 +163,6 @@ public class RuneKitTests
     [InlineData(false, RunebookRules.EntryCap, true)]
     [InlineData(true, RunebookRules.EntryCap, false)]
     [InlineData(false, RunebookRules.EntryCap - 1, false)]
-    public void MakesRoomForDen_OnlyAFullBookWithoutADenEntry(bool denMarked, int entries, bool makesRoom) =>
-        Assert.Equal(makesRoom, RuneKit.MakesRoomForDen(denMarked, entries));
+    public void MakesRoomFor_OnlyAFullBookWithoutAHomeEntry(bool homeMarked, int entries, bool makesRoom) =>
+        Assert.Equal(makesRoom, RuneKit.MakesRoomFor(homeMarked, entries));
 }

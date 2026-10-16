@@ -441,7 +441,7 @@ public sealed class BankDepositSkill : Skill
     }
 
     /// <summary>The pack pieces that go into the box (<see cref="IsBankable"/>); none without a pack.</summary>
-    private static List<Item> BankablePieces(SosariaCharacter character)
+    internal static List<Item> BankablePieces(SosariaCharacter character)
     {
         var pieces = new List<Item>();
         var pack = character?.Backpack;

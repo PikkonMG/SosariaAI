@@ -19,25 +19,27 @@ public sealed class HouseRetreatSkill : Skill
 {
     public const string SkillName = "HouseRetreat";
 
-    private const int DoorstepTiles = 1;
-
     private enum Leg
     {
-        ToDoor,
-        Enter,
+        In,
         Inside,
-        Leave,
+        Out,
         Back
     }
 
     private readonly HouseBase _home;
+    private readonly HouseEntry _entry;
     private SosariaCharacter _character;
     private Skill _walk;
     private Leg _leg;
     private Point3D _returnTo;
     private DateTime _insideSince;
 
-    public HouseRetreatSkill(HouseBase home) => _home = home;
+    public HouseRetreatSkill(HouseBase home)
+    {
+        _home = home;
+        _entry = new HouseEntry(home.Way, unlockedInside: false);
+    }
 
     public override string Name => SkillName;
 
@@ -45,76 +47,62 @@ public sealed class HouseRetreatSkill : Skill
     {
         _character = character;
         _returnTo = character.Location;
-        _leg = Leg.ToDoor;
+        _leg = Leg.In;
 
-        if (_home.House.Deleted || _home.Door.Deleted || character.Map != _home.House.Map)
+        if (!_home.Way.Stands || character.Map != _home.House.Map)
         {
             return CannotStart("the house is gone");
         }
 
-        HouseBases.HandKey(character, _home);
-        return StartWalk(new TravelSkill(_home.Front, DoorstepTiles));
+        _home.Way.HandKey(character);
+        return _entry.BeginIn(character);
     }
 
     public override SkillStatus Tick()
     {
-        if (_character is not { Deleted: false, Alive: true } || _home.House.Deleted || _home.Door.Deleted)
+        if (_character is not { Deleted: false, Alive: true } || !_home.Way.Stands)
         {
             return Fail("the house or its keeper is gone");
         }
 
         return _leg switch
         {
-            Leg.ToDoor => AfterWalk(EnterDoor),
-            Leg.Enter => TickEnter(),
+            Leg.In => TickIn(),
             Leg.Inside => TickInside(),
-            Leg.Leave => AfterWalk(StepBack),
+            Leg.Out => TickOut(),
             _ => TickBack()
         };
     }
 
     public override void Abort()
     {
+        _entry.Abort();
         _walk?.Abort();
         _walk = null;
     }
 
     public override void Resume(TimeSpan held)
     {
+        _entry.Resume(held);
         _walk?.Resume(held);
         _insideSince = SkillClock.Shift(_insideSince, held);
     }
 
-    private SkillStatus AfterWalk(Func<SkillStatus> next) =>
-        _walk.Tick() switch
-        {
-            SkillStatus.Running => SkillStatus.Running,
-            SkillStatus.Failed => Fail("no way to the door"),
-            _ => next()
-        };
-
-    private SkillStatus EnterDoor()
+    private SkillStatus TickIn()
     {
-        OpenDoor();
-        _leg = Leg.Enter;
-        return StartWalk(new GoToSkill(_home.Inside, 0)) ? SkillStatus.Running : Fail("the door would not open");
-    }
-
-    private SkillStatus TickEnter()
-    {
-        if (_home.House.IsInside(_character))
+        switch (_entry.TickIn())
         {
-            _walk.Abort();
-            ShutDoor();
-            _leg = Leg.Inside;
-            _insideSince = Core.Now;
-            var taken = HouseBases.Restock(_character, _home);
-            WorldPlay.Log($"{_character.Name} is inside {HouseBases.OwnerName(_home)}'s house and took {taken} things from the chest");
-            return SkillStatus.Running;
+            case SkillStatus.Running:
+                return SkillStatus.Running;
+            case SkillStatus.Failed:
+                return Fail("could not get inside");
         }
 
-        OpenDoor();
-        return _walk.Tick() == SkillStatus.Failed ? Fail("could not get inside") : SkillStatus.Running;
+        _leg = Leg.Inside;
+        _insideSince = Core.Now;
+        var taken = HouseChest.Restock(_character, _home.Way.Chest());
+        WorldPlay.Log($"{_character.Name} is inside {HouseBases.OwnerName(_home)}'s house and took {taken} things from the chest");
+        return SkillStatus.Running;
     }
 
     private SkillStatus TickInside()
@@ -130,42 +118,27 @@ public sealed class HouseRetreatSkill : Skill
             return SkillStatus.Running;
         }
 
-        OpenDoor();
-        _leg = Leg.Leave;
-        return StartWalk(new GoToSkill(_home.Front, 0)) ? SkillStatus.Running : Fail("could not get out");
+        _leg = Leg.Out;
+        return _entry.BeginOut(_character) ? SkillStatus.Running : Fail("could not get out");
     }
 
-    private SkillStatus StepBack()
+    private SkillStatus TickOut()
     {
+        switch (_entry.TickOut())
+        {
+            case SkillStatus.Running:
+                return SkillStatus.Running;
+            case SkillStatus.Failed:
+                return Fail("no way to the door");
+        }
+
         Talk.Say(_character, TalkCategory.HouseReturn);
         WorldPlay.Log($"{_character.Name} came back out of {HouseBases.OwnerName(_home)}'s house to fight by {_home.Spot.Name}");
         _leg = Leg.Back;
-        return StartWalk(new TravelSkill(_returnTo, CharactersFile.DefaultGoToRange)) ? SkillStatus.Running : SkillStatus.Done;
+        _walk = new TravelSkill(_returnTo, CharactersFile.DefaultGoToRange);
+        return _walk.Begin(_character) ? SkillStatus.Running : SkillStatus.Done;
     }
 
     // Back outside, a walk that cannot finish still leaves the member out and ready.
     private SkillStatus TickBack() => _walk.Tick() == SkillStatus.Running ? SkillStatus.Running : SkillStatus.Done;
-
-    private bool StartWalk(Skill walk)
-    {
-        _walk?.Abort();
-        _walk = walk;
-        return walk.Begin(_character);
-    }
-
-    private void OpenDoor()
-    {
-        if (!_home.Door.Open)
-        {
-            _home.Door.Use(_character);
-        }
-    }
-
-    private void ShutDoor()
-    {
-        if (_home.Door.Open)
-        {
-            _home.Door.Use(_character);
-        }
-    }
 }

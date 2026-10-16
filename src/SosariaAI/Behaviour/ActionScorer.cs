@@ -146,7 +146,9 @@ public static class ActionScorer
         {
             return situation?.HouseDue == true
                 ? $"{phrase} because its house needs a visit"
-                : $"{phrase} because it can afford a house";
+                : situation?.HomeDue == true
+                    ? $"{phrase} because it wants to go home"
+                    : $"{phrase} because it can afford a house";
         }
 
         if (situation?.HasSellGoods == true && situation.InTownRegion &&
@@ -244,10 +246,10 @@ public static class ActionScorer
         }
 
         if (candidate.SkillKind.Equals(SkillKinds.House, StringComparison.OrdinalIgnoreCase) &&
-            (situation?.HouseDue == true || situation?.CanBuyHouse == true))
+            (situation?.HouseDue == true || situation?.HomeDue == true || situation?.CanBuyHouse == true))
         {
             score += HouseBoost;
-            why = situation.HouseDue ? "house needs a visit" : "can afford a house";
+            why = situation.HouseDue ? "house needs a visit" : situation.HomeDue ? "wants to go home" : "can afford a house";
         }
 
         if (candidate.SkillKind == SkillKinds.GoHome &&
@@ -527,7 +529,7 @@ public static class ActionScorer
         }
 
         if (candidate.SkillKind == SkillKinds.House && situation?.HasHouse == true && !situation.HouseDue &&
-            !situation.VendorVisitDue)
+            !situation.HomeDue && !situation.VendorVisitDue)
         {
             return "already has a house";
         }
@@ -600,7 +602,8 @@ public static class ActionScorer
         }
 
         if (candidate.SkillKind.Equals(SkillKinds.House, StringComparison.OrdinalIgnoreCase) &&
-            situation?.CanBuyHouse != true && situation?.HouseDue != true && situation?.VendorVisitDue != true)
+            situation?.CanBuyHouse != true && situation?.HouseDue != true && situation?.HomeDue != true &&
+            situation?.VendorVisitDue != true)
         {
             return "cannot buy a house";
         }

@@ -17,8 +17,12 @@ using SosariaAI.Social;
 
 namespace SosariaAI.Behaviour;
 
-/// <summary>One PvP house: the engine house, the hot spot it stands by, its door, and the tiles before and behind the door.</summary>
-public sealed record HouseBase(BaseHouse House, HotSpot Spot, BaseDoor Door, Point3D Front, Point3D Inside);
+/// <summary>One PvP house: the way into it and the hot spot it stands by.</summary>
+public sealed record HouseBase(HouseDoorway Way, HotSpot Spot)
+{
+    public BaseHouse House => Way.House;
+    public Point3D Front => Way.Front;
+}
 
 /// <summary>
 /// The PvP houses by the hot spots (see <see cref="HouseBaseRules"/>): real engine houses a
@@ -89,7 +93,7 @@ public static class HouseBases
         // hurt, and a chest with nothing in it is no reason to go in.
         var hits = Vitals.HitsFraction(character);
         var low = hits >= HouseBaseRules.RetreatHits && SupplyCheck.IsLow(character) &&
-                  ChestOf(home)?.TotalItems > 0;
+                  home.Way.Chest()?.TotalItems > 0;
         var fighting = character.Combatant is { Deleted: false, Alive: true };
 
         if (!HouseBaseRules.ShouldRetreat(hits, low, fighting, NavMetric.Chebyshev(character.Location, home.Front)))
@@ -108,66 +112,6 @@ public static class HouseBases
     /// A runner leaning that way reaches the door, and the retreat takes it inside.
     /// </summary>
     public static Point3D? SafeDoor(SosariaCharacter character) => MemberBase(character)?.Front;
-
-    /// <summary>
-    /// Gives a member a copy of the house key when it has none, as a guild handed keys round.
-    /// The engine's door opens only for a key in the pack.
-    /// </summary>
-    public static void HandKey(SosariaCharacter member, HouseBase home)
-    {
-        if (member.Backpack is not { } pack || Key.ContainsKey(pack, home.Door.KeyValue))
-        {
-            return;
-        }
-
-        member.AddToBackpack(new Key(KeyType.Gold, home.Door.KeyValue) { LootType = LootType.Newbied });
-    }
-
-    /// <summary>
-    /// A member inside takes what it runs short of from the chest: bandages and reagents up to
-    /// its own marks, and a few heal potions. The number of things taken.
-    /// </summary>
-    public static int Restock(SosariaCharacter member, HouseBase home)
-    {
-        if (ChestOf(home) is not { } chest || member.Backpack is not { } pack)
-        {
-            return 0;
-        }
-
-        var taken = 0;
-
-        foreach (var need in SupplyCheck.LowNeeds(member))
-        {
-            if (need.Kind is not (SupplyKind.Bandages or SupplyKind.Reagents or SupplyKind.TravelReagents))
-            {
-                continue;
-            }
-
-            foreach (var (type, amount) in SupplyCheck.BuyLines(pack, need))
-            {
-                var take = HouseBaseRules.Take(amount, chest.GetAmount(type));
-
-                if (take > 0 && chest.ConsumeUpTo(type, take) == take)
-                {
-                    pack.DropItem(Stack(type, take));
-                    taken += take;
-                }
-            }
-        }
-
-        var potions = HouseBaseRules.Take(
-            HouseBaseRules.TopUp(pack.GetAmount(typeof(GreaterHealPotion)), HouseBaseRules.PotionsTaken),
-            chest.GetAmount(typeof(GreaterHealPotion))
-        );
-
-        for (var i = 0; i < potions && chest.FindItemByType<GreaterHealPotion>() is { } potion; i++)
-        {
-            pack.DropItem(potion);
-            taken++;
-        }
-
-        return taken;
-    }
 
     public static string OwnerName(HouseBase home) => home.House.Owner?.Name ?? home.Spot.Name;
 
@@ -213,7 +157,7 @@ public static class HouseBases
             var house = BaseHouse.AllHouses[i];
 
             if (house is not { Deleted: false } || house.Map != map || house.Owner is not SosariaCharacter ||
-                SpotOf(house.Location, spots) is not { } spot || Base(house, spot, map) is not { } found)
+                SpotOf(house.Location, spots) is not { } spot || Base(house, spot) is not { } found)
             {
                 continue;
             }
@@ -235,22 +179,9 @@ public static class HouseBases
         return null;
     }
 
-    // The door and the tiles before and behind it. A house without a door is no base.
-    private static HouseBase Base(BaseHouse house, HotSpot spot, Map map)
-    {
-        if (house.Doors is not { Count: > 0 } doors || doors[0] is not { Deleted: false } door)
-        {
-            return null;
-        }
-
-        var walker = Standable.Walker(map);
-        var front = Standing(walker, new Point3D(door.X, door.Y + 1, house.Z));
-        var inside = Standing(walker, new Point3D(door.X, door.Y - 1, door.Z));
-        return front is { } before && inside is { } behind ? new HouseBase(house, spot, door, before, behind) : null;
-    }
-
-    private static Point3D? Standing(TileWalker walker, Point3D at) =>
-        walker.FloorNear(at.X, at.Y, at.Z) is { } floor ? new Point3D(at.X, at.Y, floor) : null;
+    // A house without a door is no base.
+    private static HouseBase Base(BaseHouse house, HotSpot spot) =>
+        HouseDoorway.Of(house) is { } way ? new HouseBase(way, spot) : null;
 
     /// <summary>Places the first missing house of the first spot short of its number. True when a house went up.</summary>
     private static bool PlaceOne(Map map, IReadOnlyList<HotSpot> spots)
@@ -386,7 +317,7 @@ public static class HouseBases
             var house = multiId == HouseBaseRules.SmallTowerId ? (BaseHouse)new SmallTower(owner) : new SmallOldHouse(owner, multiId);
             house.MoveToWorld(center, map);
 
-            if (Base(house, spot, map) is not { } built ||
+            if (Base(house, spot) is not { } built ||
                 TileRoute.Find(built.Front, spot.Camps[0], walker, (x, y, z) => IndoorTiles.IsBuilding(map, x, y, z)).Count == 0)
             {
                 house.RemoveKeys(owner);
@@ -425,19 +356,6 @@ public static class HouseBases
         }
     }
 
-    private static MetalChest ChestOf(HouseBase home)
-    {
-        foreach (var chest in home.House.Map.GetItemsInRange<MetalChest>(home.House.Location, HouseBaseRules.FootprintTiles))
-        {
-            if (chest is { Deleted: false } && home.House.IsInside(chest))
-            {
-                return chest;
-            }
-        }
-
-        return null;
-    }
-
     // The chest is found, or set down and locked down, then filled to its marks from the owner's bank.
     private static void TopUp(HouseBase home)
     {
@@ -446,7 +364,7 @@ public static class HouseBases
             return;
         }
 
-        var chest = ChestOf(home) ?? NewChest(home, owner);
+        var chest = home.Way.ChestOrNew(owner);
         Fill(chest, owner, typeof(Bandage), HouseBaseRules.StockBandages, HouseBaseRules.BandagePrice);
 
         for (var i = 0; i < SupplyCheck.ReagentTypes.Length; i++)
@@ -454,7 +372,7 @@ public static class HouseBases
             Fill(chest, owner, SupplyCheck.ReagentTypes[i], HouseBaseRules.StockReagents, HouseBaseRules.ReagentPrice);
         }
 
-        var potions = HouseBaseRules.TopUp(chest.GetAmount(typeof(GreaterHealPotion)), HouseBaseRules.StockPotions);
+        var potions = HouseChest.TopUp(chest.GetAmount(typeof(GreaterHealPotion)), HouseBaseRules.StockPotions);
 
         if (potions > 0 && Banker.Withdraw(owner, potions * HouseBaseRules.PotionPrice))
         {
@@ -465,31 +383,13 @@ public static class HouseBases
         }
     }
 
-    // The chest stands in the middle of the floor, out of the doorway.
-    private static MetalChest NewChest(HouseBase home, SosariaCharacter owner)
-    {
-        var map = home.House.Map;
-        var middle = Standing(Standable.Walker(map), new Point3D(home.House.X, home.House.Y, home.Inside.Z));
-        var chest = new MetalChest();
-        chest.MoveToWorld(middle ?? home.Inside, map);
-
-        if (!home.House.LockDown(owner, chest))
-        {
-            chest.Movable = false;
-        }
-
-        return chest;
-    }
-
     private static void Fill(Container chest, SosariaCharacter owner, Type type, int target, int price)
     {
-        var add = HouseBaseRules.TopUp(chest.GetAmount(type), target);
+        var add = HouseChest.TopUp(chest.GetAmount(type), target);
 
         if (add > 0 && Banker.Withdraw(owner, add * price))
         {
-            chest.DropItem(Stack(type, add));
+            chest.DropItem(HouseChest.Stack(type, add));
         }
     }
-
-    private static Item Stack(Type type, int amount) => (Item)Activator.CreateInstance(type, amount);
 }

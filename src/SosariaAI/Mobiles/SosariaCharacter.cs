@@ -836,11 +836,11 @@ public partial class SosariaCharacter : PlayerMobile
             logger.Information("{Name} finished {Want}", Name, AmbitionRules.Describe(updated));
         }
 
-        var next = AmbitionRules.NextAfterComplete(
+        var next = AmbitionRules.NextForHomeless(
             updated,
-            unchecked((int)Serial.Value),
-            Persona?.Background,
-            Build
+            AmbitionRules.NextAfterComplete(updated, unchecked((int)Serial.Value), Persona?.Background, Build),
+            HouseOwned(),
+            HouseWantRules.Goal(HousePlots.Seed(this), HousePlots.SmallPrice)
         );
         AmbitionKind = next.Kind.ToString();
         AmbitionTarget = next.Target;
@@ -2092,7 +2092,6 @@ public partial class SosariaCharacter : PlayerMobile
         var dangerSpots = Memory.Danger.Active(Core.Now);
         var gold = (Backpack?.GetAmount(typeof(Gold)) ?? 0) + (BankBox?.GetAmount(typeof(Gold)) ?? 0);
         var ownedMount = Mounted ? null : OwnedMounts.Nearest(this, MountRules.SearchTiles);
-        var houseGold = SosariaSettings.Characters?.Career?.HouseGold ?? CareerSettings.DefaultHouseGold;
         var avoided = AvoidedHuntPlaces();
         return new Situation
         {
@@ -2126,9 +2125,9 @@ public partial class SosariaCharacter : PlayerMobile
             HasBoat = BoatOwned(),
             HasVendor = VendorOwned(),
             VendorErrand = PlayerVendorRules.HasErrand(this),
-            CanBuyHouse = HouseRules.CanBuy(gold, houseGold, HouseOwned()) &&
-                          CurrentAmbition().Kind != Behaviour.AmbitionKind.Gold,
+            CanBuyHouse = CanBuyHouse(gold),
             HouseDue = HouseVisit.Due(HouseRules.BySerial(HouseSerial)),
+            HomeDue = HomeDue(),
             Disposition = Disposition,
             BeyondLeash = HomeLeash.BeyondLeash(
                 Location,
@@ -2224,6 +2223,49 @@ public partial class SosariaCharacter : PlayerMobile
             CharacterPower.For(this),
             CharactersFile.GraveyardRequiredPower
         );
+
+    /// <summary>
+    /// A person that wants a house (<see cref="HouseWantRules"/>), holds its price, saves for
+    /// nothing else, and finds a free plot it may use. The plot is looked for last: it reads
+    /// every house in the world.
+    /// </summary>
+    private bool CanBuyHouse(int gold) =>
+        HouseWantRules.WantsHouse(HousePlots.Seed(this)) &&
+        HouseRules.CanBuy(gold, HousePlots.PriceFor(this), HouseOwned()) &&
+        !AmbitionRules.SavesForOtherThanHouse(CurrentAmbition()) &&
+        HousePlots.FreeFor(this) != null;
+
+    /// <summary>The owner wants to go home now (see <see cref="HomeLifeRules.Due"/>).</summary>
+    private bool HomeDue()
+    {
+        var house = HouseVisit.OwnedHouse(this);
+        var lastStay = HomeStaySkill.LastStay(this);
+
+        // The pack is read only once a stay is due at all: the read looks for a buyer in reach.
+        if (house == null || house.Map != Map || !TimeRules.Rested(lastStay, Core.Now, HomeLifeRules.StashEvery))
+        {
+            return false;
+        }
+
+        // Home is in reach on foot, or a rune lands at its door: a red living in the Den with
+        // its base at the Yew gate found no road across the sea.
+        var doorstep = HouseVisit.Doorstep(this, house);
+
+        if (HomeLeash.BeyondLeash(doorstep, Location, HomeLeash.ConfiguredRadius()) &&
+            RuneShelf.MarkedNear(this, doorstep, Map) == null)
+        {
+            return false;
+        }
+
+        return HomeLifeRules.Due(
+            hasHouse: true,
+            HouseChest.HasStash(this),
+            lastStay,
+            Core.Now,
+            Vitals.HitsFraction(this),
+            NavMetric.Chebyshev(Location, house.Location)
+        );
+    }
 
     public bool HouseOwned()
     {

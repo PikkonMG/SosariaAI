@@ -165,15 +165,27 @@ public sealed class VisitSkill : Skill
         return _stay.Tick();
     }
 
+    // A friend at home is behind its locked door: the visitor walks to the doorstep and waits
+    // there until the friend opens up, then steps in to it.
     private SkillStatus WalkTo(Mobile target)
     {
-        var dest = target.Location;
+        var door = WaitsAtDoor(target);
+        var dest = door?.Front ?? target.Location;
 
         if (_character.Map == target.Map &&
             NavMetric.Chebyshev(_character.Location, dest) <= NavLimits.SoftLegDistance)
         {
             ClearWalk();
-            _character.Motor.MoveTo(target, SosariaCombat.FollowRangeMax);
+
+            if (door != null)
+            {
+                _character.Motor.MoveToPoint(door.Front, 0);
+            }
+            else
+            {
+                _character.Motor.MoveTo(target, SosariaCombat.FollowRangeMax);
+            }
+
             return SkillStatus.Running;
         }
 
@@ -203,6 +215,18 @@ public sealed class VisitSkill : Skill
 
         return status == SkillStatus.Failed ? Fail(FriendWalkFailedWhy) : SkillStatus.Running;
     }
+
+    /// <summary>The door of a friend staying at home that is shut to the visitor outside it, or null.</summary>
+    private HouseDoorway WaitsAtDoor(Mobile target) =>
+        target is SosariaCharacter friend && HomeStaySkill.AtHome(friend) &&
+        HouseVisit.OwnedHouse(friend) is { } house && !house.IsInside(_character) &&
+        HouseDoorway.Of(house) is { Door.Open: false } way
+            ? way
+            : null;
+
+    /// <summary>True when <paramref name="visitor"/> is out on a visit to <paramref name="host"/>.</summary>
+    public static bool IsVisiting(SosariaCharacter visitor, Mobile host) =>
+        visitor.Routine?.CurrentSkill is VisitSkill visit && visit._targetSerial == host.Serial;
 
     /// <summary>
     /// Why the friend this visit set out for can no longer be visited, or null: it died or was
@@ -310,8 +334,8 @@ public sealed class VisitSkill : Skill
         !JobTargetRest.Rests(self, SkillKinds.Visit, JobTargetRest.KeyOf(mobile), Core.Now);
 
     /// <summary>
-    /// A character standing about (<see cref="WorldPlay.IsIdle"/>) or working a skill on the spot
-    /// (<see cref="PracticeRules.IsPractice"/>), and not off on a visit of its own; a human is
+    /// A character standing about (<see cref="WorldPlay.IsIdle"/>), working a skill on the spot
+    /// (<see cref="PracticeRules.IsPractice"/>) or staying in at home, and not off on a visit of its own; a human is
     /// taken as settled, since nothing says where it is going.
     /// </summary>
     public static bool IsSettled(Mobile mobile)
@@ -322,7 +346,8 @@ public sealed class VisitSkill : Skill
         }
 
         var current = character.Routine?.CurrentSkill;
-        return current is not VisitSkill && (WorldPlay.IsIdle(character) || PracticeRules.IsPractice(current?.Name));
+        return current is not VisitSkill &&
+               (WorldPlay.IsIdle(character) || PracticeRules.IsPractice(current?.Name) || HomeStaySkill.AtHome(character));
     }
 
     private static bool IsVisitCandidate(SosariaCharacter self, Mobile mobile)
@@ -334,6 +359,7 @@ public sealed class VisitSkill : Skill
 
         var sameMap = People.InWorld(mobile) && mobile.Map == self.Map;
         var isPerson = mobile is PlayerMobile;
-        return VisitRules.MayVisit(mobile.Alive, isPerson, sameMap, sameMap && SosariaCharacter.UnderGuards(mobile));
+        var safe = sameMap && (SosariaCharacter.UnderGuards(mobile) || mobile is SosariaCharacter host && HomeStaySkill.AtHome(host));
+        return VisitRules.MayVisit(mobile.Alive, isPerson, sameMap, safe);
     }
 }

@@ -854,6 +854,34 @@ where it stands.
 "somewhat worn" or worse, an owner goes back and uses the sign. A house whose
 owner stops coming falls, and then the owner may buy another.
 
+**Saving for a house.** About one character in four wants a house of its own,
+picked by its own seed. Of those, most want a small house, three in ten a
+two-story house and one in ten a tower. Once such a character with no house
+meets a gold goal, such as its nest egg or its boat, it saves next for its
+house. A character that saves for something else does not spend that gold on a
+deed. Once it has the price and a plot is free, it buys. Houses go up only on
+the `housePlots` list, one house to a plot. A crafter takes a vendor plot
+first: the default one is just outside the Britain graveyard.
+
+**Home life.** An owner lives in its house. It goes home when it carries pieces
+it would bank, every 90 minutes for a rest, or when it is under half its hits
+within 60 tiles of home. It goes at most once in 30 minutes, and only when home
+is in its walking reach or a rune lands at its door. A book owner keeps
+a rune at its door, so the trip home is a recall. A full book gives up its last
+entry for it. At home the owner lets itself in with its key and shuts the door.
+The door stays unlocked while it is in, so any walk from inside finds the way
+out. It puts the pieces it would bank into a locked-down chest, takes the
+bandages, reagents and heal potions it runs short of, and rests 3 to 8 minutes
+until it is healed. It leaves after 15 minutes in any case. Going out, it locks
+the door behind it.
+
+A crafter that owns a house works there. A smith buys an anvil and a small
+forge, and a cook a stone oven, with gold from its bank, and sets them up
+inside. Other trades work on the floor. The crafter goes to town only for what
+it lacks and to sell. A friend in at its own home can be visited: the visitor
+walks to the door, the owner opens it, and the owner stays in while the guest
+is inside.
+
 **Danger on the road.** A town trip reads its planned road. When the road passes
 a place the walker ran from, the walker recalls over that place or stops the
 trip. A trip that a threat or a dangerous road stopped rests that bank for 10

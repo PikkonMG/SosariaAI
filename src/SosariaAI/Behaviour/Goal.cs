@@ -106,7 +106,7 @@ public static class GoalRules
             return new Goal(GoalKind.Pk, NoTarget);
         }
 
-        if (situation.CanBuyHouse || situation.HouseDue)
+        if (situation.CanBuyHouse || situation.HouseDue || situation.HomeDue)
         {
             return new Goal(GoalKind.Work, SkillKinds.House);
         }

@@ -16,12 +16,13 @@ public static class VisitRules
     public const int ReachTiles = 100;
 
     /// <summary>
-    /// A visit is a walk across town for a chat. The friend must be alive, a real person
-    /// on the same map, and standing under the town guards. A miner visited a friend who
-    /// was hunting in the graveyard and walked straight into the undead.
+    /// A visit is a walk across town for a chat, or a call at a friend's house. The friend must
+    /// be alive, a real person on the same map, and somewhere safe: under the town guards, or
+    /// in at its own home. A miner visited a friend who was hunting in the graveyard and walked
+    /// straight into the undead.
     /// </summary>
-    public static bool MayVisit(bool alive, bool isPerson, bool sameMap, bool friendUnderGuards) =>
-        alive && isPerson && sameMap && friendUnderGuards;
+    public static bool MayVisit(bool alive, bool isPerson, bool sameMap, bool friendSafe) =>
+        alive && isPerson && sameMap && friendSafe;
 
     /// <summary>
     /// The friend to set out for: one who may be visited, within <see cref="ReachTiles"/>, and

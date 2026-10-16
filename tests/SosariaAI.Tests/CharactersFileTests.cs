@@ -20,7 +20,7 @@ public class CharactersFileTests
     private const int DefaultRosterSize = 13;
 
     /// <summary>A new file writes one house plot for Felucca and one for Trammel.</summary>
-    private const int DefaultHousePlotCount = 2;
+    private const int DefaultHousePlotCount = 4;
 
     [Fact]
     public void CreateDefault_ReturnsExpectedDefaults()
@@ -45,8 +45,10 @@ public class CharactersFileTests
         Assert.Equal(CareerSettings.DefaultPartyFollowRange, file.Career.PartyFollowRange);
         Assert.NotNull(file.HousePlots);
         Assert.Equal(DefaultHousePlotCount, file.HousePlots.Count);
-        AssertDefaultHousePlot(file.HousePlots[0], FacetNames.Felucca);
-        AssertDefaultHousePlot(file.HousePlots[1], FacetNames.Trammel);
+        AssertGraveyardPlot(file.HousePlots[0], FacetNames.Felucca);
+        AssertDefaultHousePlot(file.HousePlots[1], FacetNames.Felucca);
+        AssertGraveyardPlot(file.HousePlots[2], FacetNames.Trammel);
+        AssertDefaultHousePlot(file.HousePlots[3], FacetNames.Trammel);
         Assert.NotNull(file.Nav);
         Assert.False(file.Nav.RebuildOnBoot);
         Assert.Equal(NavSettings.DefaultGateCost, file.Nav.GateCost);
@@ -416,8 +418,10 @@ public class CharactersFileTests
             Assert.Equal(CareerSettings.DefaultGoldReserve, loaded.Career.GoldReserve);
             Assert.Equal(CareerSettings.DefaultVendorSearchRange, loaded.Career.VendorSearchRange);
             Assert.Equal(DefaultHousePlotCount, loaded.HousePlots.Count);
-            AssertDefaultHousePlot(loaded.HousePlots[0], FacetNames.Felucca);
-            AssertDefaultHousePlot(loaded.HousePlots[1], FacetNames.Trammel);
+            AssertGraveyardPlot(loaded.HousePlots[0], FacetNames.Felucca);
+            AssertDefaultHousePlot(loaded.HousePlots[1], FacetNames.Felucca);
+            AssertGraveyardPlot(loaded.HousePlots[2], FacetNames.Trammel);
+            AssertDefaultHousePlot(loaded.HousePlots[3], FacetNames.Trammel);
             Assert.NotNull(loaded.Nav);
             Assert.False(loaded.Nav.RebuildOnBoot);
             Assert.Equal(400, loaded.Nav.GateCost);
@@ -495,6 +499,17 @@ public class CharactersFileTests
                 File.Delete(path);
             }
         }
+    }
+
+    private static void AssertGraveyardPlot(HousePlot plot, string map)
+    {
+        Assert.NotNull(plot);
+        Assert.Equal(map, plot.Map);
+        Assert.Equal(HouseRules.GraveyardPlotX, plot.X);
+        Assert.Equal(HouseRules.GraveyardPlotY, plot.Y);
+        Assert.True(plot.Vendor);
+        Assert.Equal(HouseRules.GraveyardClearTiles, plot.Clear);
+        Assert.Equal(HouseRules.GraveyardReachTiles, plot.Reach);
     }
 
     private static void AssertDefaultHousePlot(HousePlot plot, string map)

@@ -82,20 +82,6 @@ public class HouseBaseRulesTests
         Assert.True(HouseBaseRules.Rested(Now, Now + HouseBaseRules.RetreatRest));
     }
 
-    [Theory]
-    [InlineData(0, 100, 100)]
-    [InlineData(40, 100, 60)]
-    [InlineData(120, 100, 0)]
-    [InlineData(-5, 10, 10)]
-    public void TopUp_ToTheMark(int have, int target, int add) => Assert.Equal(add, HouseBaseRules.TopUp(have, target));
-
-    [Theory]
-    [InlineData(20, 50, 20)]
-    [InlineData(20, 5, 5)]
-    [InlineData(-3, 5, 0)]
-    public void Take_AsFarAsTheChestHolds(int want, int inChest, int taken) =>
-        Assert.Equal(taken, HouseBaseRules.Take(want, inChest));
-
     [Fact]
     public void SpotReach_CoversEveryPlot() => Assert.True(HouseBaseRules.SpotReachTiles >= HouseBaseRules.MaxTiles);
 }

@@ -1288,10 +1288,10 @@ public class ActionScorerTests
     }
 
     [Fact]
-    public void Unavailable_House_AnOwnerGoesHomeOnlyForItsVendor()
+    public void Unavailable_House_AnOwnerGoesHomeForItsVendorOrAStay()
     {
-        // Owners never placed a vendor in a house they already had: the house routine was
-        // closed to anyone who owned one, so no player vendor stood on the shard.
+        // Owners never placed a vendor in a house they already had, and never went home at
+        // all: the house routine was closed to anyone who owned one.
         var owner = new Situation
         {
             Needs = new NeedsSnapshot { HitsFraction = FullHits, Power = 40 },
@@ -1303,6 +1303,7 @@ public class ActionScorerTests
         Assert.Equal("already has a house", ActionScorer.Unavailable(Candidate(SkillKinds.House), owner, catalog: null));
         Assert.Null(ActionScorer.Unavailable(Candidate(SkillKinds.House), owner with { HasVendor = false }, catalog: null));
         Assert.Null(ActionScorer.Unavailable(Candidate(SkillKinds.House), owner with { VendorErrand = true }, catalog: null));
+        Assert.Null(ActionScorer.Unavailable(Candidate(SkillKinds.House), owner with { HomeDue = true }, catalog: null));
     }
 
     private const double FullHits = 1.0;

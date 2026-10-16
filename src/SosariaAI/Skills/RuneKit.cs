@@ -182,10 +182,10 @@ public static class RuneKit
         red == null ? null : NavWorld.DestinationsFor(red.HomeFacet)?.NearestBank(red.HomeSpot, murderer: true);
 
     /// <summary>
-    /// A full book with no entry at the Den gives its last entry up for one: the recall home
-    /// after a death outranks the camp or door the book took last. Pure.
+    /// A full book with no entry at a home, the Den's bank or the owner's house, gives its last
+    /// entry up for one: the recall home outranks the camp or door the book took last. Pure.
     /// </summary>
-    public static bool MakesRoomForDen(bool denMarked, int entries) => !denMarked && !RunebookRules.HasRoom(entries);
+    public static bool MakesRoomFor(bool homeMarked, int entries) => !homeMarked && !RunebookRules.HasRoom(entries);
 
     /// <summary>
     /// Keeps an entry at the Den's bank in a red's book, on every bind: the recall home after
@@ -199,21 +199,38 @@ public static class RuneKit
             return;
         }
 
-        var landing = BankLanding(map, NavWorld.GraphFor(red.HomeFacet), den);
+        KeepEntry(red, book, map, BankLanding(map, NavWorld.GraphFor(red.HomeFacet), den));
+    }
 
-        if (landing == Point3D.Zero || !SpellHelper.CheckTravel(red, map, landing, TravelCheckType.RecallTo, out _))
+    /// <summary>
+    /// Keeps an entry at the door of the owner's house in its book, as a player marked a rune at
+    /// home: the trip home is then a recall. A full book gives its last entry up for it. An
+    /// owner with no book walks home. World thread.
+    /// </summary>
+    public static void MarkHome(SosariaCharacter owner, Point3D doorstep)
+    {
+        if (RuneShelf.Book(owner) is { } book)
+        {
+            KeepEntry(owner, book, owner.Map, doorstep);
+        }
+    }
+
+    // An entry the engine lets the person recall to, made room for in a full book.
+    private static void KeepEntry(SosariaCharacter character, Runebook book, Map map, Point3D landing)
+    {
+        if (landing == Point3D.Zero || !SpellHelper.CheckTravel(character, map, landing, TravelCheckType.RecallTo, out _))
         {
             return;
         }
 
-        if (MakesRoomForDen(NearAny(landing, RuneShelf.MarkedTargets(red, map)), book.Entries.Count))
+        if (MakesRoomFor(NearAny(landing, RuneShelf.MarkedTargets(character, map)), book.Entries.Count))
         {
             var keptDefault = book.Default;
             book.Entries.RemoveAt(book.Entries.Count - 1);
             book.Default = keptDefault;
         }
 
-        MarkInBook(red, map, [landing]);
+        MarkInBook(character, map, [landing]);
     }
 
     /// <summary>

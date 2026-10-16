@@ -77,6 +77,9 @@ public sealed record Situation
     /// <summary>The house it owns has worn far enough that it goes back to look in on it (see <see cref="HouseRules.VisitDue"/>).</summary>
     public bool HouseDue { get; init; }
 
+    /// <summary>The owner wants to go home: to put pieces away, to rest, or to heal (see <see cref="HomeLifeRules.Due"/>).</summary>
+    public bool HomeDue { get; init; }
+
     public DispositionKind Disposition { get; init; } = DispositionKind.Neutral;
 
     public bool BeyondLeash { get; init; }

@@ -64,7 +64,7 @@ public static class LifeRoutineDefaults
             },
             [House] = new LifeRoutineDefinition
             {
-                Description = "buy a small house",
+                Description = "buy a small house or go home to it",
                 Steps =
                 [
                     new SkillStepDefinition { Skill = SkillKinds.House },

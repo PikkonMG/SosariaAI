@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Server;
 using SosariaAI.Behaviour;
 using SosariaAI.Configuration;
+using SosariaAI.Navigation;
 using Xunit;
 
 namespace SosariaAI.Tests;
@@ -26,8 +27,8 @@ public class HouseRulesTests
         Assert.Equal(HouseRules.DefaultPlotX, plot.X);
         Assert.Equal(HouseRules.DefaultPlotY, plot.Y);
         Assert.Equal(HouseRules.DefaultPlotZ, plot.Z);
-        Assert.Equal($"I placed a small house at ({HouseRules.DefaultPlotX}, {HouseRules.DefaultPlotY}, {HouseRules.DefaultPlotZ}).", HouseRules.BoughtLine(plot.ToString()));
-        Assert.Equal("I bought a small house.", HouseRules.BoughtLine(null));
+        Assert.Equal($"I placed a small house at ({HouseRules.DefaultPlotX}, {HouseRules.DefaultPlotY}, {HouseRules.DefaultPlotZ}).", HouseRules.BoughtLine(HouseWantRules.SmallTarget, plot.ToString()));
+        Assert.Equal("I bought a small house.", HouseRules.BoughtLine(HouseWantRules.SmallTarget, null));
         Assert.False(HouseRules.OutsideTown(HouseRules.BritainTownMaxX));
         Assert.True(HouseRules.OutsideTown(HouseRules.DefaultPlotX));
         Assert.True(HouseRules.NearPlot(HouseRules.DefaultPlot(), HouseRules.DefaultPlot(), HouseRules.PlaceArrivalTiles));
@@ -74,7 +75,7 @@ public class HouseRulesTests
         var sawPlot = false;
         var sawBank = false;
 
-        foreach (var spot in HouseRules.CandidateSpots(plot, plot))
+        foreach (var spot in HouseRules.CandidateSpots(plot, plot, 0, HouseRules.PlaceSearchRadius))
         {
             Assert.True(HouseRules.OutsideTown(spot.X));
 
@@ -84,7 +85,7 @@ public class HouseRulesTests
             }
         }
 
-        foreach (var spot in HouseRules.CandidateSpots(CharactersFile.DefaultBankSpot, plot))
+        foreach (var spot in HouseRules.CandidateSpots(CharactersFile.DefaultBankSpot, plot, 0, HouseRules.PlaceSearchRadius))
         {
             Assert.True(HouseRules.OutsideTown(spot.X));
 
@@ -108,10 +109,49 @@ public class HouseRulesTests
     {
         // A plot west of Britain's x 1740, as on a map of the shard's own, found no spot at all.
         var plot = new Point3D(HouseRules.BritainTownMaxX - HouseRules.PlaceSearchRadius * 2, HouseRules.DefaultPlotY, HouseRules.DefaultPlotZ);
-        var spots = new List<Point3D>(HouseRules.CandidateSpots(plot, plot));
+        var spots = new List<Point3D>(HouseRules.CandidateSpots(plot, plot, 0, HouseRules.PlaceSearchRadius));
 
         Assert.Contains(plot, spots);
         Assert.Contains(new Point3D(plot.X - HouseRules.PlaceSearchStep, plot.Y, plot.Z), spots);
         Assert.DoesNotContain(spots, spot => HouseRules.OutsideTown(spot.X));
     }
+
+    [Fact]
+    public void CandidateSpots_KeepClearOfTheMiddleAndInsideTheReach()
+    {
+        var plot = new Point3D(HouseRules.GraveyardPlotX, HouseRules.GraveyardPlotY, HouseRules.GraveyardPlotZ);
+        var spots = new List<Point3D>(
+            HouseRules.CandidateSpots(plot, plot, HouseRules.GraveyardClearTiles, HouseRules.GraveyardReachTiles)
+        );
+
+        Assert.NotEmpty(spots);
+        Assert.DoesNotContain(plot, spots);
+        Assert.All(
+            spots,
+            spot => Assert.InRange(
+                NavMetric.Chebyshev(spot, plot),
+                HouseRules.GraveyardClearTiles,
+                HouseRules.GraveyardReachTiles
+            )
+        );
+    }
+
+    [Fact]
+    public void TakesPlot_AHouseOnOrNearThePlot()
+    {
+        var plot = HouseRules.DefaultPlot();
+        var edge = HouseRules.PlaceSearchRadius + HouseRules.PlotTakenMargin;
+
+        Assert.True(HouseRules.TakesPlot(plot, plot, HouseRules.PlaceSearchRadius));
+        Assert.True(HouseRules.TakesPlot(new Point3D(plot.X + edge, plot.Y, plot.Z), plot, HouseRules.PlaceSearchRadius));
+        Assert.False(HouseRules.TakesPlot(new Point3D(plot.X + edge + 1, plot.Y, plot.Z), plot, HouseRules.PlaceSearchRadius));
+    }
+
+    [Theory]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(true, true, true)]
+    [InlineData(true, false, false)]
+    public void MayUsePlot_AVendorPlotOnlyForACrafter(bool vendorPlot, bool crafter, bool may) =>
+        Assert.Equal(may, HouseRules.MayUsePlot(vendorPlot, crafter));
 }

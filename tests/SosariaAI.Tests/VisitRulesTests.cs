@@ -12,14 +12,14 @@ public class VisitRulesTests
     [Fact]
     public void MayVisit_FriendInTown_Yes()
     {
-        Assert.True(VisitRules.MayVisit(alive: true, isPerson: true, sameMap: true, friendUnderGuards: true));
+        Assert.True(VisitRules.MayVisit(alive: true, isPerson: true, sameMap: true, friendSafe: true));
     }
 
     [Fact]
     public void MayVisit_FriendHuntingOutsideTheGuards_No()
     {
         // Zenaide the miner visited Jed while he hunted in the graveyard, and had to run.
-        Assert.False(VisitRules.MayVisit(alive: true, isPerson: true, sameMap: true, friendUnderGuards: false));
+        Assert.False(VisitRules.MayVisit(alive: true, isPerson: true, sameMap: true, friendSafe: false));
     }
 
     [Fact]
@@ -54,8 +54,8 @@ public class VisitRulesTests
     [Fact]
     public void MayVisit_DeadOrAwayOrNotAPerson_No()
     {
-        Assert.False(VisitRules.MayVisit(alive: false, isPerson: true, sameMap: true, friendUnderGuards: true));
-        Assert.False(VisitRules.MayVisit(alive: true, isPerson: false, sameMap: true, friendUnderGuards: true));
-        Assert.False(VisitRules.MayVisit(alive: true, isPerson: true, sameMap: false, friendUnderGuards: true));
+        Assert.False(VisitRules.MayVisit(alive: false, isPerson: true, sameMap: true, friendSafe: true));
+        Assert.False(VisitRules.MayVisit(alive: true, isPerson: false, sameMap: true, friendSafe: true));
+        Assert.False(VisitRules.MayVisit(alive: true, isPerson: true, sameMap: false, friendSafe: true));
     }
 }

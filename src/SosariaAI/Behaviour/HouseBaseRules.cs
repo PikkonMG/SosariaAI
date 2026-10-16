@@ -37,9 +37,6 @@ public static class HouseBaseRules
     /// </summary>
     public const int MaxBuildTries = 5;
 
-    /// <summary>A house's chest stands this close to the house's middle.</summary>
-    public const int FootprintTiles = 8;
-
     /// <summary>A character's house this close to a spot's middle is one of that spot's bases.</summary>
     public const int SpotReachTiles = MaxTiles + RingStep;
 
@@ -75,9 +72,6 @@ public static class HouseBaseRules
     public const int BandagePrice = 2;
     public const int ReagentPrice = 5;
     public const int PotionPrice = 30;
-
-    /// <summary>A member takes up to this many heal potions from the chest at a time.</summary>
-    public const int PotionsTaken = 3;
 
     /// <summary>The first base of a spot that holds more than one is a tower; the rest are small houses.</summary>
     public static int MultiFor(int slot, int housesAtSpot) =>
@@ -126,10 +120,4 @@ public static class HouseBaseRules
         (!poisoned && hitsFraction >= ReturnHits) || inside >= StayLimit;
 
     public static bool Rested(DateTime lastRetreat, DateTime now) => TimeRules.Rested(lastRetreat, now, RetreatRest);
-
-    /// <summary>How many to add to bring a stock up to its mark.</summary>
-    public static int TopUp(int have, int target) => Math.Max(0, target - Math.Max(0, have));
-
-    /// <summary>How many a member takes: what it wants, as far as the chest holds.</summary>
-    public static int Take(int want, int inChest) => Math.Max(0, Math.Min(want, inChest));
 }

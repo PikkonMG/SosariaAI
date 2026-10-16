@@ -26,7 +26,7 @@ not in this file.
 | `musingIntervalMinutes` | `8` | The least time, in minutes, between two tries at an unprompted line by one character. A try also needs a new event. 0 or less uses 8. |
 | `feluccaGuardedMoongates` | `["Britain", "Moonglow", "Jhelom"]` | The Felucca moongates, by town, that keep their guards. See [Guarded moongates](#guarded-moongates). |
 | `lifeRoutines` | built-in set | The routines every character shares: `tavern`, `bankcrowd`, `visit`, `sightsee`, `house`, and `stable`. Each entry has `enabled` (default `true`), `weight` (default 1, how often a character wants it), `description`, an optional `requiredPower`, and `steps`. `"enabled": false` takes the routine away from every character. A roster entry that has its own routine or choice of the same id keeps it. A missing or empty block uses the built-in set. |
-| `housePlots` | `britain-east` at (1755, 1474, 0) on Felucca and Trammel | Where a character puts the house it buys. Each entry has `map`, `x`, `y`, and `z`. A character takes the first plot on its home facet, or the first plot with no `map`. With no plot that fits, it uses the default spot. The default spot is in Britannia, so give a [custom map](#custom-maps) its own plot. |
+| `housePlots` | `britain-graveyard` vendor plot at (1384, 1497, 10) and `britain-east` at (1755, 1474, 0), on Felucca and Trammel | The only places characters build houses, so they never take the spots players want. One house stands on a plot. Each entry has `map`, `x`, `y`, `z`, and optional `vendor` (default `false`: the plot goes to a crafter, for its vendor house), `clear` (default 0: the house keeps this many tiles from the plot's middle) and `reach` (default 12: the house stands at most this far from the middle). A character takes the first free plot on its home facet, a vendor plot first when it is a crafter. With no plot listed at all it uses the default spot east of Britain, which is in Britannia, so give a [custom map](#custom-maps) its own plot. With every plot taken, nobody buys. |
 | `career` | see [career](#career) | Work, fight, and group rules. |
 | `townScuffles` | see [townScuffles](#townscuffles) | Small Order and Chaos fights in towns. |
 | `nav` | see [nav](#nav) | Navigation graphs. |
@@ -42,7 +42,7 @@ not in this file.
 | `goldReserve` | `200` | Gold a character keeps back when it buys gear. Bank gold counts toward it first. 0 keeps none. A negative value uses 200. |
 | `ignorePriceLimits` | `false` | Test switch. `true` lets a character spend all its gold on gear and ignores `goldReserve`. Vendor prices still apply. |
 | `vendorSearchRange` | `8` | How far, in tiles, a character looks from its stall spot for a vendor that buys its goods. 0 or less uses 8. |
-| `houseGold` | `43800` | Gold, in the pack and the bank, a character needs before it buys a house. |
+| `houseGold` | `43800` | The price of a small house: gold, in the pack and the bank, a character needs before it buys one. A two-story house costs 192,400 and a tower 433,200, the architect's prices. |
 | `leisureRadius` | `200` | How far, in tiles, from home a character goes to look at a place. |
 | `leashRadius` | `400` | How far, in tiles, from home a character goes to hunt and to sell. A character far from home with no trip goes back. |
 | `partyInviteRange` | `8` | Tiles within which a party member adds its power to a character's side (fight, flee and hunt odds), and how far a character looks for a guild-war enemy to fight. |
