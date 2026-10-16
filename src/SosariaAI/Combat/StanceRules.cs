@@ -29,7 +29,8 @@ public enum CombatStance
 /// The fight as the stance rules and Jev see it, all computed in code: fractions, counts and
 /// flags, and the trade of blows (<see cref="FightTrendRules"/>). Jev is given these as
 /// words; the rules read them as they are. Cornered: the last back-off ran in place.
-/// BlueOnRed: a character who is not red fights a red person.
+/// BlueOnRed: a character who is not red fights a red person. FoeOnFriend: the foe's own
+/// target is a friend of this character or a friend's pet, not this character.
 /// </summary>
 public readonly record struct StanceSituation(
     CombatStyle Style,
@@ -53,6 +54,7 @@ public readonly record struct StanceSituation(
     bool HasBandage,
     bool CanHealSpell,
     int AlliesNear,
+    bool FoeOnFriend,
     bool Sticky,
     FightOutlook Outlook,
     bool LightDamage,
@@ -61,14 +63,16 @@ public readonly record struct StanceSituation(
 );
 
 /// <summary>
-/// The stance a character takes on its own, every tick, when Jev has not set one: heal when
-/// badly hurt, ward after the words keep breaking and kite when they break through the ward,
-/// freeze a melee foe that the kite cannot shake, kite while the mana comes back, else press.
-/// Pressing still steps clear for a spell
-/// or a shot that needs the room, and acts where it stands once the steps cannot buy it. A
-/// cornered fighter does not kite into the wall: it presses where it stands. A blue on a red
-/// presses while the trade goes its way and kites only when it is losing. Also the gate on
-/// Jev's answer: a stance the character cannot carry out, or one these rules forbid, is never taken.
+/// The stance a character takes on its own, every tick, when no model has set one: finish a
+/// foe about to fall, heal when badly hurt, ward after the words keep breaking and kite when
+/// they break through the ward, hold and cast or shoot while a friend takes the foe's blows,
+/// freeze a melee foe that the kite cannot shake, kite while the mana comes back, an archer
+/// kites a melee foe it cannot shake or is losing to, else press. Pressing still steps clear
+/// for a spell or a shot that needs the room, and acts where it stands once the steps cannot
+/// buy it. A cornered fighter does not kite into the wall: it presses where it stands. A blue
+/// on a red presses while the trade goes its way and kites only when it is losing. Also the
+/// gate on a model's answer: a stance the character cannot carry out, or one these rules
+/// forbid, is never taken.
 /// </summary>
 public static class StanceRules
 {
@@ -98,14 +102,38 @@ public static class StanceRules
     /// <summary>The best stance's yes must beat the next yes by this much, or the rules pick.</summary>
     public const double ClearWinGap = 0.05;
 
+    /// <summary>A foe at or below this share of its hits falls to one more attack (<see cref="MageTacticsRules.BurstFoeHitsFraction"/>).</summary>
+    public const double FinishFoeHitsFraction = MageTacticsRules.BurstFoeHitsFraction;
+
+    /// <summary>Below this share of its own hits a fighter heals first: the next blows may kill it before the foe falls.</summary>
+    public const double FinishOwnHitsFloor = 0.25;
+
+    /// <summary>A friend takes the blows only while nothing stands next to this character.</summary>
+    public const int NoAdjacentFoes = 0;
+
     public static CombatStance Pick(StanceSituation s)
     {
+        if (Finishes(s))
+        {
+            return CombatStance.Press;
+        }
+
         if (s.HitsFraction < HealStanceHitsFraction && Feasible(CombatStance.Heal, s))
         {
             return CombatStance.Heal;
         }
 
-        if (!s.Caster || PressesRed(s))
+        if (PressesRed(s))
+        {
+            return CombatStance.Press;
+        }
+
+        if (s.Style == CombatStyle.Archer)
+        {
+            return ArcherStance(s);
+        }
+
+        if (!s.Caster)
         {
             return CombatStance.Press;
         }
@@ -122,6 +150,12 @@ public static class StanceRules
             return CombatStance.Kite;
         }
 
+        // The foe beats on a friend: every step away from it is a spell not cast.
+        if (HoldsBehindFriend(s))
+        {
+            return CombatStance.Hold;
+        }
+
         // A frozen melee foe is walked away from before the big spell breaks it free; a free one
         // that the kite could not shake is frozen first.
         if (s.FoeStyle == CombatStyle.Melee &&
@@ -132,6 +166,41 @@ public static class StanceRules
 
         return s.ManaFraction < KiteManaFraction && Feasible(CombatStance.Kite, s) ? CombatStance.Kite : CombatStance.Press;
     }
+
+    /// <summary>
+    /// An archer holds while a friend takes the foe's blows, kites a melee foe that it cannot
+    /// shake or that is winning the trade, else presses: its own footwork steps clear for each
+    /// shot (<see cref="FootworkRules.Next"/>).
+    /// </summary>
+    private static CombatStance ArcherStance(StanceSituation s)
+    {
+        if (HoldsBehindFriend(s))
+        {
+            return CombatStance.Hold;
+        }
+
+        return s.FoeStyle == CombatStyle.Melee && (s.Sticky || s.Outlook == FightOutlook.Losing) &&
+               Feasible(CombatStance.Kite, s)
+            ? CombatStance.Kite
+            : CombatStance.Press;
+    }
+
+    /// <summary>
+    /// The foe is one attack from falling and this character is neither losing nor close to
+    /// death: it stays on the foe. A mage short of mana kited away from a foe one spell from
+    /// falling, and a hurt one stepped out to heal while the foe got its own hits back.
+    /// </summary>
+    public static bool Finishes(StanceSituation s) =>
+        s.FoeHitsFraction <= FinishFoeHitsFraction && s.HitsFraction >= FinishOwnHitsFloor &&
+        s.Outlook != FightOutlook.Losing;
+
+    /// <summary>
+    /// A caster or an archer whose foe beats on a friend, with nothing next to itself, holds
+    /// its ground and casts or shoots from where it stands: a party mage behind its tank.
+    /// </summary>
+    public static bool HoldsBehindFriend(StanceSituation s) =>
+        (s.Caster || s.Style == CombatStyle.Archer) && s.FoeOnFriend && s.AdjacentFoes == NoAdjacentFoes &&
+        Feasible(CombatStance.Hold, s);
 
     /// <summary>
     /// The words broke this often inside the interrupt window: a mage wards, then backs off.

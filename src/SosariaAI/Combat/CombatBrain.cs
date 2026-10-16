@@ -35,8 +35,6 @@ public static partial class CombatBrain
     public const int FoeLostMs = 5000;
 
     public const int MeleeRange = 1;
-    public const int ArcherKeepMin = 4;
-    public const int ArcherKeepMax = 8;
     public const int MageKeepMax = 8;
     public const int MinFleeSeconds = 10;
     public const int MaxFleeSeconds = 30;
@@ -143,6 +141,7 @@ public static partial class CombatBrain
         var safeCircle = SafeCircleNow(character, memory);
         var stance = StanceFor(character, memory, foe, style, caster, distance);
         var careWantsRoom = Care(character, memory, inFight: true, safeCircle, spellsAllowed: stance != CombatStance.Flee);
+        TendStamina(character, memory);
 
         // A lost foe is not chased. The fight ends when the grace runs out.
         if (presence == Presence.Lost)
@@ -326,7 +325,8 @@ public static partial class CombatBrain
             return;
         }
 
-        var keepMax = Math.Min(character.Weapon.MaxRange, ArcherKeepMax);
+        var keepMax = Math.Min(character.Weapon.MaxRange, FootworkRules.ArcherKeepMaxTiles);
+        var keepMin = Math.Min(FootworkRules.ArcherBandMin(stance), keepMax);
 
         if (distance > keepMax)
         {
@@ -341,7 +341,7 @@ public static partial class CombatBrain
             now - character.LastMoveTime,
             character.NextCombatTime - now
         );
-        var holds = distance >= ArcherKeepMin || CastTiming.Holds(needMs, memory.Threats.SoonestBlowMs);
+        var holds = distance >= keepMin || CastTiming.Holds(needMs, memory.Threats.SoonestBlowMs);
         var footwork = FootworkNow(memory, holds, stance);
 
         NoteReach(memory, foe, blocked: false);
@@ -631,13 +631,14 @@ public static partial class CombatBrain
             return;
         }
 
-        // Casting stops the feet, so a runner drinks and bandages but casts only to get away: a
-        // red's recall home once it broke contact, and a caster's Invisibility once its lead lets
-        // the words finish. A bard plays on the run to calm the creature on it. A hidden runner
-        // does none of it: a bandage or a potion shows it again.
+        // Casting stops the feet, so a runner drinks (a heal, a cure or a refresh) and bandages
+        // but casts only to get away: a red's recall home once it broke contact, and a caster's
+        // Invisibility once its lead lets the words finish. A bard plays on the run to calm the
+        // creature on it. A hidden runner does none of it: a bandage or a potion shows it again.
         if (!character.Hidden)
         {
             Care(character, memory, inFight: true, CastTiming.NoCircle, spellsAllowed: false);
+            TendStamina(character, memory);
             CalmChaser(character, memory);
         }
 
@@ -1003,12 +1004,14 @@ public static partial class CombatBrain
 
         var chaser = memory.Foes[lead];
         var ranged = character.Weapon is BaseRanged;
-        var keepMax = ranged ? Math.Min(character.Weapon.MaxRange, ArcherKeepMax) : ArcherKeepMax;
+        var keepMax = ranged
+            ? Math.Min(character.Weapon.MaxRange, FootworkRules.ArcherKeepMaxTiles)
+            : FootworkRules.ArcherKeepMaxTiles;
         var straggler = RoomSurvey.IsStraggler(
             picture.NearestDistance,
             picture.SecondDistance,
             ranged,
-            ArcherKeepMin,
+            FootworkRules.ArcherKeepMinTiles,
             keepMax
         );
         var nerve = NerveOf(character, memory);

@@ -69,6 +69,7 @@ public static partial class CombatBrain
         public bool HealReagents;
         public bool WardReagents;
         public bool ParalyzeReagents;
+        public bool DispelReagents;
     }
 
     /// <summary>Per-character fight state. Lists and tallies are reused between scans.</summary>
@@ -113,6 +114,7 @@ public static partial class CombatBrain
         public long NextCastAt;
         public long NextSpellCareAt;
         public long NextPotionAt;
+        public long NextRefreshAt;
         public long NextBandageAt;
         public bool Meditating;
         public long NextMeditateAt;

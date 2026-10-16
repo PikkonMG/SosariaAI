@@ -154,6 +154,19 @@ public class SelfCareRulesTests
         Assert.True(SelfCareRules.HasRemedy(empty with { HasBandage = true }));
     }
 
+    [Fact]
+    public void DrinksRefresh_WhenWindedAndInTheOpen()
+    {
+        const double Winded = 0.2;
+        const double Fresh = 0.9;
+
+        Assert.True(SelfCareRules.DrinksRefresh(Winded, hidden: false, ready: true));
+        Assert.False(SelfCareRules.DrinksRefresh(Fresh, hidden: false, ready: true));
+        Assert.False(SelfCareRules.DrinksRefresh(SelfCareRules.RefreshStaminaFraction, hidden: false, ready: true));
+        Assert.False(SelfCareRules.DrinksRefresh(Winded, hidden: true, ready: true));
+        Assert.False(SelfCareRules.DrinksRefresh(Winded, hidden: false, ready: false));
+    }
+
     private static CareFacts Everything() =>
         new(
             Poisoned: false,

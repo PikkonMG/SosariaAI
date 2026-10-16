@@ -74,6 +74,7 @@ public static partial class CombatBrain
             HasBandage: kit.Bandage,
             CanHealSpell: caster && kit.HealReagents && SpellBook.CanCast(SpellBook.Heal, magery, mana),
             AlliesNear: memory.AllyTargets.Count,
+            FoeOnFriend: FoeOnFriend(character, foe),
             Sticky: memory.AdjacentSince != 0 && now - memory.AdjacentSince >= FootworkRules.KiteGraceMs,
             Outlook: memory.Outlook,
             LightDamage: FightTrendRules.LightDamage(memory.Trend, character.HitsMax),

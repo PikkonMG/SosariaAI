@@ -20,7 +20,8 @@ public enum SpellKind
     ReactiveArmor,
     Protection,
     Invisibility,
-    Resurrection
+    Resurrection,
+    Dispel
 }
 
 /// <summary>
@@ -80,6 +81,13 @@ public static class SpellBook
     /// </summary>
     public static readonly SpellEntry Invisibility = new(SpellKind.Invisibility, 43, 6, 70, 20, 0);
 
+    /// <summary>
+    /// Dispel (DispelSpell, garlic, mandrake root and sulfurous ash): unmakes a summoned
+    /// creature (BaseCreature.IsDispellable) with a chance from the caster's Magery against the
+    /// creature's own difficulty (<see cref="MageTacticsRules.DispelChance"/>). Sixth circle.
+    /// </summary>
+    public static readonly SpellEntry Dispel = new(SpellKind.Dispel, 40, 6, 70, 20, 0);
+
     /// <summary>Resurrection (ResurrectionSpell): eighth circle, on a ghost one tile off (its TargetRange).</summary>
     public static readonly SpellEntry Resurrection = new(SpellKind.Resurrection, 58, 8, 90, 50, 0);
 
@@ -107,6 +115,7 @@ public static class SpellBook
             SpellKind.Protection => Protection,
             SpellKind.Invisibility => Invisibility,
             SpellKind.Resurrection => Resurrection,
+            SpellKind.Dispel => Dispel,
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
         };
 

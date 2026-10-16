@@ -19,8 +19,9 @@ is welcome. See [Helping](#helping).
 - Game rules in the plugin drive every bot. The rules run the whole world with
   no AI model at all.
 - AI models are optional. A chat model can write speech, personas, and plans. A
-  small decision model can pick jobs and fight stances at big moments. When a
-  model is off, slow, unsure, or over budget, the rules decide.
+  small decision model can pick jobs at big moments. The fight rules pick every
+  fight stance, unless `brain.json` hands them to a model. When a model is off,
+  slow, unsure, or over budget, the rules decide.
 - Every bot stays in the world while the server is up. Nobody logs out.
 - The bots follow the era the shard runs (T2A, ML, or later).
 

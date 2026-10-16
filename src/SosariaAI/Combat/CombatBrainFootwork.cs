@@ -333,7 +333,8 @@ public static partial class CombatBrain
             Bandage = character.Skills.Healing.Value > SelfCareRules.NoSkill && pack.FindItemByType<Bandage>() != null,
             HealReagents = HasReagents(pack, SpellKind.Heal, character),
             WardReagents = HasReagents(pack, SpellBook.WardOf(Core.UOR), character),
-            ParalyzeReagents = HasReagents(pack, SpellKind.Paralyze, character)
+            ParalyzeReagents = HasReagents(pack, SpellKind.Paralyze, character),
+            DispelReagents = HasReagents(pack, SpellKind.Dispel, character)
         };
     }
 

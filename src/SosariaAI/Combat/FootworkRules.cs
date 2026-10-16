@@ -52,6 +52,12 @@ public static class FootworkRules
     /// <summary>A kiting or healing mage, or one walking off a held foe, keeps at least this far.</summary>
     public const int KiteBandTiles = 6;
 
+    /// <summary>An archer in the press lets a foe come this near before it steps out for the shot.</summary>
+    public const int ArcherKeepMinTiles = 4;
+
+    /// <summary>An archer closes in when its foe stands farther off than this (or its bow's reach, if shorter).</summary>
+    public const int ArcherKeepMaxTiles = 8;
+
     /// <summary>A spell of this circle or higher that fits right now is worth casting instead of more steps.</summary>
     public const int WindowCircle = 3;
 
@@ -89,6 +95,13 @@ public static class FootworkRules
 
     /// <summary>A strong spell fits now (the foe just swung, or is still closing): cast it rather than step.</summary>
     public static bool TakesWindow(int circle) => circle >= WindowCircle;
+
+    /// <summary>
+    /// How near an archer lets the foe come before it steps out: a kiting archer keeps the
+    /// mage's kite band, so a melee foe it cannot shake is held off for longer shots.
+    /// </summary>
+    public static int ArcherBandMin(CombatStance stance) =>
+        stance == CombatStance.Kite ? KiteBandTiles : ArcherKeepMinTiles;
 
     /// <summary>How near a mage lets the foe come before it steps out, by stance.</summary>
     public static int BandMin(CombatStance stance, bool foeHeld) =>

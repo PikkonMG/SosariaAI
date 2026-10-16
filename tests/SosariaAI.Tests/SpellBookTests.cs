@@ -186,4 +186,16 @@ public class SpellBookTests
         Assert.False(SpellBook.RaisesDead(SpellKind.GreaterHeal));
         Assert.False(SpellBook.RaisesDead(SpellKind.Invisibility));
     }
+
+    [Fact]
+    public void Dispel_IsTheSixthCircleSpell()
+    {
+        const int DispelSpellId = 40;
+        const int SixthCircle = 6;
+
+        Assert.Equal(DispelSpellId, SpellBook.EntryOf(SpellKind.Dispel).SpellId);
+        Assert.Equal(SixthCircle, SpellBook.EntryOf(SpellKind.Dispel).Circle);
+        Assert.False(SpellBook.CanCast(SpellBook.Dispel, Novice, FullMana));
+        Assert.True(SpellBook.CanCast(SpellBook.Dispel, Grandmaster, FullMana));
+    }
 }

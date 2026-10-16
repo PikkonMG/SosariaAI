@@ -127,4 +127,27 @@ public class MageTacticsRulesTests
         Assert.Equal(EscapeMove.Recall, MageTacticsRules.Escape(hidden: true, losing: false, recallAllowed: true, canVanish: false));
         Assert.Equal(EscapeMove.StayHidden, MageTacticsRules.Escape(hidden: true, losing: false, recallAllowed: false, canVanish: true));
     }
+
+    [Fact]
+    public void DispelChance_FollowsTheEngineFormula()
+    {
+        // DispelSpell: (50 + 100 * (Magery - difficulty) / (focus * 2)) / 100.
+        const double VortexDifficulty = 80;
+        const double Focus = 20;
+        const double Expert = 80;
+
+        Assert.Equal(1.0, MageTacticsRules.DispelChance(Grandmaster, VortexDifficulty, Focus), 3);
+        Assert.Equal(0.5, MageTacticsRules.DispelChance(Expert, VortexDifficulty, Focus), 3);
+        Assert.Equal(0.0, MageTacticsRules.DispelChance(Grandmaster, VortexDifficulty, focus: 0), 3);
+    }
+
+    [Fact]
+    public void Dispels_ASummonTheSpellWillLikelyUnmake()
+    {
+        Assert.True(MageTacticsRules.Dispels(MageTacticsRules.MinDispelChance, canDispel: true, OpenGround));
+        Assert.True(MageTacticsRules.Dispels(FullHits, canDispel: true, SixthCircle));
+        Assert.False(MageTacticsRules.Dispels(MageTacticsRules.MinDispelChance - 0.01, canDispel: true, OpenGround));
+        Assert.False(MageTacticsRules.Dispels(FullHits, canDispel: false, OpenGround));
+        Assert.False(MageTacticsRules.Dispels(FullHits, canDispel: true, FifthCircle));
+    }
 }

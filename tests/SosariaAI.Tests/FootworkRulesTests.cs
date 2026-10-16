@@ -161,4 +161,13 @@ public class FootworkRulesTests
         Assert.Equal(FootworkRules.AosBowStillMs, FootworkRules.BowStillMs(aos: true, se: false));
         Assert.Equal(FootworkRules.SeBowStillMs, FootworkRules.BowStillMs(aos: true, se: true));
     }
+
+    [Fact]
+    public void ArcherBandMin_KiteKeepsTheWiderBand()
+    {
+        Assert.Equal(FootworkRules.ArcherKeepMinTiles, FootworkRules.ArcherBandMin(CombatStance.Press));
+        Assert.Equal(FootworkRules.ArcherKeepMinTiles, FootworkRules.ArcherBandMin(CombatStance.Hold));
+        Assert.Equal(FootworkRules.KiteBandTiles, FootworkRules.ArcherBandMin(CombatStance.Kite));
+        Assert.True(FootworkRules.KiteBandTiles <= FootworkRules.ArcherKeepMaxTiles);
+    }
 }

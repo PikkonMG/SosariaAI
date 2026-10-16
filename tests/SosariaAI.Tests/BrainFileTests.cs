@@ -91,6 +91,7 @@ public class BrainFileTests
             JevDecideCooldownSeconds = -1,
             JevScope = "everything",
             PartyOrders = "magic",
+            FightStances = "magic",
             JevMaxConcurrentRequests = 0,
             ChatHelpMaxSeconds = -1
         };
@@ -99,6 +100,7 @@ public class BrainFileTests
 
         Assert.Equal(BrainConfiguration.DefaultChatHelpMaxSeconds, config.ChatHelpMaxSeconds);
         Assert.Equal(BrainConfiguration.PartyOrdersDirect, config.PartyOrders);
+        Assert.Equal(BrainConfiguration.FightStancesRules, config.FightStances);
 
         Assert.Equal(BrainConfiguration.JevScopeCombatAndBig, config.JevScope);
         Assert.Equal(BrainConfiguration.DefaultJevMaxConcurrentRequests, config.JevMaxConcurrentRequests);
@@ -121,6 +123,30 @@ public class BrainFileTests
         config.Normalize();
 
         Assert.Equal(expected, config.PartyOrders);
+    }
+
+    [Theory]
+    [InlineData("model", BrainConfiguration.FightStancesModel)]
+    [InlineData(" Model ", BrainConfiguration.FightStancesModel)]
+    [InlineData("rules", BrainConfiguration.FightStancesRules)]
+    [InlineData(null, BrainConfiguration.FightStancesRules)]
+    [InlineData("", BrainConfiguration.FightStancesRules)]
+    public void Normalize_ReadsTheFightStancesMode(string value, string expected)
+    {
+        var config = new BrainConfiguration { FightStances = value };
+
+        config.Normalize();
+
+        Assert.Equal(expected, config.FightStances);
+    }
+
+    [Fact]
+    public void FightStances_DefaultsToTheRules()
+    {
+        Assert.Equal(BrainConfiguration.FightStancesRules, new BrainConfiguration().FightStances);
+        Assert.False(BrainConfiguration.AsksModelForStances(new BrainConfiguration()));
+        Assert.True(BrainConfiguration.AsksModelForStances(new BrainConfiguration { FightStances = BrainConfiguration.FightStancesModel }));
+        Assert.False(BrainConfiguration.AsksModelForStances(null));
     }
 
     [Fact]

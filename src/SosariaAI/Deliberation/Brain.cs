@@ -182,7 +182,13 @@ public static partial class Brain
 
         TradeVoice.Phraser = PhraseTrade;
         TradeIntentJev.Asker = AskJev;
-        CombatStanceJev.Asker = AskJev;
+        CombatStanceJev.Asker = BrainConfiguration.AsksModelForStances(_settings) ? AskJev : null;
+
+        if (CombatStanceJev.Asker == null)
+        {
+            console.Information("Fight stances: the rules decide every fight; no stance call goes out (brain.json fightStances)");
+        }
+
         JevPick.Asker = AskJev;
         JevPick.FloorOf = DecisionFloor;
         StartJevUsageLog();

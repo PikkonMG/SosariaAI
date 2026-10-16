@@ -67,6 +67,18 @@ public sealed class BrainConfiguration
 
     public const string DefaultPartyOrders = PartyOrdersDirect;
 
+    /// <summary>The fight rules pick every stance; no fight ever waits on a model call (<see cref="Combat.StanceRules"/>).</summary>
+    public const string FightStancesRules = "rules";
+
+    /// <summary>A fight with a real player in it asks the provider on its fight use for a stance; the rules gate the answer.</summary>
+    public const string FightStancesModel = "model";
+
+    /// <summary>
+    /// The rules own the fights: side by side on 27 fight cases no model beat them (rules 24,
+    /// Jev 24-25, Von 23, Laya 23-24), so a stance call is paid for and waited on for nothing.
+    /// </summary>
+    public const string DefaultFightStances = FightStancesRules;
+
     /// <summary>
     /// Jev calls out at once, apart from the chat providers' limit: a Jev answer takes about a
     /// tenth of a second, so a short queue behind this many beats falling back to the scorer.
@@ -184,7 +196,10 @@ public sealed class BrainConfiguration
     [JsonPropertyName("chatHelpMaxSeconds")]
     public int ChatHelpMaxSeconds { get; set; } = DefaultChatHelpMaxSeconds;
 
-    /// <summary>"combat-and-big" (the default): Jev decides fights that matter and big moments. "all": every next job too.</summary>
+    /// <summary>
+    /// "combat-and-big" (the default): Jev decides fights that matter (when fightStances is
+    /// "model") and big moments. "all": every next job too.
+    /// </summary>
     [JsonPropertyName("jevScope")]
     public string JevScope { get; set; } = DefaultJevScope;
 
@@ -192,9 +207,17 @@ public sealed class BrainConfiguration
     [JsonPropertyName("partyOrders")]
     public string PartyOrders { get; set; } = DefaultPartyOrders;
 
+    /// <summary>"rules" (the default): the fight rules pick every stance. "model": a fight with a real player in it asks the fight use's provider.</summary>
+    [JsonPropertyName("fightStances")]
+    public string FightStances { get; set; } = DefaultFightStances;
+
     /// <summary>Jev calls out at once, counted apart from maxConcurrentRequests.</summary>
     [JsonPropertyName("jevMaxConcurrentRequests")]
     public int JevMaxConcurrentRequests { get; set; } = DefaultJevMaxConcurrentRequests;
+
+    /// <summary>True when brain.json hands fight stances to a model (<see cref="FightStancesModel"/>); a missing file keeps the rules.</summary>
+    public static bool AsksModelForStances(BrainConfiguration config) =>
+        string.Equals(config?.FightStances, FightStancesModel, StringComparison.Ordinal);
 
     public void Normalize()
     {
@@ -244,6 +267,10 @@ public sealed class BrainConfiguration
         PartyOrders = string.Equals(PartyOrders?.Trim(), PartyOrdersPlanner, StringComparison.OrdinalIgnoreCase)
             ? PartyOrdersPlanner
             : PartyOrdersDirect;
+
+        FightStances = string.Equals(FightStances?.Trim(), FightStancesModel, StringComparison.OrdinalIgnoreCase)
+            ? FightStancesModel
+            : FightStancesRules;
 
         if (JevMaxConcurrentRequests <= 0)
         {

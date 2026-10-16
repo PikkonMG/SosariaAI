@@ -60,7 +60,21 @@ public static class SelfCareRules
     /// <summary>A caster that sat down to meditate gets up at this share of its mana.</summary>
     public const double RestedManaFraction = 0.9;
 
+    /// <summary>
+    /// Below this share of its stamina a fighter drinks a refresh potion: before AOS a winded
+    /// fighter swings slower (BaseWeapon.GetDelay scales with stamina), and a shove past a body
+    /// in its way needs full stamina (Mobile.CheckShove), on the attack and on the run.
+    /// </summary>
+    public const double RefreshStaminaFraction = 0.35;
+
     public static double HealLine(bool inFight) => inFight ? FightHealFraction : RestHealFraction;
+
+    /// <summary>
+    /// A winded fighter drinks a refresh potion when its own gap is up. A hidden one does not:
+    /// the drink shows it again.
+    /// </summary>
+    public static bool DrinksRefresh(double staminaFraction, bool hidden, bool ready) =>
+        ready && !hidden && staminaFraction < RefreshStaminaFraction;
 
     /// <summary>
     /// A caster low on mana meditates after the fight until it is rested. The two lines keep it

@@ -2,6 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using Server;
 using Server.Items;
+using Server.Mobiles;
 using Server.Spells;
 using Server.Spells.Eighth;
 using Server.Spells.Fifth;
@@ -34,6 +35,7 @@ public static partial class CombatBrain
     public const int RecallLookGapMs = 1000;
 
     private const string OpenerLine = "opener";
+    private const string DispelLine = "dispel";
     private const string BurstLine = "burst";
     private const string VanishLine = "vanish";
     private const string RecallOutLine = "recall out";
@@ -247,15 +249,26 @@ public static partial class CombatBrain
     }
 
     /// <summary>
-    /// The spell a mage's tactics call for (<see cref="MageTacticsRules"/>): the burst's
-    /// follow-up while it is owed, Paralyze to open on a free melee foe, or Explosion to start a
-    /// burst when the mana holds both spells; null when none does.
+    /// The spell a mage's tactics call for (<see cref="MageTacticsRules"/>): Dispel on a summoned
+    /// foe it will likely unmake, the burst's follow-up while it is owed, Paralyze to open on a
+    /// free melee foe, or Explosion to start a burst when the mana holds both spells; null when
+    /// none does.
     /// </summary>
     private static SpellKind? TacticSpell(SosariaCharacter character, Memory memory, Mobile foe, bool held, int planCircle)
     {
         var tactics = TacticsOf(character, memory);
         var magery = character.Skills.Magery.Value;
         var mana = character.Mana;
+
+        if (foe is BaseCreature { IsDispellable: true } summon &&
+            MageTacticsRules.Dispels(
+                MageTacticsRules.DispelChance(magery, summon.DispelDifficulty, summon.DispelFocus),
+                memory.Kit.DispelReagents && SpellBook.CanCast(SpellBook.Dispel, magery, mana),
+                planCircle
+            ))
+        {
+            return SpellKind.Dispel;
+        }
 
         if (tactics.FollowUp is { } follow)
         {
@@ -662,6 +675,11 @@ public static partial class CombatBrain
             ? MageTacticsRules.BurstFollowUp(character.Skills.Magery.Value, character.Mana - SpellBook.Explosion.Mana)
             : null;
 
+        if (kind == SpellKind.Dispel && LogsOnce(character, DispelLine, foe))
+        {
+            logger.Information("{Name} casts Dispel on the summoned {Foe}", character.Name, foe.Name);
+        }
+
         if (opening && kind == SpellKind.Paralyze && LogsOnce(character, OpenerLine, foe))
         {
             logger.Information("{Name} opens on {Foe} with Paralyze", character.Name, foe.Name);
@@ -782,6 +800,7 @@ public static partial class CombatBrain
             SpellKind.Protection => new ProtectionSpell(caster),
             SpellKind.Invisibility => new InvisibilitySpell(caster),
             SpellKind.Resurrection => new ResurrectionSpell(caster),
+            SpellKind.Dispel => new DispelSpell(caster),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
         };
 }

@@ -16,7 +16,8 @@ public enum EscapeMove
 /// it froze a melee foe with Paralyze before anything else and cast from range; with the mana
 /// for both it said Explosion and then Energy Bolt or Flame Strike right after, so the delayed
 /// blast and the bolt landed together; and when the fight turned it went invisible or
-/// recalled out before its hits ran low, and meditated after. The burst is timed by the
+/// recalled out before its hits ran low, and meditated after. A summoned foe it dispelled.
+/// The burst is timed by the
 /// engine's own clocks for the running era: the Explosion blast waits 2.5 seconds before AOS
 /// and 3 after (ExplosionSpell.InternalTimer), and the next words wait out the cast recovery
 /// (Spell.GetCastRecovery: 0.75 seconds before AOS, 6 / 4 seconds from AOS on). Pure.
@@ -46,6 +47,16 @@ public static class MageTacticsRules
 
     /// <summary>A caster losing the trade of blows gets out below this share of its hits.</summary>
     public const double LosingEscapeFraction = 0.6;
+
+    /// <summary>A summon is dispelled when the spell unmakes it at least this often; below it the twenty mana buys more as damage.</summary>
+    public const double MinDispelChance = 0.5;
+
+    /// <summary>The terms of the engine's dispel chance (DispelSpell.Target).</summary>
+    public const double DispelBase = 50;
+    public const double DispelScale = 100;
+    public const double DispelFocusMultiple = 2;
+    public const double NoDispelChance = 0;
+    public const double SureDispelChance = 1;
 
     /// <summary>
     /// The first spell of the fight on a free melee foe is Paralyze, when it can be cast and
@@ -89,6 +100,27 @@ public static class MageTacticsRules
         BurstFollowUp(magery, mana - SpellBook.Explosion.Mana) is { } follow &&
         SpellBook.Fits(SpellBook.EntryOf(follow), planCircle) &&
         LandsTogether(SpellBook.EntryOf(follow).Circle, aos);
+
+    /// <summary>
+    /// The chance a Dispel unmakes a summon, as the engine rolls it:
+    /// (50 + 100 * (Magery - difficulty) / (focus * 2)) / 100, held to 0..1.
+    /// </summary>
+    public static double DispelChance(double magery, double difficulty, double focus) =>
+        focus <= 0
+            ? NoDispelChance
+            : Math.Clamp(
+                (DispelBase + DispelScale * (magery - difficulty) / (focus * DispelFocusMultiple)) / DispelScale,
+                NoDispelChance,
+                SureDispelChance
+            );
+
+    /// <summary>
+    /// A summoned foe (an energy vortex, blade spirits, an elemental) is dispelled rather than
+    /// fought down, when the spell will likely unmake it, can be cast now, and fits the circle
+    /// the footwork can buy. A 1999 mage did not trade spells with a vortex.
+    /// </summary>
+    public static bool Dispels(double chance, bool canDispel, int planCircle) =>
+        canDispel && chance >= MinDispelChance && SpellBook.Fits(SpellBook.Dispel, planCircle);
 
     /// <summary>
     /// A caster with something on it is losing: its hits are within <see cref="EscapeMargin"/>

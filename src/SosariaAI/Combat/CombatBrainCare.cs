@@ -21,6 +21,9 @@ public static partial class CombatBrain
     /// <summary>Pre-AOS heal potions share a ten second delay; cure potions wait as long here.</summary>
     public const int PotionGapMs = 10000;
 
+    /// <summary>A refresh potion has no engine delay of its own (BaseRefreshPotion); one is drunk at most this often.</summary>
+    public const int RefreshGapMs = 3000;
+
     public const int MillisecondsPerSecond = 1000;
 
     /// <summary>A build interval below this still waits this long between bandage attempts.</summary>
@@ -28,6 +31,7 @@ public static partial class CombatBrain
 
     private const string HealMateLine = "heal mate";
     private const string RaiseMateLine = "raise mate";
+    private const string RefreshLine = "refresh";
 
     /// <summary>The friends a healer weighs this think and how each stands, reused think to think. World thread only.</summary>
     private static readonly List<Mobile> MateBodies = [];
@@ -166,12 +170,14 @@ public static partial class CombatBrain
         {
             case CareChoice.CurePotion:
             {
-                Drink(character, memory, pack.FindItemByType<BaseCurePotion>(), now);
+                memory.NextPotionAt = now + PotionGapMs;
+                Drink(character, pack.FindItemByType<BaseCurePotion>());
                 break;
             }
             case CareChoice.HealPotion:
             {
-                Drink(character, memory, pack.FindItemByType<BaseHealPotion>(), now);
+                memory.NextPotionAt = now + PotionGapMs;
+                Drink(character, pack.FindItemByType<BaseHealPotion>());
                 break;
             }
             case CareChoice.Bandage:
@@ -228,14 +234,35 @@ public static partial class CombatBrain
         BeginCast(character, memory, kind, character);
     }
 
-    /// <summary>The engine's own drink check stands: a free hand, and the heal potion delay.</summary>
-    private static void Drink(SosariaCharacter character, Memory memory, BasePotion potion, long now)
+    /// <summary>The engine's own drink check stands: a free hand, the heal potion delay, and a refresh only when winded.</summary>
+    private static void Drink(SosariaCharacter character, BasePotion potion)
     {
-        memory.NextPotionAt = now + PotionGapMs;
-
         if (potion?.CanDrink(character) == true)
         {
             potion.Drink(character);
+        }
+    }
+
+    /// <summary>
+    /// A winded fighter drinks a refresh potion (<see cref="SelfCareRules.DrinksRefresh"/>), in a
+    /// fight and on the run. The pack is searched only once the stamina is low.
+    /// </summary>
+    private static void TendStamina(SosariaCharacter character, Memory memory)
+    {
+        var now = Core.TickCount;
+
+        if (!SelfCareRules.DrinksRefresh(Vitals.StaminaFraction(character), character.Hidden, now - memory.NextRefreshAt >= 0) ||
+            character.Backpack?.FindItemByType<BaseRefreshPotion>() is not { } potion)
+        {
+            return;
+        }
+
+        memory.NextRefreshAt = now + RefreshGapMs;
+        Drink(character, potion);
+
+        if (LogsOnce(character, RefreshLine, character))
+        {
+            logger.Information("{Name} drinks a refresh potion at {Stam}/{StamMax} stamina", character.Name, character.Stam, character.StamMax);
         }
     }
 

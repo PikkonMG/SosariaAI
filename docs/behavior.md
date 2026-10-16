@@ -391,6 +391,20 @@ or a fight may still win.
 Each class fights with its own tactics, on top of the press, step back and run
 every fighter has.
 
+The fight rules pick every stance. No model is asked unless `brain.json` sets
+`fightStances` to `"model"` (see [Fight stances](brain-config.md#fight-stances)).
+
+- A foe at or below 25% of its hits is finished first. The fighter does not
+  kite or step out to heal from it while it has 25% of its own hits or more and
+  is not losing the trade of blows.
+- A caster or an archer whose foe hits a friend (a party mate, a mate of its
+  side, or a friend's pet), with nothing next to itself, holds its ground and
+  casts or shoots from where it stands.
+- Below 35% of its stamina a fighter drinks a refresh potion, in a fight and on
+  the run, at most once every 3 seconds. Before AOS a winded fighter swings
+  slower, and a shove past a body needs full stamina. A hidden fighter does not
+  drink.
+
 - **Warrior and fencer.** A fighter draws one monster off a group it would not
   take whole. With two or more foes close, it steps to a tile with a wall or a
   rock at its back (at least two fewer open tiles around it, never a dead end,
@@ -401,7 +415,9 @@ every fighter has.
   it would hold that fight. A
   fighter healed to 80% within 45 seconds of a run goes back for the monster it
   ran from when that monster stands alone and is more hurt than the fighter.
-- **Archer and ranger.** An archer keeps its range and stands still to shoot. It
+- **Archer and ranger.** An archer keeps its range and stands still to shoot. A
+  melee foe that it cannot shake, or that is winning the trade of blows, makes it
+  kite: it keeps 6 tiles off in place of 4. It
   does not open on a monster with another hostile within 8 tiles of it out of a
   group too strong to take: the shot brings the pack. Mages follow the same rule.
 - **Bard.** A bard provokes the monster on it onto another monster on it first
@@ -431,7 +447,8 @@ engine's own for the running era.
   losing the trade, it recalls home when a recall would take. Otherwise it
   casts Invisibility on itself. A monster drops a foe it cannot see. A hidden
   caster stands still and casts nothing but a cure. After the fight it
-  meditates.
+  meditates. A summoned foe (an energy vortex, blade spirits, an elemental) gets
+  Dispel in place of damage when the engine's dispel chance is 50% or more.
 - **Healer.** Before it attacks, it casts Cure or Greater Heal on the worst
   off of its party and of the people fighting its foe. It raises a fallen party
   mate within 8 tiles with Resurrection when nothing attacks the healer and the

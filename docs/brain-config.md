@@ -70,7 +70,7 @@ so a weak guess never moves a character.
 
 | Task | Jev | Von | Laya |
 |---|---|---|---|
-| Fight stances | yes | yes | yes |
+| Fight stances (only with `"fightStances": "model"`) | yes | yes | yes |
 | Next jobs and big moments | yes | rules | rules |
 | Player intent | yes | rules | rules |
 | Trade reads | yes | rules | rules |
@@ -144,6 +144,12 @@ provider name or a fallback reason.
 
 ### Fight stances
 
+By default the fight rules pick every stance and no fight makes a call
+(`"fightStances": "rules"`). Side by side on 27 fight cases, no model beat the
+rules: the rules got 24 right, Jev 24 to 25, Von 23, and Laya 23 to 24. The
+boot log says so with "Fight stances: the rules decide every fight". The rest
+of this section applies only with `"fightStances": "model"`.
+
 A fight that matters asks the provider on its fight use for a stance: press or
 go back in, kite, step back and heal, paralyze then kite, protect, flee, or
 hold. A fight matters when it is against a person, against a foe clearly
@@ -187,9 +193,9 @@ not ask for its next job: the rules send it home first.
 | Setup | `route` keys | Who decides |
 |---|---|---|
 | Jev for everything | `"decision": "jev"` | Jev decides every task. Routine next jobs go to Jev only with `"jevScope": "all"`. |
-| Free only | `"decision": "von"` or `"decision": "laya"` | The model decides fight stances. The rules decide the rest, with chat help at big moments. |
-| Free fights, Jev for the rest | `"decision": "jev"`, `"decisionUses": { "personFight": "von", "monsterFight": "von" }` | Von decides fights at no cost. Jev decides the other tasks. |
-| Free fights, Jev for big moments | `"decision": "von"`, `"decisionUses": { "bigMoment": "jev" }` | Von decides fights at no cost. Jev decides big moments, player intent, and red moments. The rules decide trade reads and the speech gate. |
+| Free only | `"decision": "von"` or `"decision": "laya"`, `"fightStances": "model"` | The model decides fight stances. The rules decide the rest, with chat help at big moments. |
+| Free fights, Jev for the rest | `"decision": "jev"`, `"decisionUses": { "personFight": "von", "monsterFight": "von" }`, `"fightStances": "model"` | Von decides fights at no cost. Jev decides the other tasks. |
+| Free fights, Jev for big moments | `"decision": "von"`, `"decisionUses": { "bigMoment": "jev" }`, `"fightStances": "model"` | Von decides fights at no cost. Jev decides big moments, player intent, and red moments. The rules decide trade reads and the speech gate. |
 
 ## Top-level keys
 
@@ -216,7 +222,8 @@ not ask for its next job: the rules send it home first.
 | `speechGateThreshold` | `0.5` | 0 to 1. A gate answer at or over this value gets a reply. A failed gate lets the line through. |
 | `personaWriter` | `true` | `false` turns the persona writer off and ignores `personas-generated/`. Every copy then uses only the part library. |
 | `personaWritesPerMinute` | `3` | Personas the chat provider writes each minute. `0` stops new writes and keeps the saved ones. |
-| `jevScope` | `"combat-and-big"` | What a System One decision provider decides. `"combat-and-big"`: fights that matter and big moments. `"all"`: every next job too. Any other value reads as `"combat-and-big"`. |
+| `jevScope` | `"combat-and-big"` | What a System One decision provider decides. `"combat-and-big"`: fights that matter (only with `"fightStances": "model"`) and big moments. `"all"`: every next job too. Any other value reads as `"combat-and-big"`. |
+| `fightStances` | `"rules"` | Who picks a fight stance. `"rules"`: the fight rules, with no call. `"model"`: a fight with a real player in it asks the provider on its fight use (see [Fight stances](#fight-stances)), and the rules gate the answer. Any other value reads as `"rules"`. |
 | `partyOrders` | `"direct"` | How a party order reaches a bot member (see [Party orders](behavior.md#party-orders)). `"direct"`: the order replaces the member's job at once. `"planner"`: the order raises a plan trigger and the goal loop picks it at the top score, so a flee or a fight may still win. Any other value reads as `"direct"`. |
 | `jevMaxConcurrentRequests` | `32` | System One calls out at once, counted apart from `maxConcurrentRequests`. As many again wait in a queue. Past that, a call falls back to the rules (`jev busy` in the log for a next job). |
 | `decisionMinConfidence` | `0.5` | 0 to 1. A System One choice (a next job, an event decision, player intent, a red moment) below this is not used. A provider's own higher `minConfidence` wins. Fight stances, trade reads, and the speech gate use their own floors. |

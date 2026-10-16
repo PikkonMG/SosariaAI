@@ -14,6 +14,8 @@ public class StanceRulesTests
     private const int Weak = 50;
     private const int Dare = 100;
     private const int SlightlyStronger = 110;
+    private const double NearlyDead = 0.1;
+    private const double Dying = 0.2;
 
     [Fact]
     public void Pick_BadlyHurtWithARemedy_Heals()
@@ -200,6 +202,64 @@ public class StanceRulesTests
             StanceRules.Pick(Mage() with { BlueOnRed = true, Outlook = FightOutlook.Winning, HitsFraction = BadlyHurt, NeedsCare = true })
         );
 
+    [Fact]
+    public void Pick_ANearlyDeadFoe_IsFinished()
+    {
+        // A mage short of mana kited away from a foe one spell from falling, and a hurt one
+        // stepped out to heal: a player puts the foe down first.
+        var finishing = Mage() with { FoeHitsFraction = NearlyDead };
+
+        Assert.Equal(CombatStance.Press, StanceRules.Pick(finishing with { ManaFraction = NoMana }));
+        Assert.Equal(CombatStance.Press, StanceRules.Pick(finishing with { HitsFraction = BadlyHurt, NeedsCare = true }));
+        Assert.Equal(CombatStance.Press, StanceRules.Pick(finishing with { Sticky = true, AdjacentFoes = Adjacent }));
+        Assert.True(StanceRules.Finishes(finishing));
+    }
+
+    [Fact]
+    public void Pick_ANearlyDeadFoe_NotWhileLosingOrDying()
+    {
+        var hurt = Mage() with { FoeHitsFraction = NearlyDead, HitsFraction = BadlyHurt, NeedsCare = true };
+
+        Assert.Equal(CombatStance.Heal, StanceRules.Pick(hurt with { Outlook = FightOutlook.Losing }));
+        Assert.Equal(CombatStance.Heal, StanceRules.Pick(hurt with { HitsFraction = Dying }));
+        Assert.False(StanceRules.Finishes(Mage() with { FoeHitsFraction = StanceRules.FinishFoeHitsFraction + NearlyDead }));
+    }
+
+    [Fact]
+    public void Pick_AFriendTakesTheBlows_CasterAndArcherHold()
+    {
+        // The foe is on a friend and nothing is next to this one: every step away is a cast
+        // or a shot lost.
+        var tanked = Mage() with { FoeOnFriend = true, FoeDistance = FootworkRules.KeepBandTiles };
+        var archer = Warrior() with { Style = CombatStyle.Archer, FoeOnFriend = true };
+
+        Assert.Equal(CombatStance.Hold, StanceRules.Pick(tanked));
+        Assert.Equal(CombatStance.Hold, StanceRules.Pick(tanked with { ManaFraction = NoMana }));
+        Assert.Equal(CombatStance.Hold, StanceRules.Pick(archer));
+        Assert.NotEqual(CombatStance.Hold, StanceRules.Pick(tanked with { AdjacentFoes = Adjacent }));
+        Assert.Equal(CombatStance.Press, StanceRules.Pick(Warrior() with { FoeOnFriend = true }));
+        Assert.True(StanceRules.HoldsBehindFriend(tanked));
+    }
+
+    [Fact]
+    public void Pick_AFriendTakesTheBlows_ABlueWinningOnARedStillPresses() =>
+        Assert.Equal(
+            CombatStance.Press,
+            StanceRules.Pick(Mage() with { FoeOnFriend = true, BlueOnRed = true, Outlook = FightOutlook.Winning })
+        );
+
+    [Fact]
+    public void Pick_AnArcherCaughtByAMeleeFoe_Kites()
+    {
+        var archer = Warrior() with { Style = CombatStyle.Archer };
+
+        Assert.Equal(CombatStance.Kite, StanceRules.Pick(archer with { Sticky = true, AdjacentFoes = Adjacent }));
+        Assert.Equal(CombatStance.Kite, StanceRules.Pick(archer with { Outlook = FightOutlook.Losing }));
+        Assert.Equal(CombatStance.Press, StanceRules.Pick(archer with { Sticky = true, FoeStyle = CombatStyle.Archer }));
+        Assert.Equal(CombatStance.Press, StanceRules.Pick(archer with { Sticky = true, Cornered = true }));
+        Assert.Equal(CombatStance.Press, StanceRules.Pick(archer));
+    }
+
     internal static StanceSituation Mage() =>
         new(
             CombatStyle.Mage,
@@ -223,6 +283,7 @@ public class StanceRulesTests
             HasBandage: false,
             CanHealSpell: true,
             AlliesNear: 0,
+            FoeOnFriend: false,
             Sticky: false,
             Outlook: FightOutlook.Unknown,
             LightDamage: false,

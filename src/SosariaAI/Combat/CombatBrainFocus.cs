@@ -305,9 +305,24 @@ public static partial class CombatBrain
     private static bool AttacksFriend(SosariaCharacter character, Mobile mobile) =>
         mobile.Combatant is { Deleted: false, Alive: true } victim &&
         victim != character &&
-        People.IsLivingPlayer(victim) &&
-        (SameSide(character, victim) || GameParty.Of(character) is { } party && party == GameParty.Of(victim)) &&
+        IsFriend(character, victim) &&
         !character.IsHarmfulCriminal(mobile);
+
+    /// <summary>A living person on this character's side, its team or its party.</summary>
+    private static bool IsFriend(SosariaCharacter character, Mobile mobile) =>
+        People.IsLivingPlayer(mobile) &&
+        (SameSide(character, mobile) || GameParty.Of(character) is { } party && party == GameParty.Of(mobile));
+
+    /// <summary>
+    /// The foe's blows go to a friend of this character (<see cref="IsFriend"/>), or to a pet of
+    /// this character or of a friend, and not to this character: someone else holds it.
+    /// </summary>
+    private static bool FoeOnFriend(SosariaCharacter character, Mobile foe) =>
+        foe.Combatant is { Deleted: false, Alive: true } victim &&
+        victim != character &&
+        (IsFriend(character, victim) ||
+         victim is BaseCreature { Controlled: true, ControlMaster: { } master } &&
+         (master == character || IsFriend(character, master)));
 
     /// <summary>
     /// A foe this character leaves be unless it comes at it: the person it broke off from inside
