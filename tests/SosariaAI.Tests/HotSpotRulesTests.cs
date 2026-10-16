@@ -162,4 +162,17 @@ public class HotSpotRulesTests
         Assert.True(HotSpotRules.InReach(true, NavMetric.ByMoongate(PkRules.BucsDenHaven, yewCamp, openGates), false));
         Assert.False(HotSpotRules.InReach(false, NavMetric.ByMoongate(PkRules.BucsDenHaven, yewCamp, openGates), false));
     }
+
+    [Fact]
+    public void ReachesCamp_AWalkFromTheCenterWithNoPadOnIt()
+    {
+        // North of the Covetous mouth the compass point snapped to a lone floor tile walled in
+        // behind the pads: reds sent there walked at the rock, slid onto a pad and went up and
+        // down for two hours.
+        static bool PadAt(int x, int y, int z) => x == 2499 && y == 916;
+
+        Assert.True(HotSpotRules.ReachesCamp([new Point3D(2499, 918, 0), new Point3D(2499, 917, 0)], PadAt));
+        Assert.False(HotSpotRules.ReachesCamp([], PadAt));
+        Assert.False(HotSpotRules.ReachesCamp([new Point3D(2499, 917, 0), new Point3D(2499, 916, 0)], PadAt));
+    }
 }

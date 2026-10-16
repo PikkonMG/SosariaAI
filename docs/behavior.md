@@ -628,6 +628,12 @@ else on foot through the Den gate. At the camp, the first there wait up to two
 minutes for the rest. A mate joins a gang's ride only when its own run can
 start: its Conflict job does not rest, and a camp is in its reach.
 
+A hot spot's camps stand on its compass points: 16 tiles out from a moongate, 6
+from a dungeon door, a graveyard or the Den's square. A camp counts only where a
+walk from the spot's center reaches it with no teleporter pad on the way. North
+of the Covetous door the old camp was a lone floor tile walled in behind the
+pads, and reds sent there went up and down the pads for two hours.
+
 A red that is run off its hot spot three times on one run gives the spot up and
 rides home. The gang also gives the spot up and rides home when the blue
 fighters it sees within 18 tiles are a mob for its pack (3 or more, and more

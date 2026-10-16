@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Server;
 
 namespace SosariaAI.Behaviour;
 
@@ -52,6 +53,30 @@ public static class HotSpotRules
 
     /// <summary>The compass points a camp is looked for on.</summary>
     public const int CampDirections = 8;
+
+    /// <summary>
+    /// A camp counts only where a walk from the spot's center reaches it (<paramref name="trail"/>
+    /// not empty) with no teleporter pad on the way. A compass point snapped onto a lone floor
+    /// tile walled in behind the Covetous pads, and reds sent there walked at the rock, stepped
+    /// onto a pad and went up and down for two hours.
+    /// </summary>
+    public static bool ReachesCamp(IReadOnlyList<Point3D> trail, Func<int, int, int, bool> isPad)
+    {
+        if (trail == null || trail.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var tile in trail)
+        {
+            if (isPad(tile.X, tile.Y, tile.Z))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>A moongate counts when at least this many of its compass points lie open past the guards.</summary>
     public const int MinOpenCamps = CampDirections / 2;

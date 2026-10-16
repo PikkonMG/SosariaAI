@@ -279,12 +279,13 @@ public static class HotSpots
     {
         var spots = new List<HotSpot>();
         var walker = Standable.Walker(map);
+        var pads = TrapTiles.PadsFor(map);
         var stockMap = FacetMaps.IsStock(map.Name, map.Width, map.Height);
-        AddGates(spots, map, walker);
+        AddGates(spots, map, walker, pads);
 
         if (FacetMaps.Same(PkRules.Haven.Facet, map.Name) && PkRules.BucsDenHaven != Point3D.Zero)
         {
-            Add(spots, map, walker, HotSpotKind.Den, PkRules.BucsDenHaven);
+            Add(spots, map, walker, pads, HotSpotKind.Den, PkRules.BucsDenHaven);
         }
 
         for (var i = 0; i < catalog.All.Count; i++)
@@ -294,11 +295,11 @@ public static class HotSpots
             if (PkGangRules.IsDungeonMouth(destination.Kind, destination.Name, OnSurface(map, destination.Arrival)) &&
                 HotSpotRules.DoorIsHotSpot(destination.Role, stockMap))
             {
-                Add(spots, map, walker, HotSpotKind.DungeonDoor, destination.Arrival);
+                Add(spots, map, walker, pads, HotSpotKind.DungeonDoor, destination.Arrival);
             }
             else if (destination.ParsedKind == DestinationKind.Hunt && HotSpotRules.IsHotGraveyard(destination.Name))
             {
-                Add(spots, map, walker, HotSpotKind.Graveyard, destination.Arrival);
+                Add(spots, map, walker, pads, HotSpotKind.Graveyard, destination.Arrival);
             }
         }
 
@@ -306,11 +307,11 @@ public static class HotSpots
     }
 
     // Each public moongate of the facet with open ground round it, the haven's own left out.
-    private static void AddGates(List<HotSpot> spots, Map map, TileWalker walker)
+    private static void AddGates(List<HotSpot> spots, Map map, TileWalker walker, TrapField pads)
     {
         foreach (var gate in MoongateSeeds.GatesFor(map.Name))
         {
-            var camps = Camps(map, walker, gate.Location, HotSpotRules.GateCampTiles, includeCenter: false);
+            var camps = CampsAround(map, walker, pads, gate.Location, HotSpotRules.GateCampTiles, includeCenter: false);
 
             if (HotSpotRules.GateIsHotSpot(
                     PkRules.InBuccaneersDen(gate.Location.X, gate.Location.Y),
@@ -327,9 +328,9 @@ public static class HotSpots
     // A dungeon entrance on the surface: the engine's regions put it in no dungeon.
     private static bool OnSurface(Map map, Point3D at) => Region.Find(at, map)?.IsPartOf<DungeonRegion>() != true;
 
-    private static void Add(List<HotSpot> spots, Map map, TileWalker walker, HotSpotKind kind, Point3D center)
+    private static void Add(List<HotSpot> spots, Map map, TileWalker walker, TrapField pads, HotSpotKind kind, Point3D center)
     {
-        var camps = Camps(map, walker, center, HotSpotRules.NearCampTiles, includeCenter: true);
+        var camps = CampsAround(map, walker, pads, center, HotSpotRules.NearCampTiles, includeCenter: true);
 
         if (camps.Count > 0)
         {
@@ -347,10 +348,16 @@ public static class HotSpots
             HotSpotRules.HousesFor(kind, yewGate)
         );
 
-    // The standing spots round a center, on its compass points, that the guards never reach.
-    private static List<Point3D> Camps(Map map, TileWalker walker, Point3D center, int tiles, bool includeCenter)
+    /// <summary>
+    /// The standing spots round a center, on its compass points, that the guards never reach
+    /// and that a walk from the center reaches with no teleporter pad of <paramref name="pads"/>
+    /// on the way (<see cref="HotSpotRules.ReachesCamp"/>). Build only: each camp's walk is
+    /// searched.
+    /// </summary>
+    internal static List<Point3D> CampsAround(Map map, TileWalker walker, TrapField pads, Point3D center, int tiles, bool includeCenter)
     {
         var camps = new List<Point3D>();
+        var padShy = Standable.ShunningPads(walker, pads);
 
         if (includeCenter && Open(map, walker, center) is { } middle)
         {
@@ -361,7 +368,8 @@ public static class HotSpots
         {
             var point = new Point3D(center.X + StepX[d] * tiles, center.Y + StepY[d] * tiles, center.Z);
 
-            if (Open(map, walker, point) is { } camp)
+            if (Open(map, walker, point) is { } camp &&
+                HotSpotRules.ReachesCamp(TileRoute.Trail(center, camp, padShy, isIndoor: null), pads.Harms))
             {
                 camps.Add(camp);
             }
