@@ -67,12 +67,12 @@ public static partial class CombatBrain
             AdjacentFoes: memory.Threats.Adjacent,
             RecentInterrupts: memory.Interrupts.Count(now),
             Warded: WardUp(character),
-            CanWard: caster && kit.WardReagents &&
+            CanWard: caster && kit.Stock.Has(SpellBook.WardOf(Core.UOR)) &&
                      SpellBook.CanCast(SpellBook.EntryOf(SpellBook.WardOf(Core.UOR)), magery, mana),
-            CanParalyze: caster && kit.ParalyzeReagents && SpellBook.CanCast(SpellBook.Paralyze, magery, mana),
+            CanParalyze: caster && kit.Stock.Has(SpellKind.Paralyze) && SpellBook.CanCast(SpellBook.Paralyze, magery, mana),
             HasHealPotion: kit.HealPotion,
             HasBandage: kit.Bandage,
-            CanHealSpell: caster && kit.HealReagents && SpellBook.CanCast(SpellBook.Heal, magery, mana),
+            CanHealSpell: caster && kit.Stock.Has(SpellKind.Heal) && SpellBook.CanCast(SpellBook.Heal, magery, mana),
             AlliesNear: memory.AllyTargets.Count,
             FoeOnFriend: FoeOnFriend(character, foe),
             Sticky: memory.AdjacentSince != 0 && now - memory.AdjacentSince >= FootworkRules.KiteGraceMs,

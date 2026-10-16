@@ -627,8 +627,21 @@ public static partial class CombatBrain
             extras,
             memory.Picture.Attackers > 0 || character.Combatant is { Deleted: false, Alive: true }
         );
-        var melee = StyleOf(character, IsSpellFighter(character)) == CombatStyle.Melee;
+        var caster = IsSpellFighter(character);
+        var melee = StyleOf(character, caster) == CombatStyle.Melee;
         var choice = NerveRules.Decide(facts);
+
+        // A mage with nothing to cast starts no fight (see LeavesWithNoAttack); the kit is read
+        // here, for the stock of a fight that ended is gone with it.
+        if (caster && !facts.AlreadyAttacked)
+        {
+            ReadKit(character, memory);
+
+            if (!MageTacticsRules.HasAnyAttack(character.Skills.Magery.Value, memory.Kit.Stock))
+            {
+                choice = EngageChoice.Decline;
+            }
+        }
 
         if (choice == EngageChoice.PullStraggler && FightPullRules.ShootsIntoPack(melee, foes[pull].Packmates))
         {

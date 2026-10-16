@@ -50,6 +50,7 @@ public static partial class CombatBrain
     private const string PullLine = "pull";
     private const string ShakeLine = "shake";
     private const string HoldLine = "hold";
+    private const string NoAttackLine = "no attack";
     private const string ShootsAct = "shoots";
     private const string PinnedWhy = "pinned";
     private const string OutpacedWhy = "outpaced";
@@ -133,6 +134,11 @@ public static partial class CombatBrain
 
             ReadKit(character, memory);
             GearEquip.EquipReadyWeapon(character);
+
+            if (LeavesWithNoAttack(character, memory, foe))
+            {
+                return;
+            }
         }
 
         var caster = IsSpellFighter(character);
@@ -438,6 +444,27 @@ public static partial class CombatBrain
                 : "below the line",
                 memory.Outlook
             );
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// A mage with no attack it can cast (<see cref="MageTacticsRules.HasAnyAttack"/>) leaves the
+    /// fight: its picks failed at the reagent check with no word said, and it stood in Despise
+    /// saying "In Mani" while a lizardman beat on it. True when it ran.
+    /// </summary>
+    private static bool LeavesWithNoAttack(SosariaCharacter character, Memory memory, Mobile foe)
+    {
+        if (!IsSpellFighter(character) || MageTacticsRules.HasAnyAttack(character.Skills.Magery.Value, memory.Kit.Stock) ||
+            !TryRetreat(character, memory, foe, ordered: true))
+        {
+            return false;
+        }
+
+        if (LogsOnce(character, NoAttackLine, foe))
+        {
+            logger.Information("{Name} has no reagents for any attack spell and leaves {Foe}", character.Name, foe.Name);
         }
 
         return true;

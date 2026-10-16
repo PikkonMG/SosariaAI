@@ -66,10 +66,7 @@ public static partial class CombatBrain
     {
         public bool HealPotion;
         public bool Bandage;
-        public bool HealReagents;
-        public bool WardReagents;
-        public bool ParalyzeReagents;
-        public bool DispelReagents;
+        public SpellStock Stock;
     }
 
     /// <summary>Per-character fight state. Lists and tallies are reused between scans.</summary>

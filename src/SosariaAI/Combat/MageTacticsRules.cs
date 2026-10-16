@@ -66,11 +66,31 @@ public static class MageTacticsRules
     public static bool OpensWithParalyze(bool opened, CombatStyle foeStyle, bool foeHeld, bool canParalyze, int planCircle) =>
         !opened && foeStyle == CombatStyle.Melee && !foeHeld && canParalyze && SpellBook.Fits(SpellBook.Paralyze, planCircle);
 
-    /// <summary>The spell that follows Explosion: Flame Strike when the mana and Magery allow, else Energy Bolt, else none.</summary>
-    public static SpellKind? BurstFollowUp(double magery, int manaAfterExplosion) =>
-        SpellBook.CanCast(SpellBook.FlameStrike, magery, manaAfterExplosion) ? SpellKind.FlameStrike
-        : SpellBook.CanCast(SpellBook.EnergyBolt, magery, manaAfterExplosion) ? SpellKind.EnergyBolt
+    /// <summary>
+    /// The spell that follows Explosion: Flame Strike when the mana, Magery and
+    /// <paramref name="stock"/> allow, else Energy Bolt, else none.
+    /// </summary>
+    public static SpellKind? BurstFollowUp(double magery, int manaAfterExplosion, SpellStock stock) =>
+        SpellBook.CanCast(SpellBook.FlameStrike, magery, manaAfterExplosion) && stock.Has(SpellKind.FlameStrike) ? SpellKind.FlameStrike
+        : SpellBook.CanCast(SpellBook.EnergyBolt, magery, manaAfterExplosion) && stock.Has(SpellKind.EnergyBolt) ? SpellKind.EnergyBolt
         : null;
+
+    /// <summary>
+    /// True when the mage has some attack to cast: one its Magery holds whose reagents it packs
+    /// (<paramref name="stock"/>). Mana comes back; reagents do not, in the middle of a fight.
+    /// </summary>
+    public static bool HasAnyAttack(double magery, SpellStock stock)
+    {
+        foreach (var attack in SpellBook.Attacks)
+        {
+            if (magery >= attack.MinMagery && stock.Has(attack.Kind))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>How long after its cursor the Explosion blast lands in this era.</summary>
     public static int ExplosionDelayMs(bool aos) => aos ? AosExplosionDelayMs : PreAosExplosionDelayMs;
@@ -89,15 +109,15 @@ public static class MageTacticsRules
         BurstWindowMs;
 
     /// <summary>
-    /// A burst starts when Explosion and its follow-up can both be cast on the mana now, both
-    /// fit the circle the footwork can buy, the two land together in this era, and the foe is
-    /// not about to fall anyway.
+    /// A burst starts when Explosion and its follow-up can both be cast on the mana now and the
+    /// <paramref name="stock"/>, both fit the circle the footwork can buy, the two land together
+    /// in this era, and the foe is not about to fall anyway.
     /// </summary>
-    public static bool StartsBurst(double magery, int mana, int planCircle, double foeHitsFraction, bool aos) =>
+    public static bool StartsBurst(double magery, int mana, int planCircle, double foeHitsFraction, bool aos, SpellStock stock) =>
         foeHitsFraction > BurstFoeHitsFraction &&
-        SpellBook.CanCast(SpellBook.Explosion, magery, mana) &&
+        SpellBook.CanCast(SpellBook.Explosion, magery, mana) && stock.Has(SpellKind.Explosion) &&
         SpellBook.Fits(SpellBook.Explosion, planCircle) &&
-        BurstFollowUp(magery, mana - SpellBook.Explosion.Mana) is { } follow &&
+        BurstFollowUp(magery, mana - SpellBook.Explosion.Mana, stock) is { } follow &&
         SpellBook.Fits(SpellBook.EntryOf(follow), planCircle) &&
         LandsTogether(SpellBook.EntryOf(follow).Circle, aos);
 

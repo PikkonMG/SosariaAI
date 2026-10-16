@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Server;
 using Server.Items;
 using Server.Mobiles;
@@ -341,7 +342,12 @@ public static partial class CombatBrain
         }
     }
 
-    /// <summary>The pack's remedies and the reagents the stance rules count on. Read on the scan pace.</summary>
+    /// <summary>Every spell a fighter may cast, for its stock.</summary>
+    private static readonly SpellKind[] AllSpells = Enum.GetValues<SpellKind>();
+
+    private static readonly SpellInfo[] SpellInfos = new SpellInfo[AllSpells.Length];
+
+    /// <summary>The pack's remedies and the spells it holds the reagents for. Read on the scan pace.</summary>
     private static void ReadKit(SosariaCharacter character, Memory memory)
     {
         var pack = character.Backpack;
@@ -356,13 +362,38 @@ public static partial class CombatBrain
         {
             HealPotion = pack.FindItemByType<BaseHealPotion>() != null,
             Bandage = character.Skills.Healing.Value > SelfCareRules.NoSkill && pack.FindItemByType<Bandage>() != null,
-            HealReagents = HasReagents(pack, SpellKind.Heal, character),
-            WardReagents = HasReagents(pack, SpellBook.WardOf(Core.UOR), character),
-            ParalyzeReagents = HasReagents(pack, SpellKind.Paralyze, character),
-            DispelReagents = HasReagents(pack, SpellKind.Dispel, character)
+            Stock = StockOf(pack, AllSpells, character)
         };
     }
 
+    /// <summary>The spells of <paramref name="kinds"/> whose reagents <paramref name="pack"/> holds (<see cref="SpellStock"/>).</summary>
+    private static SpellStock StockOf(Container pack, IReadOnlyList<SpellKind> kinds, Mobile caster)
+    {
+        var stock = SpellStock.None;
+
+        if (pack == null)
+        {
+            return stock;
+        }
+
+        for (var i = 0; i < kinds.Count; i++)
+        {
+            if (HasReagents(pack, kinds[i], caster))
+            {
+                stock = stock.With(kinds[i]);
+            }
+        }
+
+        return stock;
+    }
+
     private static bool HasReagents(Container pack, SpellKind kind, Mobile caster) =>
-        SpellCasting.HasReagents(pack, NewSpell(kind, caster).Info);
+        SpellCasting.HasReagents(pack, InfoOf(kind, caster));
+
+    /// <summary>
+    /// A spell's reagent list (SpellInfo), the same for every caster: read once per kind, so the
+    /// stock read on the scan pace makes no spell each time.
+    /// </summary>
+    private static SpellInfo InfoOf(SpellKind kind, Mobile caster) =>
+        SpellInfos[(int)kind] ??= NewSpell(kind, caster).Info;
 }

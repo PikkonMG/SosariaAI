@@ -13,6 +13,7 @@ public enum CareChoice
 
 /// <summary>
 /// What the self-care call reads, as plain values. Each Ready flag is one cooldown.
+/// <see cref="Stock"/> holds the heal and cure spells whose reagents the pack holds.
 /// <see cref="SafeCircle"/> is the highest circle whose words finish before the next blow.
 /// </summary>
 public readonly record struct CareFacts(
@@ -29,7 +30,8 @@ public readonly record struct CareFacts(
     bool BandageReady,
     bool HasBandage,
     double Healing,
-    double Anatomy
+    double Anatomy,
+    SpellStock Stock
 );
 
 /// <summary>
@@ -169,7 +171,7 @@ public static class SelfCareRules
     }
 
     private static bool MaySpell(CareFacts facts, SpellEntry entry) =>
-        facts.SpellReady &&
+        facts.SpellReady && facts.Stock.Has(entry.Kind) &&
         SpellBook.CanCast(entry, facts.Magery, facts.Mana) &&
         SpellBook.Fits(entry, facts.SafeCircle);
 

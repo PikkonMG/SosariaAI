@@ -128,7 +128,7 @@ public static partial class CombatBrain
             case Footwork.OpenGap:
             {
                 if (stance is not (CombatStance.Press or CombatStance.Kite) ||
-                    AttackThatFits(character, distance, safeCircle) is not { } window ||
+                    AttackThatFits(character, memory, distance, safeCircle) is not { } window ||
                     !FootworkRules.TakesWindow(SpellBook.EntryOf(window).Circle) ||
                     !CastAt(character, memory, foe, window, committed: false))
                 {
@@ -139,7 +139,7 @@ public static partial class CombatBrain
             }
             case Footwork.Commit:
             {
-                if (AttackThatFits(character, distance, safeCircle) is { } fallback)
+                if (AttackThatFits(character, memory, distance, safeCircle) is { } fallback)
                 {
                     CastAt(character, memory, foe, fallback, committed: true, stance);
                 }
@@ -185,7 +185,7 @@ public static partial class CombatBrain
             {
                 var ward = SpellBook.WardOf(Core.UOR);
 
-                if (SpellBook.CanCast(SpellBook.EntryOf(ward), magery, mana))
+                if (SpellBook.CanCast(SpellBook.EntryOf(ward), magery, mana) && memory.Kit.Stock.Has(ward))
                 {
                     return ward;
                 }
@@ -196,7 +196,9 @@ public static partial class CombatBrain
             {
                 if (!held)
                 {
-                    return SpellBook.CanCast(SpellBook.Paralyze, magery, mana) ? SpellKind.Paralyze : null;
+                    return SpellBook.CanCast(SpellBook.Paralyze, magery, mana) && memory.Kit.Stock.Has(SpellKind.Paralyze)
+                        ? SpellKind.Paralyze
+                        : null;
                 }
 
                 if (distance < FootworkRules.BandMin(stance, foeHeld: true))
@@ -215,14 +217,14 @@ public static partial class CombatBrain
             return tactic;
         }
 
-        if (memory.Planned is { } planned && StillWorthCasting(planned, magery, mana, held, foe.Poisoned) &&
+        if (memory.Planned is { } planned && StillWorthCasting(planned, magery, mana, held, foe.Poisoned, memory.Kit.Stock) &&
             SpellBook.Fits(SpellBook.EntryOf(planned), planCircle))
         {
             return planned;
         }
 
-        memory.Planned = PlanSpell(character, foe, distance, planCircle) ??
-                         PlanSpell(character, foe, distance, CastTiming.TopCircle);
+        memory.Planned = PlanSpell(character, foe, distance, planCircle, memory.Kit.Stock) ??
+                         PlanSpell(character, foe, distance, CastTiming.TopCircle, memory.Kit.Stock);
         return memory.Planned;
     }
 
@@ -230,7 +232,7 @@ public static partial class CombatBrain
     /// A spell at or under <paramref name="circle"/>: Paralyze or Poison by chance, else a pick
     /// among the strongest attacks (<see cref="SpellBook"/>). Null when nothing can be cast.
     /// </summary>
-    private static SpellKind? PlanSpell(SosariaCharacter character, Mobile foe, int distance, int circle)
+    private static SpellKind? PlanSpell(SosariaCharacter character, Mobile foe, int distance, int circle, SpellStock stock)
     {
         var magery = character.Skills.Magery.Value;
         var mana = character.Mana;
@@ -243,9 +245,10 @@ public static partial class CombatBrain
                    foe.Paralyzed || foe.Frozen,
                    foe.Poisoned,
                    Utility.RandomDouble(),
-                   Utility.RandomDouble()
+                   Utility.RandomDouble(),
+                   stock
                ) ??
-               SpellBook.PickAttack(magery, mana, distance, circle, Utility.RandomDouble());
+               SpellBook.PickAttack(magery, mana, distance, circle, Utility.RandomDouble(), stock);
     }
 
     /// <summary>
@@ -263,7 +266,7 @@ public static partial class CombatBrain
         if (foe is BaseCreature { IsDispellable: true } summon &&
             MageTacticsRules.Dispels(
                 MageTacticsRules.DispelChance(magery, summon.DispelDifficulty, summon.DispelFocus),
-                memory.Kit.DispelReagents && SpellBook.CanCast(SpellBook.Dispel, magery, mana),
+                memory.Kit.Stock.Has(SpellKind.Dispel) && SpellBook.CanCast(SpellBook.Dispel, magery, mana),
                 planCircle
             ))
         {
@@ -272,7 +275,7 @@ public static partial class CombatBrain
 
         if (tactics.FollowUp is { } follow)
         {
-            if (SpellBook.CanCast(SpellBook.EntryOf(follow), magery, mana))
+            if (SpellBook.CanCast(SpellBook.EntryOf(follow), magery, mana) && memory.Kit.Stock.Has(follow))
             {
                 return follow;
             }
@@ -284,14 +287,14 @@ public static partial class CombatBrain
                 tactics.Opened,
                 StyleOfFoe(foe),
                 held,
-                memory.Kit.ParalyzeReagents && SpellBook.CanCast(SpellBook.Paralyze, magery, mana),
+                memory.Kit.Stock.Has(SpellKind.Paralyze) && SpellBook.CanCast(SpellBook.Paralyze, magery, mana),
                 planCircle
             ))
         {
             return SpellKind.Paralyze;
         }
 
-        return MageTacticsRules.StartsBurst(magery, mana, planCircle, Vitals.HitsFraction(foe), Core.AOS)
+        return MageTacticsRules.StartsBurst(magery, mana, planCircle, Vitals.HitsFraction(foe), Core.AOS, memory.Kit.Stock)
             ? SpellKind.Explosion
             : null;
     }
@@ -508,14 +511,21 @@ public static partial class CombatBrain
         return true;
     }
 
-    private static bool StillWorthCasting(SpellKind kind, double magery, int mana, bool foeHeld, bool foePoisoned) =>
-        SpellBook.CanCast(SpellBook.EntryOf(kind), magery, mana) &&
+    private static bool StillWorthCasting(SpellKind kind, double magery, int mana, bool foeHeld, bool foePoisoned, SpellStock stock) =>
+        SpellBook.CanCast(SpellBook.EntryOf(kind), magery, mana) && stock.Has(kind) &&
         !(kind == SpellKind.Paralyze && foeHeld) &&
         !(kind == SpellKind.Poison && foePoisoned);
 
     /// <summary>The best attack whose words finish before the next blow, or null.</summary>
-    private static SpellKind? AttackThatFits(SosariaCharacter character, int distance, int safeCircle) =>
-        SpellBook.PickAttack(character.Skills.Magery.Value, character.Mana, distance, safeCircle, Utility.RandomDouble());
+    private static SpellKind? AttackThatFits(SosariaCharacter character, Memory memory, int distance, int safeCircle) =>
+        SpellBook.PickAttack(
+            character.Skills.Magery.Value,
+            character.Mana,
+            distance,
+            safeCircle,
+            Utility.RandomDouble(),
+            memory.Kit.Stock
+        );
 
     /// <summary>
     /// Nothing to cast this tick: hold the band for the stance. Too near, or a heal that needs
@@ -583,6 +593,7 @@ public static partial class CombatBrain
                 FootworkRules.ArrowBreakMs(SlowedByProtection(character))
             ) ||
             !SpellBook.CanCast(SpellBook.MagicArrow, character.Skills.Magery.Value, character.Mana) ||
+            !memory.Kit.Stock.Has(SpellKind.MagicArrow) ||
             !CastAt(character, memory, foe, SpellKind.MagicArrow, committed: false))
         {
             return false;
@@ -663,7 +674,7 @@ public static partial class CombatBrain
         var opening = !self && !tactics.Opened;
         tactics.Opened |= !self;
         tactics.FollowUp = kind == SpellKind.Explosion
-            ? MageTacticsRules.BurstFollowUp(character.Skills.Magery.Value, character.Mana - SpellBook.Explosion.Mana)
+            ? MageTacticsRules.BurstFollowUp(character.Skills.Magery.Value, character.Mana - SpellBook.Explosion.Mana, memory.Kit.Stock)
             : null;
 
         if (kind == SpellKind.Dispel && LogsOnce(character, DispelLine, foe))

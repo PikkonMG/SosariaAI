@@ -25,6 +25,30 @@ public enum SpellKind
 }
 
 /// <summary>
+/// The spells whose reagents a pack holds, one bit per <see cref="SpellKind"/>. A spell the
+/// pack cannot pay for fails at the engine's reagent check before a word is said: a mage out
+/// of the attack reagents said "In Mani" over and over in Despise and never one attack. Pure.
+/// </summary>
+public readonly record struct SpellStock(long Bits)
+{
+    private const long NoBits = 0;
+    private const long EveryBit = ~NoBits;
+    private const long One = 1;
+
+    public static SpellStock None => new(NoBits);
+
+    public static SpellStock All => new(EveryBit);
+
+    public bool Has(SpellKind kind) => (Bits & Bit(kind)) != NoBits;
+
+    public SpellStock With(SpellKind kind) => new(Bits | Bit(kind));
+
+    public SpellStock Without(SpellKind kind) => new(Bits & ~Bit(kind));
+
+    private static long Bit(SpellKind kind) => One << (int)kind;
+}
+
+/// <summary>
 /// One spell a character may cast. <see cref="MinMagery"/> is the skill where a cast holds
 /// about half the time. Whether it has room is a matter of time, not tiles: see <see cref="CastTiming"/>.
 /// </summary>
@@ -146,7 +170,7 @@ public static class SpellBook
     public static bool RaisesCursor(SpellKind kind, bool protectionGuardsCasts) =>
         kind != SpellKind.Protection || !protectionGuardsCasts;
 
-    /// <summary>Paralyze on a foe closing in, or Poison on a clean one, by chance. Null when neither fits.</summary>
+    /// <summary>Paralyze on a foe closing in, or Poison on a clean one, by chance, from the <paramref name="stock"/>. Null when neither fits.</summary>
     public static SpellKind? PickUtility(
         double magery,
         int mana,
@@ -155,17 +179,18 @@ public static class SpellBook
         bool foeHeld,
         bool foePoisoned,
         double paralyzeRoll,
-        double poisonRoll
+        double poisonRoll,
+        SpellStock stock
     )
     {
         if (!foeHeld && distance <= ClosingTiles && Fits(Paralyze, safeCircle) &&
-            CanCast(Paralyze, magery, mana) && paralyzeRoll < ParalyzeChance)
+            CanCast(Paralyze, magery, mana) && stock.Has(SpellKind.Paralyze) && paralyzeRoll < ParalyzeChance)
         {
             return SpellKind.Paralyze;
         }
 
         if (!foePoisoned && Fits(Poison, safeCircle) &&
-            CanCast(Poison, magery, mana) && poisonRoll < PoisonChance)
+            CanCast(Poison, magery, mana) && stock.Has(SpellKind.Poison) && poisonRoll < PoisonChance)
         {
             return SpellKind.Poison;
         }
@@ -176,9 +201,10 @@ public static class SpellBook
     /// <summary>
     /// A weighted pick among the strongest <see cref="PoolDepth"/> attacks at or under
     /// <paramref name="circleCap"/>. Magic Arrow is the floor: it leaves the pool once anything
-    /// better can be cast. <paramref name="roll"/> is in [0, 1). Null when nothing can be cast.
+    /// better can be cast. Only spells of the <paramref name="stock"/> count. <paramref name="roll"/>
+    /// is in [0, 1). Null when nothing can be cast.
     /// </summary>
-    public static SpellKind? PickAttack(double magery, int mana, int distance, int circleCap, double roll)
+    public static SpellKind? PickAttack(double magery, int mana, int distance, int circleCap, double roll, SpellStock stock)
     {
         Span<int> pool = stackalloc int[PoolDepth];
         var pooled = 0;
@@ -188,7 +214,7 @@ public static class SpellBook
         {
             var floorWithBetter = i == 0 && pooled > 0;
 
-            if (floorWithBetter || !Castable(Attacks[i], magery, mana, distance, circleCap))
+            if (floorWithBetter || !Castable(Attacks[i], magery, mana, distance, circleCap, stock))
             {
                 continue;
             }
@@ -217,6 +243,6 @@ public static class SpellBook
         return Attacks[pool[pooled - 1]].Kind;
     }
 
-    private static bool Castable(SpellEntry entry, double magery, int mana, int distance, int circleCap) =>
-        CanCast(entry, magery, mana) && Fits(entry, circleCap) && distance <= Reach;
+    private static bool Castable(SpellEntry entry, double magery, int mana, int distance, int circleCap, SpellStock stock) =>
+        CanCast(entry, magery, mana) && stock.Has(entry.Kind) && Fits(entry, circleCap) && distance <= Reach;
 }

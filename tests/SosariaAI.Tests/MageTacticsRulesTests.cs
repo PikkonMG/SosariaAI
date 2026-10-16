@@ -51,11 +51,11 @@ public class MageTacticsRulesTests
     [Fact]
     public void BurstFollowUp_FlameStrikeWhenItCan_ElseEnergyBolt()
     {
-        Assert.Equal(SpellKind.FlameStrike, MageTacticsRules.BurstFollowUp(Grandmaster, SpellBook.FlameStrike.Mana));
-        Assert.Equal(SpellKind.EnergyBolt, MageTacticsRules.BurstFollowUp(Grandmaster, SpellBook.EnergyBolt.Mana));
-        Assert.Equal(SpellKind.EnergyBolt, MageTacticsRules.BurstFollowUp(Adept, FullMana));
-        Assert.Null(MageTacticsRules.BurstFollowUp(Journeyman, FullMana));
-        Assert.Null(MageTacticsRules.BurstFollowUp(Grandmaster, SpellBook.EnergyBolt.Mana - 1));
+        Assert.Equal(SpellKind.FlameStrike, MageTacticsRules.BurstFollowUp(Grandmaster, SpellBook.FlameStrike.Mana, SpellStock.All));
+        Assert.Equal(SpellKind.EnergyBolt, MageTacticsRules.BurstFollowUp(Grandmaster, SpellBook.EnergyBolt.Mana, SpellStock.All));
+        Assert.Equal(SpellKind.EnergyBolt, MageTacticsRules.BurstFollowUp(Adept, FullMana, SpellStock.All));
+        Assert.Null(MageTacticsRules.BurstFollowUp(Journeyman, FullMana, SpellStock.All));
+        Assert.Null(MageTacticsRules.BurstFollowUp(Grandmaster, SpellBook.EnergyBolt.Mana - 1, SpellStock.All));
     }
 
     [Fact]
@@ -84,22 +84,22 @@ public class MageTacticsRulesTests
     [Fact]
     public void StartsBurst_NeedsTheManaForBothSpells()
     {
-        Assert.True(MageTacticsRules.StartsBurst(Grandmaster, ExplosionAndStrike, OpenGround, FreshFoe, aos: false));
-        Assert.True(MageTacticsRules.StartsBurst(Grandmaster, ExplosionAndBolt, OpenGround, FreshFoe, aos: false));
-        Assert.False(MageTacticsRules.StartsBurst(Grandmaster, ExplosionOnly, OpenGround, FreshFoe, aos: false));
-        Assert.False(MageTacticsRules.StartsBurst(Journeyman, FullMana, OpenGround, FreshFoe, aos: false));
+        Assert.True(MageTacticsRules.StartsBurst(Grandmaster, ExplosionAndStrike, OpenGround, FreshFoe, aos: false, SpellStock.All));
+        Assert.True(MageTacticsRules.StartsBurst(Grandmaster, ExplosionAndBolt, OpenGround, FreshFoe, aos: false, SpellStock.All));
+        Assert.False(MageTacticsRules.StartsBurst(Grandmaster, ExplosionOnly, OpenGround, FreshFoe, aos: false, SpellStock.All));
+        Assert.False(MageTacticsRules.StartsBurst(Journeyman, FullMana, OpenGround, FreshFoe, aos: false, SpellStock.All));
     }
 
     [Fact]
     public void StartsBurst_NotOnABeatenFoeNorWhereTheWordsWouldBreak()
     {
-        Assert.False(MageTacticsRules.StartsBurst(Grandmaster, FullMana, OpenGround, BeatenFoe, aos: false));
-        Assert.False(MageTacticsRules.StartsBurst(Grandmaster, FullMana, Pressed, FreshFoe, aos: false));
+        Assert.False(MageTacticsRules.StartsBurst(Grandmaster, FullMana, OpenGround, BeatenFoe, aos: false, SpellStock.All));
+        Assert.False(MageTacticsRules.StartsBurst(Grandmaster, FullMana, Pressed, FreshFoe, aos: false, SpellStock.All));
     }
 
     [Fact]
     public void StartsBurst_TheFollowUpMustFitTheRoomToo() =>
-        Assert.False(MageTacticsRules.StartsBurst(Grandmaster, ExplosionAndStrike, SixthCircle, FreshFoe, aos: false));
+        Assert.False(MageTacticsRules.StartsBurst(Grandmaster, ExplosionAndStrike, SixthCircle, FreshFoe, aos: false, SpellStock.All));
 
     [Fact]
     public void Losing_NearTheRetreatLineOrLosingTheTrade()
@@ -149,5 +149,24 @@ public class MageTacticsRulesTests
         Assert.False(MageTacticsRules.Dispels(MageTacticsRules.MinDispelChance - 0.01, canDispel: true, OpenGround));
         Assert.False(MageTacticsRules.Dispels(FullHits, canDispel: false, OpenGround));
         Assert.False(MageTacticsRules.Dispels(FullHits, canDispel: true, FifthCircle));
+    }
+
+    [Fact]
+    public void HasAnyAttack_AnAttackItsMageryHoldsAndItsPackStocks()
+    {
+        Assert.True(MageTacticsRules.HasAnyAttack(Grandmaster, SpellStock.None.With(SpellKind.FlameStrike)));
+        Assert.False(MageTacticsRules.HasAnyAttack(Grandmaster, SpellStock.None.With(SpellKind.Heal)));
+        Assert.False(MageTacticsRules.HasAnyAttack(Journeyman, SpellStock.None.With(SpellKind.FlameStrike)));
+    }
+
+    [Fact]
+    public void Burst_NeedsTheReagentsOfBothSpells()
+    {
+        var noExplosion = SpellStock.All.Without(SpellKind.Explosion);
+        var explosionOnly = SpellStock.None.With(SpellKind.Explosion);
+
+        Assert.False(MageTacticsRules.StartsBurst(Grandmaster, FullMana, OpenGround, FreshFoe, aos: false, noExplosion));
+        Assert.False(MageTacticsRules.StartsBurst(Grandmaster, FullMana, OpenGround, FreshFoe, aos: false, explosionOnly));
+        Assert.Null(MageTacticsRules.BurstFollowUp(Grandmaster, FullMana, explosionOnly));
     }
 }

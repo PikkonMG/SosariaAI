@@ -33,6 +33,9 @@ public static partial class CombatBrain
     private const string RaiseMateLine = "raise mate";
     private const string RefreshLine = "refresh";
 
+    /// <summary>The spells self care may cast, for their stock (<see cref="CareFacts.Stock"/>).</summary>
+    private static readonly SpellKind[] CareSpells = [SpellKind.Cure, SpellKind.Heal, SpellKind.GreaterHeal];
+
     /// <summary>The friends a healer weighs this think and how each stands, reused think to think. World thread only.</summary>
     private static readonly List<Mobile> MateBodies = [];
 
@@ -224,7 +227,8 @@ public static partial class CombatBrain
             bandageReady,
             bandageReady && healing > SelfCareRules.NoSkill && pack.FindItemByType<Bandage>() != null,
             healing,
-            character.Skills.Anatomy.Value
+            character.Skills.Anatomy.Value,
+            StockOf(pack, CareSpells, character)
         );
     }
 

@@ -463,6 +463,10 @@ engine's own for the running era.
   caster stands still and casts nothing but a cure. After the fight it
   meditates. A summoned foe (an energy vortex, blade spirits, an elemental) gets
   Dispel in place of damage when the engine's dispel chance is 50% or more.
+  Every spell it picks, an attack, a heal, Paralyze, the ward or the burst, is
+  one whose reagents are in its pack. A mage with the reagents for no attack it
+  can cast starts no fight and leaves the one it is in: the log says `has no
+  reagents for any attack spell and leaves <foe>`.
 - **Healer.** Before it attacks, it casts Cure or Greater Heal on the worst
   off of its party and of the people fighting its foe. It raises a fallen party
   mate within 8 tiles with Resurrection when nothing attacks the healer and the

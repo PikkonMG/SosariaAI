@@ -182,7 +182,8 @@ public class SelfCareRulesTests
             BandageReady: true,
             HasBandage: true,
             Healing: Grandmaster,
-            Anatomy: Grandmaster
+            Anatomy: Grandmaster,
+            Stock: SpellStock.All
         );
 
     [Fact]
@@ -192,5 +193,14 @@ public class SelfCareRulesTests
         Assert.True(SelfCareRules.TreatsNow(hidden: true, inFight: true, poisoned: true));
         Assert.True(SelfCareRules.TreatsNow(hidden: true, inFight: false, poisoned: false));
         Assert.True(SelfCareRules.TreatsNow(hidden: false, inFight: true, poisoned: false));
+    }
+
+    [Fact]
+    public void Choose_NoHealReagents_CastsNoHeal()
+    {
+        var hurt = Everything() with { HitsFraction = Wounded, HasBandage = false, HasHealPotion = false };
+
+        Assert.Equal(CareChoice.None, SelfCareRules.Choose(hurt with { Stock = SpellStock.None }));
+        Assert.Equal(CareChoice.CurePotion, SelfCareRules.Choose(Everything() with { Poisoned = true, Stock = SpellStock.None }));
     }
 }
