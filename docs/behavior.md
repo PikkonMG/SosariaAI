@@ -134,7 +134,11 @@ only add facts to the calls that already run.
 - A chat prompt carries the character's recent thoughts (12 lines at most),
   its adventures of today and yesterday (8 at most), and, when a person is
   present, its bond to them and the 3 biggest adventures it shared with that
-  person.
+  person. In those adventures the character's own name is followed by "(you)":
+  "Gaius Pollard (you) fell to Dagfinn Harrow at Vesper".
+- A chat prompt names the people the character sees within hearing range (6
+  tiles), nearest first, 8 at most, or says nobody else stands near. A hidden
+  GM is not named.
 - A plan prompt carries the same, and one more list of 8 lines at most: its
   newest adventures and its recent thoughts, with up to 4 lines kept for the
   thoughts.

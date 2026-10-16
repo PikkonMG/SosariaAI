@@ -92,6 +92,21 @@ public class RecallPromptTests
     }
 
     [Fact]
+    public void Fact_MarksTheReadersOwnNameInTheSummary()
+    {
+        // A red read "Gaius Pollard fell to Dagfinn Harrow at Vesper" about its own death and
+        // told a player that Gaius, the red himself, was already dead.
+        using var memory = new RecallTestStore();
+        memory.Record(AdventureKinds.Death, Despise, Now.AddHours(-HoursAgo), $"{Halvard.Name} fell to {Grim.Name}", (Halvard, AdventureRoles.Fallen), (Grim, AdventureRoles.Against));
+
+        var fact = Recall.Fact(memory.Store.AdventuresOf(Halvard.Id)[0], Halvard.Id, Now);
+        var seenByGrim = Recall.Fact(memory.Store.AdventuresOf(Grim.Id)[0], Grim.Id, Now);
+
+        Assert.Equal($"today: {Halvard.Name}{Recall.SelfMark} fell to {Grim.Name} at Despise", fact);
+        Assert.Equal($"today: {Halvard.Name} fell to {Grim.Name}{Recall.SelfMark} at Despise", seenByGrim);
+    }
+
+    [Fact]
     public void Days_AreTodayAndYesterday_OldestFirst()
     {
         using var memory = new RecallTestStore();

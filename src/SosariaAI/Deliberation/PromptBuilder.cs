@@ -31,6 +31,9 @@ public sealed class LifePrompt
     public string PartyState { get; init; }
 
     public int DistanceFromHome { get; init; }
+
+    /// <summary>The people the character sees within talk range now, nearest first; empty when nobody stands near.</summary>
+    public IReadOnlyList<string> PeopleNear { get; init; }
 }
 
 public static class PromptBuilder
@@ -52,6 +55,16 @@ public static class PromptBuilder
     private const string DayPartPrefix = "Time of day: ";
     private const string OpinionPrefix = "About this person: ";
     public const string SharedAdventuresHeading = "What you did together with this person:";
+
+    /// <summary>
+    /// Names the people the character sees near it. The prompt named only the speaker: a red
+    /// told by a player that Gaius stood right beside her answered that she saw nobody.
+    /// </summary>
+    public const string PeopleNearPrefix = "People near you now: ";
+
+    public const string NobodyNearLine = "Nobody else stands near you now.";
+
+    private const string NameListSeparator = ", ";
     private const string LifeTalkRule =
         "Talk about your own life when it fits: what you are doing right now, who you just saw, what you did today. Your long goal is only a hope for later. Do not invent being an AI.";
 
@@ -210,6 +223,21 @@ public static class PromptBuilder
             builder.Append("Tiles from home: ");
             builder.Append(life.DistanceFromHome);
             builder.AppendLine();
+
+            if (life.PeopleNear != null)
+            {
+                if (life.PeopleNear.Count == 0)
+                {
+                    builder.AppendLine(NobodyNearLine);
+                }
+                else
+                {
+                    builder.Append(PeopleNearPrefix);
+                    builder.AppendJoin(NameListSeparator, life.PeopleNear);
+                    builder.AppendLine();
+                }
+            }
+
             builder.AppendLine("Do not claim a full load, gold, or wounds the facts above contradict.");
 
             if (life.RecentSpeech is { Count: > 0 })

@@ -365,6 +365,21 @@ public class PromptBuilderTests
         Assert.Contains("Gold in bank: 300", system);
     }
 
+    [Fact]
+    public void BuildSystem_NamesThePeopleNearOrSaysNobody()
+    {
+        // A red told by a player that Gaius stood beside her said she saw nobody: the prompt
+        // named only the speaker.
+        var near = new LifePrompt { PeopleNear = ["Gaius Pollard", "Rowan"] };
+        var alone = new LifePrompt { PeopleNear = [] };
+
+        var withPeople = PromptBuilder.BuildSystem(PersonasFile.CreateDefaultConnor(), null, 160, near);
+        var withNobody = PromptBuilder.BuildSystem(PersonasFile.CreateDefaultConnor(), null, 160, alone);
+
+        Assert.Contains(PromptBuilder.PeopleNearPrefix + "Gaius Pollard, Rowan", withPeople);
+        Assert.Contains(PromptBuilder.NobodyNearLine, withNobody);
+    }
+
     private static System.Collections.Generic.List<int> Occurrences(string text, string part)
     {
         var found = new System.Collections.Generic.List<int>();

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using Server;
 
 namespace SosariaAI.Memory;
@@ -33,6 +34,13 @@ public static class Recall
     private const string WithWord = ", with ";
     private const string AgainstWord = ", against ";
     private const string NameSeparator = ", ";
+
+    /// <summary>
+    /// Follows the reader's own name in a summary: the summary names everyone in the third
+    /// person, and a red that read "Gaius Pollard fell to Dagfinn Harrow at Vesper" about its
+    /// own death told a player that Gaius, the red himself, was already dead.
+    /// </summary>
+    public const string SelfMark = " (you)";
 
     /// <summary>The long-term memory id of a mobile, or null for a creature.</summary>
     public static string IdOf(Mobile mobile) => PersonRef.Of(mobile)?.Id;
@@ -137,7 +145,7 @@ public static class Recall
     /// </summary>
     public static string Fact(Adventure adventure, string readerId, DateTime now)
     {
-        var what = adventure.Headline.Trim();
+        var what = MarkSelf(adventure.Headline.Trim(), adventure.MemberOf(readerId)?.Person.Name);
         var text = new StringBuilder();
         text.Append(WhenWord(adventure.EndedAt, now)).Append(WhenSeparator).Append(what);
 
@@ -175,6 +183,12 @@ public static class Recall
 
         return text.ToString();
     }
+
+    /// <summary>Each whole-word <paramref name="name"/> in <paramref name="text"/> followed by <see cref="SelfMark"/>.</summary>
+    private static string MarkSelf(string text, string name) =>
+        string.IsNullOrWhiteSpace(name)
+            ? text
+            : Regex.Replace(text, $@"\b{Regex.Escape(name)}\b", match => match.Value + SelfMark, RegexOptions.IgnoreCase);
 
     /// <summary>"today", "yesterday", or "3 days ago", by calendar day.</summary>
     public static string WhenWord(DateTime at, DateTime now)

@@ -62,6 +62,9 @@ public static partial class Brain
 
     public static bool IsEnabled { get; private set; }
 
+    /// <summary>The most people the chat prompt names as standing near (<see cref="PeopleNear"/>).</summary>
+    public const int MaxPeopleNear = 8;
+
     public static int HearRange => _settings?.HearRange ?? BrainConfiguration.DefaultHearRange;
 
     /// <summary>True when brain.json sends party orders through the goal loop instead of straight to the routine.</summary>
@@ -1733,8 +1736,43 @@ public static partial class Brain
             PartyState = GameParty.MemberNames(character) ?? "none",
             DistanceFromHome = HomeLeash.DistanceFromHome(character.Location, character.HomeSpot),
             Days = Recall.Days(MemoryStore.Shared, selfId, now, PlanFacts.MaxMemory),
-            SharedAdventures = Recall.SharedFacts(MemoryStore.Shared, selfId, speakerId, now, PlanFacts.MaxShared)
+            SharedAdventures = Recall.SharedFacts(MemoryStore.Shared, selfId, speakerId, now, PlanFacts.MaxShared),
+            PeopleNear = PeopleNear(character)
         };
+    }
+
+    /// <summary>
+    /// The living people <paramref name="character"/> notices within hearing range
+    /// (<see cref="People.Perceives"/>), nearest first, at most <see cref="MaxPeopleNear"/>:
+    /// the speaker, a gang mate at its side, the stranger at the bank. A hidden GM is not there.
+    /// </summary>
+    private static IReadOnlyList<string> PeopleNear(SosariaCharacter character)
+    {
+        if (!People.InWorld(character))
+        {
+            return [];
+        }
+
+        var near = new List<(int Distance, string Name)>();
+
+        foreach (var mobile in character.Map.GetMobilesInRange(character.Location, HearRange))
+        {
+            if (mobile != character && People.IsLivingPlayer(mobile) && People.Perceives(character, mobile) &&
+                !string.IsNullOrWhiteSpace(mobile.Name))
+            {
+                near.Add((NavMetric.Chebyshev(character.Location, mobile.Location), mobile.Name));
+            }
+        }
+
+        near.Sort((a, b) => a.Distance.CompareTo(b.Distance));
+        var names = new List<string>(Math.Min(near.Count, MaxPeopleNear));
+
+        for (var i = 0; i < near.Count && names.Count < MaxPeopleNear; i++)
+        {
+            names.Add(near[i].Name);
+        }
+
+        return names;
     }
 
     private static int WorkGoodCount(SosariaCharacter character)
