@@ -125,3 +125,6 @@ desktop.ini
 *.rej
 *.bak
 *.tmp
+
+# Local server logs
+*.log
