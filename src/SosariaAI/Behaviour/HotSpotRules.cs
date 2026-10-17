@@ -87,12 +87,6 @@ public static class HotSpotRules
     public const int GraveyardWeight = 1;
     public const int DenWeight = 2;
 
-    /// <summary>PvP houses on the outskirts of the Yew gate.</summary>
-    public const int YewGateHouses = 3;
-
-    /// <summary>PvP houses on the outskirts of any other moongate or door.</summary>
-    public const int SpotHouses = 1;
-
     /// <summary>
     /// A red walks to a hot spot at most this far, the hops through the moongates it may take
     /// counted as the walk to the pad and on from the far one; a farther spot is left to reds nearer it.
@@ -132,18 +126,6 @@ public static class HotSpotRules
             HotSpotKind.DungeonDoor => DoorWeight,
             HotSpotKind.Graveyard => GraveyardWeight,
             _ => DenWeight
-        };
-
-    /// <summary>
-    /// How many PvP houses stand on a spot's outskirts: three by the Yew gate, one by any other
-    /// gate or door, none at a graveyard by town or in the Den, where the engine allows no house.
-    /// </summary>
-    public static int HousesFor(HotSpotKind kind, bool yewGate) =>
-        kind switch
-        {
-            HotSpotKind.Moongate => yewGate ? YewGateHouses : SpotHouses,
-            HotSpotKind.DungeonDoor => SpotHouses,
-            _ => 0
         };
 
     /// <summary>

@@ -17,10 +17,10 @@ namespace SosariaAI.Behaviour;
 
 /// <summary>
 /// One PvP hot spot: its spoken name, what it is, the thing at its middle, the unguarded
-/// standing spots round it where a gang camps and a sweep rides to, how much the reds favour
-/// it, and how many PvP houses stand on its outskirts.
+/// standing spots round it where a gang camps and a sweep rides to, and how much the reds
+/// favour it.
 /// </summary>
-public sealed record HotSpot(string Name, HotSpotKind Kind, Point3D Center, IReadOnlyList<Point3D> Camps, int Weight, int Houses);
+public sealed record HotSpot(string Name, HotSpotKind Kind, Point3D Center, IReadOnlyList<Point3D> Camps, int Weight);
 
 /// <summary>
 /// The hot spots of a facet with open PvP (see <see cref="HotSpotRules"/>), read once from the
@@ -344,8 +344,7 @@ public static class HotSpots
             kind,
             center,
             camps,
-            HotSpotRules.WeightOf(kind, yewGate),
-            HotSpotRules.HousesFor(kind, yewGate)
+            HotSpotRules.WeightOf(kind, yewGate)
         );
 
     /// <summary>

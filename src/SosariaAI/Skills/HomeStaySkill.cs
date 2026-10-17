@@ -38,7 +38,7 @@ public sealed class HomeStaySkill : Skill
     public HomeStaySkill(HouseDoorway way)
     {
         _way = way;
-        _entry = new HouseEntry(way, unlockedInside: true);
+        _entry = new HouseEntry(way);
     }
 
     public override string Name => SkillName;

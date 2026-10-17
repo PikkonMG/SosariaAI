@@ -102,7 +102,7 @@ public static class DoorTiles
          DoorwayAt(map, toX, fromY, z) != null || DoorwayAt(map, fromX, toY, z) != null);
 
     /// <summary>Where a door stands shut: its own spot, or its open leaf's spot less the swing.</summary>
-    private static Point3D ShutSpot(BaseDoor door) =>
+    public static Point3D ShutSpot(BaseDoor door) =>
         door.Open ? new Point3D(door.X - door.Offset.X, door.Y - door.Offset.Y, door.Z - door.Offset.Z) : door.Location;
 
     /// <summary>True when a door at <paramref name="doorZ"/> is neither wholly above nor wholly below a person at <paramref name="z"/>.</summary>

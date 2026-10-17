@@ -20,7 +20,7 @@ namespace SosariaAI.Behaviour;
 /// The world scan's reactions (<see cref="Tick"/>), in order: a player's party invite and
 /// leave, party heals, the guard-line stand-down, guild life and guild war, Order against
 /// Chaos with its town scuffles, war bands, sweeps and Den raids (<see cref="PartyRoads"/>), a red's
-/// rules and the lawful answer to an outlaw, the retreat into a house base, red screams, the
+/// rules and the lawful answer to an outlaw, red screams, the
 /// gray watch, duels, a thief's crowd work, raising a ghost, pet care, ambient talk, and the
 /// everyday scenes. Free. No model.
 /// </summary>
@@ -65,7 +65,6 @@ public static class WorldPlay
         PartyRoads.Consider(character);
         ConsiderOutlaw(character);
         ConsiderLawful(character);
-        HouseBases.ConsiderRetreat(character);
         RedAlarm.Consider(character);
         GrayWatch.Consider(character);
         Duels.Consider(character);

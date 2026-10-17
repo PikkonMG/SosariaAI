@@ -7,8 +7,8 @@ namespace SosariaAI.Behaviour;
 
 /// <summary>
 /// The way into a house: the engine house, its front door, and the standing tiles before and
-/// behind that door. Every house a character goes into, a PvP base or its own home, is entered
-/// this way, and its chest is found or set down here.
+/// behind that door. An owner goes into its home this way, and its chest is found or set
+/// down here.
 /// </summary>
 public sealed record HouseDoorway(BaseHouse House, BaseDoor Door, Point3D Front, Point3D Inside)
 {
@@ -24,9 +24,11 @@ public sealed record HouseDoorway(BaseHouse House, BaseDoor Door, Point3D Front,
             return null;
         }
 
+        // Read from where the door stands shut: an open leaf stands a tile off its doorway.
+        var shut = DoorTiles.ShutSpot(door);
         var walker = Standable.Walker(map);
-        var front = Standing(walker, new Point3D(door.X, door.Y + 1, house.Z));
-        var inside = Standing(walker, new Point3D(door.X, door.Y - 1, door.Z));
+        var front = Standing(walker, new Point3D(shut.X, shut.Y + 1, house.Z));
+        var inside = Standing(walker, new Point3D(shut.X, shut.Y - 1, shut.Z));
         return front is { } before && inside is { } behind ? new HouseDoorway(house, door, before, behind) : null;
     }
 
@@ -50,8 +52,8 @@ public sealed record HouseDoorway(BaseHouse House, BaseDoor Door, Point3D Front,
     }
 
     /// <summary>
-    /// Gives a copy of the house key to one with none, as an owner or a guild handed keys
-    /// round. The engine's door opens only for a key in the pack.
+    /// Gives the owner a copy of its house key when it has none, as an owner had a spare cut.
+    /// The engine's door opens only for a key in the pack.
     /// </summary>
     public void HandKey(Mobile to)
     {

@@ -10,7 +10,7 @@ namespace SosariaAI.Skills;
 /// the door opened, a step to the doorstep, and the door shut and locked behind. The engine's
 /// own door and lock rules apply. An owner at home leaves its door unlocked while it is in, as
 /// a player did: the shared walker takes a locked door for a wall, so any walk the owner sets
-/// out on from inside finds its way out; a PvP base stays locked with its members inside.
+/// out on from inside finds its way out.
 /// </summary>
 public sealed class HouseEntry
 {
@@ -24,16 +24,11 @@ public sealed class HouseEntry
     }
 
     private readonly HouseDoorway _way;
-    private readonly bool _unlockedInside;
     private SosariaCharacter _character;
     private Skill _walk;
     private Leg _leg;
 
-    public HouseEntry(HouseDoorway way, bool unlockedInside)
-    {
-        _way = way;
-        _unlockedInside = unlockedInside;
-    }
+    public HouseEntry(HouseDoorway way) => _way = way;
 
     /// <summary>Sets out for the doorstep. False when no walk there starts.</summary>
     public bool BeginIn(SosariaCharacter character)
@@ -66,7 +61,7 @@ public sealed class HouseEntry
             _walk.Abort();
             _walk = null;
             _way.Shut(_character);
-            _way.Door.Locked = !_unlockedInside;
+            _way.Door.Locked = false;
             return SkillStatus.Done;
         }
 

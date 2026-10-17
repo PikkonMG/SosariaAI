@@ -262,22 +262,6 @@ public static partial class TalkDefaults
             ["war!!", "{guild} is going down", "this is war {name}", "hope ur guild likes losing {name}", "{guild}? war on", "get ur friends {name}", "tell {guild} its on", "{name} started it lol", "guild war, lets go", "call ur guild {name}"]
         ),
         new(
-            TalkCategory.HouseRetreat,
-            "a fighter hurt in a fight outside ducks into its guild's house to heal.",
-            [
-                "going in to heal", "cover me, healing up inside", "brb healing", "inside, need a sec", "low, going in",
-                "heal up time", "grabbing bandies from the chest", "restocking, 1 min", "hold them off, im going in", "in the house, heal me"
-            ]
-        ),
-        new(
-            TalkCategory.HouseReturn,
-            "a fighter comes back out of its guild's house, healed and restocked, to fight on.",
-            [
-                "back out", "ok im back", "full hp, lets go", "round 2", "back, where are they", "restocked, lets go",
-                "im back out", "ready again", "ok again", "back in it"
-            ]
-        ),
-        new(
             TalkCategory.GuardStandDown,
             "someone stops a fight because the guards are watching. {name} is the other fighter.",
             ["not here {name}, guards", "guards... later {name}", "lucky the guards r here {name}", "not in town", "later {name}, guards are watching", "fine, guards win {name}", "not worth a guard whack {name}", "guards are right there lol", "{name} not worth the guards", "another day {name}"]

@@ -12,9 +12,8 @@ namespace SosariaAI.Skills;
 /// <summary>
 /// One flee run. Begins once and runs leg by leg away from the strongest hostile in sight,
 /// each leg to a place it can reach (<see cref="EscapeRoute"/>): along a coast or a wall
-/// instead of into the water, back the way it came, or to a road node, leaning toward its
-/// PvP base's door when one is near (see <see cref="HouseBases"/>), else toward the nearest
-/// bank when that lies the same way. A leg that fails is not tried again. Ends when
+/// instead of into the water, back the way it came, or to a road node, leaning toward the
+/// nearest bank when that lies the same way. A leg that fails is not tried again. Ends when
 /// the threat is gone or a distance is covered. Never chosen inside a guarded region.
 /// </summary>
 public sealed class FleeSkill : Skill
@@ -150,9 +149,8 @@ public sealed class FleeSkill : Skill
     public static bool ShouldGiveUp(int failedLegs, DateTime now, DateTime started) =>
         failedLegs >= MaxFailedLegs || (started != default && now - started >= FleeLimit);
 
-    /// <summary>Where a runner heads when it can: the door of its own house, else the nearest bank under the guards.</summary>
+    /// <summary>Where a runner heads when it can: the nearest bank under the guards.</summary>
     public static Point3D? SafePlace(SosariaCharacter character) =>
-        HouseBases.SafeDoor(character) ??
         NavWorld.DestinationsFor(character.HomeFacet)
             ?.Nearest(character.Location, DestinationKind.Bank)
             ?.Arrival;

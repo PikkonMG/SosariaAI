@@ -136,7 +136,6 @@ public static class DecisionEvents
             and not SkillKinds.HealMate
             and not ResurrectAidSkill.SkillName
             and not ScuffleCallSkill.SkillName
-            and not HouseRetreatSkill.SkillName
             and not SkillKinds.Discord
             and not SkillKinds.Provoke
             and not SkillKinds.Forensic

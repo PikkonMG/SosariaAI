@@ -30,7 +30,7 @@ public static class SpeechFacts
     private static readonly HashSet<string> TripKinds = new(StringComparer.Ordinal)
     {
         SkillKinds.GoTo, SkillKinds.Travel, SkillKinds.GoHome, SkillKinds.Recall, SkillKinds.Gate,
-        SkillKinds.Follow, SkillKinds.Boat, CorpseRunSkill.SkillName, HouseRetreatSkill.SkillName
+        SkillKinds.Follow, SkillKinds.Boat, CorpseRunSkill.SkillName
     };
 
     public sealed class Snapshot

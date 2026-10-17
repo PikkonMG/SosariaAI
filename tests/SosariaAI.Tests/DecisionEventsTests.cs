@@ -163,7 +163,6 @@ public class DecisionEventsTests
         Assert.False(DecisionEvents.MayReplaceJob(BrainEventKind.PlayerNoticed, SkillKinds.HealMate));
         Assert.False(DecisionEvents.MayReplaceJob(BrainEventKind.PlayerNoticed, ResurrectAidSkill.SkillName));
         Assert.False(DecisionEvents.MayReplaceJob(BrainEventKind.PlayerNoticed, ScuffleCallSkill.SkillName));
-        Assert.False(DecisionEvents.MayReplaceJob(BrainEventKind.PlayerNoticed, HouseRetreatSkill.SkillName));
         Assert.True(DecisionEvents.MayReplaceJob(BrainEventKind.PlayerNoticed, SkillKinds.Loiter));
     }
 }

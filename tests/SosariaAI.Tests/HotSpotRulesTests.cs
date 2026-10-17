@@ -42,26 +42,14 @@ public class HotSpotRulesTests
         Assert.False(HotSpotRules.GateIsHotSpot(inBucsDen: true, padGuarded: false, HotSpotRules.CampDirections));
 
     [Fact]
-    public void YewGate_OutweighsEveryOtherSpot_AndHoldsTheMostHouses()
+    public void YewGate_OutweighsEveryOtherSpot()
     {
         var yew = HotSpotRules.WeightOf(HotSpotKind.Moongate, yewGate: true);
 
         foreach (var kind in Enum.GetValues<HotSpotKind>())
         {
             Assert.True(yew > HotSpotRules.WeightOf(kind, yewGate: false), kind.ToString());
-            Assert.True(
-                HotSpotRules.HousesFor(HotSpotKind.Moongate, yewGate: true) > HotSpotRules.HousesFor(kind, yewGate: false),
-                kind.ToString()
-            );
         }
-    }
-
-    [Fact]
-    public void HousesFor_NoneInTheDenOrAtAGraveyardByTown()
-    {
-        Assert.Equal(0, HotSpotRules.HousesFor(HotSpotKind.Den, yewGate: false));
-        Assert.Equal(0, HotSpotRules.HousesFor(HotSpotKind.Graveyard, yewGate: false));
-        Assert.Equal(HotSpotRules.SpotHouses, HotSpotRules.HousesFor(HotSpotKind.DungeonDoor, yewGate: false));
     }
 
     [Theory]

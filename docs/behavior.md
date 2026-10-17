@@ -861,7 +861,8 @@ meets a gold goal, such as its nest egg or its boat, it saves next for its
 house. A character that saves for something else does not spend that gold on a
 deed. Once it has the price and a plot is free, it buys. Houses go up only on
 the `housePlots` list, one house to a plot. A crafter takes a vendor plot
-first: the default one is just outside the Britain graveyard.
+first: the default one is just outside the Britain graveyard. In the first minute
+after a boot, a character's house that stands on no listed plot is taken down.
 
 **Home life.** An owner lives in its house. It goes home when it carries pieces
 it would bank, every 90 minutes for a rest, or when it is under half its hits

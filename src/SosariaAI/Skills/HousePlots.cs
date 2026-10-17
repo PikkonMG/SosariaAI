@@ -1,10 +1,13 @@
 using System;
+using System.Collections.Generic;
 using Server;
+using Server.Logging;
 using Server.Multis;
 using Server.Multis.Deeds;
 using SosariaAI.Behaviour;
 using SosariaAI.Configuration;
 using SosariaAI.Economy;
+using SosariaAI.Logging;
 using SosariaAI.Mobiles;
 using SosariaAI.Spawning;
 
@@ -18,6 +21,69 @@ namespace SosariaAI.Skills;
 /// </summary>
 public static class HousePlots
 {
+    private static readonly ILogger logger = SosariaLog.For(typeof(HousePlots));
+
+    /// <summary>The first minute after a boot takes down the characters' houses that stand on no plot.</summary>
+    public static void Initialize() => ActivityPulse.MinutePassed += TakeDownStrays;
+
+    /// <summary>
+    /// Takes down every character's house that stands on no listed plot: a house put up by an
+    /// older build by a hot spot, or on a plot the operator took off the list. Runs once a boot.
+    /// </summary>
+    public static void TakeDownStrays()
+    {
+        ActivityPulse.MinutePassed -= TakeDownStrays;
+        var strays = new List<BaseHouse>();
+
+        for (var i = 0; i < BaseHouse.AllHouses.Count; i++)
+        {
+            var house = BaseHouse.AllHouses[i];
+
+            if (house is { Deleted: false, Owner: SosariaCharacter } && !OnAPlot(house))
+            {
+                strays.Add(house);
+            }
+        }
+
+        foreach (var house in strays)
+        {
+            var owner = (SosariaCharacter)house.Owner;
+            logger.Information("{Owner}'s house at {Location} stands on no house plot and is taken down", owner.Name, house.Location);
+            house.RemoveKeys(owner);
+            house.Delete();
+
+            // The owner did not lose it to decay: it keeps no "my house fell" memory.
+            if (owner.HouseSerial == (int)house.Serial.Value)
+            {
+                owner.HouseSerial = HouseRules.NoHouseSerial;
+                owner.HouseLocation = Point3D.Zero;
+            }
+        }
+    }
+
+    // The house takes one of the plots listed for its map, or the default plot when none is listed.
+    private static bool OnAPlot(BaseHouse house)
+    {
+        var plots = SosariaSettings.Characters?.HousePlots;
+
+        if (plots == null || plots.Count == 0)
+        {
+            return HouseRules.TakesPlot(house.Location, HouseRules.DefaultPlot(), HouseRules.PlaceSearchRadius);
+        }
+
+        for (var i = 0; i < plots.Count; i++)
+        {
+            if (plots[i] is { } plot &&
+                (string.IsNullOrWhiteSpace(plot.Map) || plot.Map.Equals(house.Map?.Name, StringComparison.OrdinalIgnoreCase)) &&
+                HouseRules.TakesPlot(house.Location, plot.Location, plot.Reach))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static int Seed(SosariaCharacter character) => unchecked((int)character.Serial.Value);
 
     public static int SmallPrice => SosariaSettings.Characters?.Career?.HouseGold ?? CareerSettings.DefaultHouseGold;

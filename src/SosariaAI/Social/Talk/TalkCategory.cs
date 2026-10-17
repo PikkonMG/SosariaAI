@@ -114,8 +114,6 @@ public static class TalkCategory
     public const string RedWarn = "red_warn";
     public const string GuildWarStart = "guild_war_start";
     public const string GuardStandDown = "guard_stand_down";
-    public const string HouseRetreat = "house_retreat";
-    public const string HouseReturn = "house_return";
     public const string ThiefVictim = "thief_victim";
 
     // Death and raising.

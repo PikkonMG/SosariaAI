@@ -100,7 +100,6 @@ public class SpeechFactsTests
     [InlineData(SkillKinds.Follow)]
     [InlineData(SkillKinds.Boat)]
     [InlineData(CorpseRunSkill.SkillName)]
-    [InlineData(HouseRetreatSkill.SkillName)]
     public void IsTripKind_TrueForAStepThatGetsSomewhere(string kind)
     {
         Assert.True(SpeechFacts.IsTripKind(kind));

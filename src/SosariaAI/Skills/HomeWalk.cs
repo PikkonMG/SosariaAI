@@ -25,7 +25,7 @@ public sealed class HomeWalk : Skill
 
     private HomeWalk(HouseDoorway way, Point3D target, int range, bool arrivalFloor, bool goingIn)
     {
-        _entry = new HouseEntry(way, unlockedInside: true);
+        _entry = new HouseEntry(way);
         _target = target;
         _range = range;
         _arrivalFloor = arrivalFloor;
