@@ -24,6 +24,11 @@ public class RetreatRulesTests
     private const double FoeNearlyDead = 0.2;
     private const double FoeHealthy = 0.9;
     private const int NoTurns = 0;
+    private const int NoCasters = 0;
+    private const int OneCaster = 1;
+    private const int TwoAttackers = 2;
+    private const int StrongPower = 120;
+    private const int WeakPower = 80;
     private const double HalfHits = 0.5;
     private const double UnderFloor = 0.2;
     private const double WorkerOneFoeCeiling = 0.6;
@@ -42,22 +47,22 @@ public class RetreatRulesTests
     public void Line_OneAttacker_IsBaseOverNerve() =>
         Assert.Equal(
             RetreatRules.FighterLine / BoldNerve,
-            RetreatRules.Line(RetreatRules.FighterLine, BoldNerve, OneAttacker),
+            RetreatRules.Line(RetreatRules.FighterLine, BoldNerve, OneAttacker, NoCasters),
             Tolerance
         );
 
     [Fact]
     public void Line_TimidLeavesEarlierThanBold() =>
         Assert.True(
-            RetreatRules.Line(RetreatRules.FighterLine, TimidNerve, OneAttacker) >
-            RetreatRules.Line(RetreatRules.FighterLine, BoldNerve, OneAttacker)
+            RetreatRules.Line(RetreatRules.FighterLine, TimidNerve, OneAttacker, NoCasters) >
+            RetreatRules.Line(RetreatRules.FighterLine, BoldNerve, OneAttacker, NoCasters)
         );
 
     [Fact]
     public void Line_EachExtraAttackerRaisesIt()
     {
-        var single = RetreatRules.Line(RetreatRules.FighterLine, PlainNerve, OneAttacker);
-        var three = RetreatRules.Line(RetreatRules.FighterLine, PlainNerve, ThreeAttackers);
+        var single = RetreatRules.Line(RetreatRules.FighterLine, PlainNerve, OneAttacker, NoCasters);
+        var three = RetreatRules.Line(RetreatRules.FighterLine, PlainNerve, ThreeAttackers, NoCasters);
 
         Assert.Equal(single + TwoExtras * RetreatRules.ExtraAttackerRaise, three, Tolerance);
     }
@@ -65,14 +70,14 @@ public class RetreatRulesTests
     [Fact]
     public void Line_StaysInsideBounds()
     {
-        Assert.Equal(RetreatRules.MaxLine, RetreatRules.Line(RetreatRules.WorkerLine, TimidNerve, ManyAttackers), Tolerance);
-        Assert.Equal(RetreatRules.MinLine, RetreatRules.Line(RetreatRules.VeteranLine, RecklessNerve, OneAttacker), Tolerance);
+        Assert.Equal(RetreatRules.MaxLine, RetreatRules.Line(RetreatRules.WorkerLine, TimidNerve, ManyAttackers, NoCasters), Tolerance);
+        Assert.Equal(RetreatRules.MinLine, RetreatRules.Line(RetreatRules.VeteranLine, RecklessNerve, OneAttacker, NoCasters), Tolerance);
     }
 
     [Fact]
     public void StartLine_SitsAboveTheRetreatLine() =>
         Assert.Equal(
-            RetreatRules.Line(RetreatRules.FighterLine, PlainNerve, OneAttacker) + RetreatRules.StartMargin,
+            RetreatRules.Line(RetreatRules.FighterLine, PlainNerve, OneAttacker, NoCasters) + RetreatRules.StartMargin,
             RetreatRules.StartLine(RetreatRules.FighterLine, PlainNerve, OneAttacker),
             Tolerance
         );
@@ -117,7 +122,7 @@ public class RetreatRulesTests
     {
         // Three orcs on him raise his line to 0.6, and the room counts as outnumbering him,
         // but he kills them faster than they hurt him: he stays.
-        var threeOrcLine = RetreatRules.Line(RetreatRules.FighterLine, PlainNerve, ThreeAttackers);
+        var threeOrcLine = RetreatRules.Line(RetreatRules.FighterLine, PlainNerve, ThreeAttackers, NoCasters);
 
         Assert.False(RetreatRules.ShouldRetreat(HalfHits, threeOrcLine, outnumbered: true, gambling: false, FightOutlook.Winning));
         Assert.True(RetreatRules.ShouldRetreat(HalfHits, threeOrcLine, outnumbered: true, gambling: false, FightOutlook.Losing));
@@ -150,11 +155,11 @@ public class RetreatRulesTests
     public void Line_ATimidWorkerStillFightsAScratch()
     {
         // Tobiah, a worker at the lowest nerve, left a skeleton at 70 of 74 hits.
-        var line = RetreatRules.Line(RetreatRules.WorkerLine, NerveRules.MinNerve, OneAttacker);
+        var line = RetreatRules.Line(RetreatRules.WorkerLine, NerveRules.MinNerve, OneAttacker, NoCasters);
 
         Assert.Equal(RetreatRules.MaxOneFoeLine, line, Tolerance);
         Assert.True(line <= WorkerOneFoeCeiling);
-        Assert.True(RetreatRules.Line(RetreatRules.WorkerLine, NerveRules.MinNerve, ThreeAttackers) > line);
+        Assert.True(RetreatRules.Line(RetreatRules.WorkerLine, NerveRules.MinNerve, ThreeAttackers, NoCasters) > line);
     }
 
     [Fact]
@@ -210,12 +215,33 @@ public class RetreatRulesTests
     [Fact]
     public void ShouldTurnOnChaser_AllConditionsNeeded()
     {
-        Assert.True(RetreatRules.ShouldTurnOnChaser(NoTurns, false, true, true, true));
-        Assert.False(RetreatRules.ShouldTurnOnChaser(RetreatRules.MaxTurns, false, true, true, true));
-        Assert.False(RetreatRules.ShouldTurnOnChaser(NoTurns, true, true, true, true));
-        Assert.False(RetreatRules.ShouldTurnOnChaser(NoTurns, false, false, true, true));
-        Assert.False(RetreatRules.ShouldTurnOnChaser(NoTurns, false, true, false, true));
-        Assert.False(RetreatRules.ShouldTurnOnChaser(NoTurns, false, true, true, false));
+        Assert.True(RetreatRules.ShouldTurnOnChaser(NoTurns, false, TwoAttackers, StrongPower, WeakPower, true, true, true));
+        Assert.False(RetreatRules.ShouldTurnOnChaser(RetreatRules.MaxTurns, false, TwoAttackers, WeakPower, StrongPower, true, true, true));
+        Assert.False(RetreatRules.ShouldTurnOnChaser(NoTurns, false, TwoAttackers, WeakPower, StrongPower, false, true, true));
+        Assert.False(RetreatRules.ShouldTurnOnChaser(NoTurns, false, TwoAttackers, WeakPower, StrongPower, true, false, true));
+        Assert.False(RetreatRules.ShouldTurnOnChaser(NoTurns, false, TwoAttackers, WeakPower, StrongPower, true, true, false));
+    }
+
+    [Fact]
+    public void ShouldTurnOnChaser_APersonOnlyWhenAloneAndWeaker()
+    {
+        Assert.True(RetreatRules.ShouldTurnOnChaser(NoTurns, true, OneAttacker, WeakPower, StrongPower, true, true, true));
+        Assert.False(RetreatRules.ShouldTurnOnChaser(NoTurns, true, TwoAttackers, WeakPower, StrongPower, true, true, true));
+        Assert.False(RetreatRules.ShouldTurnOnChaser(NoTurns, true, OneAttacker, StrongPower, WeakPower, true, true, true));
+        Assert.False(RetreatRules.ShouldTurnOnChaser(NoTurns, true, OneAttacker, StrongPower, StrongPower, true, true, true));
+    }
+
+    [Fact]
+    public void Line_ACasterAttackerWeighsMoreThanABlade()
+    {
+        var twoBlades = RetreatRules.Line(RetreatRules.FighterLine, PlainNerve, TwoAttackers, NoCasters);
+        var bladeAndMage = RetreatRules.Line(RetreatRules.FighterLine, PlainNerve, TwoAttackers, OneCaster);
+        var loneBlade = RetreatRules.Line(RetreatRules.FighterLine, PlainNerve, OneAttacker, NoCasters);
+        var loneMage = RetreatRules.Line(RetreatRules.FighterLine, PlainNerve, OneAttacker, OneCaster);
+
+        Assert.Equal(twoBlades + RetreatRules.ExtraAttackerRaise, bladeAndMage, Tolerance);
+        Assert.Equal(loneBlade + RetreatRules.ExtraAttackerRaise, loneMage, Tolerance);
+        Assert.Equal(loneMage, RetreatRules.Line(RetreatRules.FighterLine, PlainNerve, OneAttacker, TwoAttackers), Tolerance);
     }
 
     [Fact]
@@ -223,7 +249,6 @@ public class RetreatRulesTests
     {
         const int Power = 100;
         const int TimidDare = 60;
-        const int TwoAttackers = 2;
         const int Room = 150;
         const int NoAllies = 0;
 
@@ -261,7 +286,7 @@ public class RetreatRulesTests
                         Assert.False(
                             RetreatRules.ShouldRetreat(
                                 hits,
-                                RetreatRules.Line(RetreatRules.FighterLine, nerve, attackers),
+                                RetreatRules.Line(RetreatRules.FighterLine, nerve, attackers, NoCasters),
                                 RetreatRules.IsOutnumbered(attackers, room, Dare, Multiple),
                                 gambling: false,
                                 FightOutlook.Unknown

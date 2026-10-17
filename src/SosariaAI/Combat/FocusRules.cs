@@ -46,6 +46,12 @@ public static class FocusRules
     /// <summary>Only an attacker this close takes the fight from a nearly beaten foe.</summary>
     public const int ArmsReachTiles = 1;
 
+    /// <summary>
+    /// After a kill, a foe the side called (a party's attack order, a red gang's victim) this near
+    /// is taken next: the reach of a targeted spell (<see cref="SpellBook.Reach"/>).
+    /// </summary>
+    public const int CalledFoeReachTiles = SpellBook.Reach;
+
     /// <summary>A group the engage call left alone stays left alone this long: a few danger scans that each ask again.</summary>
     public const int DeclineHoldMs = 3000;
 
@@ -55,6 +61,15 @@ public static class FocusRules
     /// </summary>
     public static bool InDeclinedGroup(long declinedAt, long now, int tilesFromDeclined) =>
         declinedAt != 0 && now - declinedAt < DeclineHoldMs && tilesFromDeclined <= FightPullRules.IsolateRange;
+
+    /// <summary>
+    /// After a kill the side's called foe the last scan saw as a foe is taken over the nearest
+    /// attacker when it is not the one that just fell and it stands within
+    /// <see cref="CalledFoeReachTiles"/>: 1999 groups switched at once to the next called
+    /// target, and every member taking the nearest one split the group onto many.
+    /// </summary>
+    public static bool TakesCalledFoe(bool isFallen, int distance) =>
+        !isFallen && distance <= CalledFoeReachTiles;
 
     public static int Tier(bool isPerson, bool isRed, bool isGray, bool attacksPerson, bool attacksSelf, bool attacksFriend)
     {

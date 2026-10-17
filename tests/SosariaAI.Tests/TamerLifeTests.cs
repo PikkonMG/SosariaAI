@@ -49,6 +49,16 @@ public class TamerLifeTests
     }
 
     [Fact]
+    public void TameTrip_GoesHomeAfterTheVet()
+    {
+        var steps = TamerLife.TameTrip().Select(step => step.Skill).ToList();
+        var vet = steps.IndexOf(SkillKinds.Vet);
+
+        Assert.True(vet >= 0);
+        Assert.Equal(SkillKinds.GoHome, steps[vet + 1]);
+    }
+
+    [Fact]
     public void Apply_GivesAHuntWithThePets_AndKeepsTheRest()
     {
         var tamer = OldTamer();

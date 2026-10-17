@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Server;
 using SosariaAI.Combat;
+using SosariaAI.Spawning;
 using Xunit;
 
 namespace SosariaAI.Tests;
@@ -61,5 +62,14 @@ public class WieldRulesTests
         Assert.True(build.Trains(SkillName.TasteID));
         Assert.False(build.Trains(SkillName.Swords));
         Assert.False(new ResolvedBuild().Trains(SkillName.Swords));
+    }
+
+    [Fact]
+    public void TankMage_IsAMageClassWithAWeaponBuild()
+    {
+        Assert.True(WieldRules.SwingsAndCasts(PersonClass.Mage, BuildPresets.SwordsmanNovice()));
+        Assert.False(WieldRules.SwingsAndCasts(PersonClass.Mage, BuildPresets.MageNovice()));
+        Assert.False(WieldRules.SwingsAndCasts(PersonClass.Warrior, BuildPresets.SwordsmanNovice()));
+        Assert.False(WieldRules.SwingsAndCasts(PersonClass.Mage, null));
     }
 }

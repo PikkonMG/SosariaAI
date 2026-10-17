@@ -183,4 +183,21 @@ public class SpeechFactsTests
         Assert.True(SpeechFacts.Contradicts("anyone need repairs?", new SpeechFacts.Snapshot { IsAlive = true, TakesOrders = true }));
         Assert.False(SpeechFacts.ClaimsFree("gm smith here, taking orders"));
     }
+
+    [Theory]
+    [InlineData("seen any reds")]
+    [InlineData("hail, seen any pks about")]
+    [InlineData("any reds about? keep sharp")]
+    [InlineData("hail Gaius, any pk trouble on the road lol")]
+    public void Contradicts_ARedAsksAfterReds_ABlueMay(string say)
+    {
+        Assert.True(SpeechFacts.Contradicts(say, new SpeechFacts.Snapshot { IsAlive = true, IsRed = true }));
+        Assert.False(SpeechFacts.Contradicts(say, new SpeechFacts.Snapshot { IsAlive = true }));
+    }
+
+    [Theory]
+    [InlineData("hail gaius, seen any grizzlies")]
+    [InlineData("nice red dye")]
+    public void AsksAfterReds_OnlyAWatchForReds(string say) =>
+        Assert.False(SpeechFacts.AsksAfterReds(say));
 }

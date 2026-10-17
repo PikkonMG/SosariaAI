@@ -59,6 +59,7 @@ public static partial class CombatBrain
     private const string HuntedLine = "hunted";
     private const string HealedUp = "healed up";
     private const string CannotOutrun = "cannot outrun";
+    private const string FollowLine = "follow";
 
     private static readonly ILogger logger = SosariaLog.For(typeof(CombatBrain));
 
@@ -108,7 +109,7 @@ public static partial class CombatBrain
             }
 
             var lost = foe;
-            foe = NearestAttacker(character, memory, passOver: lost);
+            foe = NextFoe(character, memory, lost);
 
             if (foe == null)
             {
@@ -120,6 +121,11 @@ public static partial class CombatBrain
             memory.FoeLostSince = 0;
             memory.Unreachable = false;
             presence = Presence.Here;
+        }
+
+        if (presence == Presence.Here)
+        {
+            memory.RunnerSeenAt = RunsLow(foe, character) ? foe.Location : null;
         }
 
         if (scanned)
@@ -156,10 +162,13 @@ public static partial class CombatBrain
         var stance = StanceFor(character, memory, foe, style, caster, distance);
         var careWantsRoom = Care(character, memory, inFight: true, safeCircle, spellsAllowed: stance != CombatStance.Flee);
         TendStamina(character, memory);
+        BreakParalyze(character);
+        TryThrowExplosion(character, memory, foe);
 
-        // A lost foe is not chased. The fight ends when the grace runs out.
+        // A lost foe is chased only to where it was last seen running low. The fight ends when the grace runs out.
         if (presence == Presence.Lost)
         {
+            FollowRunner(character, memory, foe);
             return;
         }
 
@@ -251,6 +260,39 @@ public static partial class CombatBrain
         character.LastStandDownFoe = lost.Serial;
         character.LastStandDownAt = Core.Now;
     }
+
+    /// <summary>
+    /// A foe that ran out of sight while running low (<see cref="FootworkRules.RunsLow"/>) is
+    /// followed to the spot it was last seen, for the lost grace: a player ran round the corner
+    /// after a foe about to fall. Arrived, or with no way there, the follow ends; any other lost
+    /// foe is not chased.
+    /// </summary>
+    private static void FollowRunner(SosariaCharacter character, Memory memory, Mobile foe)
+    {
+        if (memory.RunnerSeenAt is not { } spot || !CanWalk(character))
+        {
+            return;
+        }
+
+        if (NavMetric.Chebyshev(character.Location, spot) <= MeleeRange || !character.Motor.MoveToPoint(spot, MeleeRange))
+        {
+            memory.RunnerSeenAt = null;
+            return;
+        }
+
+        if (LogsOnce(character, FollowLine, foe))
+        {
+            logger.Information("{Name} follows {Foe} to {Spot}, where it was last seen running", character.Name, foe.Name, spot);
+        }
+    }
+
+    /// <summary>The foe faces away from this character (<see cref="FootworkRules.FacesAway"/>).</summary>
+    private static bool FacesAway(Mobile foe, Mobile character) =>
+        FootworkRules.FacesAway((int)(foe.Direction & Direction.Mask), (int)(foe.GetDirectionTo(character) & Direction.Mask));
+
+    /// <summary>The foe runs from this character low on hits (<see cref="FootworkRules.RunsLow"/>).</summary>
+    private static bool RunsLow(Mobile foe, Mobile character) =>
+        FootworkRules.RunsLow(Vitals.HitsFraction(foe), FacesAway(foe, character));
 
     private static void HoldFight(SosariaCharacter character, Mobile foe)
     {
@@ -407,7 +449,7 @@ public static partial class CombatBrain
             ? RetreatRules.PackCaughtUp(picture.CloseAttackers, picture.CloseThreat, dare, multiple)
             : RetreatRules.IsOutnumbered(picture.Attackers, picture.AttackerThreat, dare, multiple);
         var overwhelmed = DangerRules.Overwhelms(SoloThreatOf(memory, foe), dare, Party.AlliesPower(character), multiple);
-        var line = RetreatRules.Line(BaseLineOf(character), nerve, picture.Attackers);
+        var line = RetreatRules.Line(BaseLineOf(character), nerve, picture.Attackers, CasterAttackers(memory));
         var gambling = RetreatRules.IsGambling(nerve, picture.Attackers, hits, Vitals.HitsFraction(foe));
 
         if (!ordered && (Core.TickCount - memory.AtBayUntil < 0 ||
@@ -720,13 +762,15 @@ public static partial class CombatBrain
         }
 
         // Casting stops the feet, so a runner drinks (a heal, a cure or a refresh) and bandages
-        // but casts only to get away: a red's recall home once it broke contact, and a caster's
-        // Invisibility once its lead lets the words finish. A bard plays on the run to calm the
+        // but casts only to get away: a red's recall home once it broke contact, a caster's
+        // Invisibility once its lead lets the words finish, and a Wall of Stone before a melee
+        // chaser closing in. A bard plays on the run to calm the
         // creature on it. A hidden runner does none of it: a bandage or a potion shows it again.
         if (!character.Hidden)
         {
             Care(character, memory, inFight: true, CastTiming.NoCircle, spellsAllowed: false);
             TendStamina(character, memory);
+            BreakParalyze(character);
             CalmChaser(character, memory);
         }
 
@@ -734,7 +778,7 @@ public static partial class CombatBrain
         // when the picture they weigh changes, not on every think of the run.
         if (TryRecallOut(character, memory, scanned) || TryFaceChaser(character, memory, picture, scanned) ||
             HidesFromChasers(character, memory, scanned) || VanishesOnTheRun(character, memory, scanned) ||
-            scanned && TryTurnOnChaser(character, memory, picture))
+            WallsOffChaser(character, memory, scanned) || scanned && TryTurnOnChaser(character, memory, picture))
         {
             return;
         }
@@ -1119,7 +1163,16 @@ public static partial class CombatBrain
             startLine
         );
 
-        if (!RetreatRules.ShouldTurnOnChaser(memory.Turns, chaser.IsPerson, hits >= startLine, straggler, fits))
+        if (!RetreatRules.ShouldTurnOnChaser(
+                memory.Turns,
+                chaser.IsPerson,
+                picture.Attackers,
+                CharacterPower.For(chaser.Mobile),
+                CharacterPower.For(character),
+                hits >= startLine,
+                straggler,
+                fits
+            ))
         {
             return false;
         }

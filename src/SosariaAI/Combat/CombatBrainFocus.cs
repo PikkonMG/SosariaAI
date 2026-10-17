@@ -502,6 +502,26 @@ public static partial class CombatBrain
         return false;
     }
 
+    /// <summary>
+    /// The attackers of the last scan that fight with spells (<see cref="StyleOfFoe"/>), counted
+    /// as the room counts attackers: on this character and not harmless. They weigh more on the
+    /// hit line (<see cref="RetreatRules.CasterAttackerWeight"/>).
+    /// </summary>
+    private static int CasterAttackers(Memory memory)
+    {
+        var casters = 0;
+
+        foreach (var sighting in memory.Foes)
+        {
+            if (sighting.AttacksSelf && !sighting.Harmless && StyleOfFoe(sighting.Mobile) == CombatStyle.Mage)
+            {
+                casters++;
+            }
+        }
+
+        return casters;
+    }
+
     private static void CountPackmates(Memory memory)
     {
         var foes = memory.Foes;
@@ -796,6 +816,31 @@ public static partial class CombatBrain
     /// <paramref name="passOver"/> aside. The foe lost past the grace is passed over: handed
     /// back, it was chased and lost again, the fight never ending on a foe out of reach.
     /// </summary>
+    /// <summary>
+    /// The foe taken after <paramref name="fallen"/> is gone: the side's called foe (a party's
+    /// attack order, else a red gang's victim) when the last scan saw it in reach
+    /// (<see cref="FocusRules.TakesCalledFoe"/>), else the nearest attacker.
+    /// </summary>
+    private static Mobile NextFoe(SosariaCharacter character, Memory memory, Mobile fallen)
+    {
+        var called = PartyOrders.CalledFoe(character) ?? RedGang.CalledVictim(character);
+
+        if (called != null && called.Map == character.Map)
+        {
+            for (var i = 0; i < memory.Foes.Count; i++)
+            {
+                var sighting = memory.Foes[i];
+
+                if (sighting.Mobile == called && FocusRules.TakesCalledFoe(called == fallen, sighting.Distance))
+                {
+                    return called;
+                }
+            }
+        }
+
+        return NearestAttacker(character, memory, passOver: fallen);
+    }
+
     private static Mobile NearestAttacker(SosariaCharacter character, Memory memory, Mobile passOver = null)
     {
         Mobile nearest = null;

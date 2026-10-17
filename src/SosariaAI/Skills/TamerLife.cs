@@ -6,7 +6,7 @@ namespace SosariaAI.Skills;
 
 /// <summary>
 /// The days of a tamer: taming trips to the grounds of strong beasts (<see cref="TameSkill"/>)
-/// with a bandage for the pet after, and hunts with its pets at heel. A composed tamer gets
+/// with a bandage for the pet and the way home after, and hunts with its pets at heel. A composed tamer gets
 /// these routines and their choices next to whatever routines its template gives it, the way a
 /// composed worker gets its trade (<see cref="CraftCareerRules.Apply"/>); the template is never
 /// changed, so a tamer template the operator writes gets them too. Its dungeon runs come
@@ -21,11 +21,15 @@ public static class TamerLife
     public const string TameChoiceDescription = "go out and tame a strong beast";
     public const string HuntChoiceDescription = "hunt with the pets";
 
-    /// <summary>The trip, the tamer's travel inside it, then a bandage for any pet it hurt.</summary>
+    /// <summary>
+    /// The trip, the tamer's travel inside it, a bandage for any pet it hurt, then home with
+    /// the new pet: players took a fresh tame out of the dungeon before anything else.
+    /// </summary>
     public static List<SkillStepDefinition> TameTrip() =>
     [
         new SkillStepDefinition { Skill = SkillKinds.Tame },
         new SkillStepDefinition { Skill = SkillKinds.Vet },
+        new SkillStepDefinition { Skill = SkillKinds.GoHome },
         new SkillStepDefinition { Skill = SkillKinds.Decide }
     ];
 

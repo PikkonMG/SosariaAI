@@ -119,6 +119,32 @@ public class SelfCareRulesTests
     }
 
     [Fact]
+    public void KeepsBandageRunning_AnyWoundInAFightWithAPerson()
+    {
+        Assert.True(SelfCareRules.KeepsBandageRunning(versusPerson: true, Scratched));
+        Assert.False(SelfCareRules.KeepsBandageRunning(versusPerson: true, FullHits));
+        Assert.False(SelfCareRules.KeepsBandageRunning(versusPerson: false, Scratched));
+    }
+
+    [Fact]
+    public void Choose_ScratchedInAFightWithAPerson_KeepsTheBandageRunning()
+    {
+        var scratched = Everything() with { HitsFraction = Scratched, VersusPerson = true };
+
+        Assert.Equal(CareChoice.Bandage, SelfCareRules.Choose(scratched));
+        Assert.Equal(CareChoice.None, SelfCareRules.Choose(scratched with { VersusPerson = false }));
+        Assert.Equal(CareChoice.None, SelfCareRules.Choose(scratched with { BandageReady = false }));
+        Assert.Equal(CareChoice.None, SelfCareRules.Choose(scratched with { HitsFraction = FullHits }));
+    }
+
+    [Fact]
+    public void Choose_ScratchedInAFightWithAPerson_CastsNoHealAboveTheLine() =>
+        Assert.Equal(
+            CareChoice.None,
+            SelfCareRules.Choose(Everything() with { HitsFraction = Scratched, VersusPerson = true, HasBandage = false })
+        );
+
+    [Fact]
     public void Choose_Healthy_None() =>
         Assert.Equal(CareChoice.None, SelfCareRules.Choose(Everything()));
 
@@ -172,6 +198,7 @@ public class SelfCareRulesTests
             Poisoned: false,
             HitsFraction: FullHits,
             InFight: true,
+            VersusPerson: false,
             SafeCircle: OpenGround,
             SpellReady: true,
             Magery: Grandmaster,

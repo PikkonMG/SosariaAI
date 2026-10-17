@@ -67,6 +67,12 @@ public static class MountRules
     public static bool GenderAllowed(bool femaleRider, bool allowMale, bool allowFemale) =>
         femaleRider ? allowFemale : allowMale;
 
+    /// <summary>
+    /// A tamer that kept a tamed mount stronger than the one it rides gets off, rides the new
+    /// one and lets the old one go, as players swapped a horse for a nightmare.
+    /// </summary>
+    public static bool SwapsMount(int tamedPower, int riddenPower) => tamedPower > riddenPower;
+
     public static int ChooseIndex(ReadOnlySpan<(bool Owned, int Chebyshev)> candidates)
     {
         var best = NoCandidate;

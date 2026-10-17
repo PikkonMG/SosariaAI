@@ -237,18 +237,18 @@ public static partial class TalkDefaults
         ),
         new(
             TalkCategory.TameSuccess,
-            "a tamer tamed a creature. {item} is the creature.",
+            "a tamer tamed a creature and keeps it. {item} is the creature.",
             [
                 "tamed it!", "got the {item}!", "yes, new pet", "{item} is mine lol", "finally tamed it", "whos a good {item}",
-                "tame success", "took forever but got it", "new {item}, gonna name it", "pet time"
+                "tame success", "took forever but got it", "pet time", "got me a {item}", "worth the wait"
             ]
         ),
         new(
             TalkCategory.TameFail,
             "a tame attempt failed. {item} is the creature.",
             [
-                "wont take", "grr it attacked me", "stupid {item}", "failed again", "{item} hates me lol", "come on...",
-                "almost had it", "why wont u love me {item}", "taming fail", "its angry now, run"
+                "wont take", "stupid {item}", "failed again", "{item} hates me lol", "come on...",
+                "almost had it", "why wont u love me {item}", "taming fail", "so close", "{item} wont listen", "ugh, no luck"
             ]
         ),
         new(

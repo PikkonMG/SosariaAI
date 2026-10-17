@@ -12,8 +12,10 @@ namespace SosariaAI.Combat;
 /// the pack and the thing it ran from are both well off; the same thing chasing it off
 /// twice in a minute is a hunt, and then only twice that gap is clear. The ground it ran
 /// from is left alone for a while after. A fighter a person or a monster keeps chasing turns
-/// on it once it healed up, and on a person also once the chase shows it cannot outrun it. A
-/// runner hides once no chaser in the engine's hide range sees it (<see cref="SpoilsHide"/>).
+/// on it once it healed up, and on a person also once the chase shows it cannot outrun it, or
+/// at once when that person chases alone and is the weaker. Attackers that fight with spells
+/// raise the hit line more than blades (<see cref="CasterAttackerWeight"/>). A runner hides
+/// once no chaser in the engine's hide range sees it (<see cref="SpoilsHide"/>).
 /// </summary>
 public static class RetreatRules
 {
@@ -63,16 +65,28 @@ public static class RetreatRules
     public static double BaseLine(CharacterRole role, bool veteran) =>
         role == CharacterRole.Worker ? WorkerLine : veteran ? VeteranLine : FighterLine;
 
-    public static double Line(double baseLine, double nerve, int attackers)
+    /// <summary>
+    /// An attacker that fights with spells counts as this many on the hit line: its blows land
+    /// from range and in bursts (an Explosion and an Energy Bolt inside one second), so a player
+    /// under two mages left far sooner than under two swords.
+    /// </summary>
+    public const int CasterAttackerWeight = 2;
+
+    /// <summary>
+    /// The hit line for <paramref name="attackers"/> on the runner, of which
+    /// <paramref name="casterAttackers"/> fight with spells and weigh <see cref="CasterAttackerWeight"/> each.
+    /// </summary>
+    public static double Line(double baseLine, double nerve, int attackers, int casterAttackers)
     {
-        var extra = Math.Clamp(attackers - SingleAttacker, 0, MaxCountedExtraAttackers);
+        var weighted = attackers + (CasterAttackerWeight - 1) * Math.Clamp(casterAttackers, 0, attackers);
+        var extra = Math.Clamp(weighted - SingleAttacker, 0, MaxCountedExtraAttackers);
         var line = Math.Min(MaxOneFoeLine, baseLine / Math.Max(NerveRules.MinNerve, nerve)) + ExtraAttackerRaise * extra;
         return Math.Clamp(line, MinLine, MaxLine);
     }
 
     /// <summary>Fit to start a fight against <paramref name="foes"/> means some room above that fight's line.</summary>
     public static double StartLine(double baseLine, double nerve, int foes) =>
-        Math.Min(MaxLine, Line(baseLine, nerve, foes) + StartMargin);
+        Math.Min(MaxLine, Line(baseLine, nerve, foes, casterAttackers: 0) + StartMargin);
 
     /// <summary>
     /// Two or more already swinging and those on it far beyond the dare: leave on the numbers.
@@ -254,12 +268,31 @@ public static class RetreatRules
     public static bool Avoids(long avoidUntil, long now, int tilesFromGround, bool alreadyInFight) =>
         now - avoidUntil < 0 && tilesFromGround <= AvoidRadiusTiles && !alreadyInFight;
 
+    /// <summary>
+    /// A person chasing is turned on only when it is the one attacker on the runner and fights
+    /// with less power than the runner (<see cref="CharacterPower.For"/> of both): a player ran
+    /// from a gank and turned on the one weak chaser that ran out ahead of nobody.
+    /// </summary>
+    public static bool TurnsOnPerson(int attackers, int chaserPower, int runnerPower) =>
+        attackers <= LoneChaser && chaserPower < runnerPower;
+
+    /// <summary>
+    /// The runner turns on the straggler in front: under <see cref="MaxTurns"/>, fit to start,
+    /// a foe it would fight alone, and a person only when <see cref="TurnsOnPerson"/> holds.
+    /// </summary>
     public static bool ShouldTurnOnChaser(
         int turnsTaken,
         bool chaserIsPerson,
+        int attackers,
+        int chaserPower,
+        int runnerPower,
         bool fitToStart,
         bool straggler,
         bool chaserFitsDare
     ) =>
-        turnsTaken < MaxTurns && !chaserIsPerson && fitToStart && straggler && chaserFitsDare;
+        turnsTaken < MaxTurns &&
+        (!chaserIsPerson || TurnsOnPerson(attackers, chaserPower, runnerPower)) &&
+        fitToStart &&
+        straggler &&
+        chaserFitsDare;
 }

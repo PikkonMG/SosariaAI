@@ -15,13 +15,29 @@ public enum EscapeMove
     Leave
 }
 
+/// <summary>How an Explosion said now lands against a burst call of the caster's side.</summary>
+public enum BurstCall
+{
+    /// <summary>No call to keep, or one this Explosion would land too late for: the mage bursts on its own.</summary>
+    None,
+
+    /// <summary>It lands inside the call's window: say it now.</summary>
+    Lands,
+
+    /// <summary>It would land before the call's window opens: wait.</summary>
+    Early
+}
+
 /// <summary>
 /// How a 1999 mage fought a monster beyond picking the next attack (<see cref="SpellBook"/>):
 /// it froze a melee foe with Paralyze before anything else and cast from range; with the mana
 /// for both it said Explosion and then Energy Bolt or Flame Strike right after, so the delayed
 /// blast and the bolt landed together; and when the fight turned it went invisible or
 /// recalled out before its hits ran low, and meditated after. A summoned foe it dispelled.
-/// The burst is timed by the
+/// Against a person it put up Magic Reflection before the first blow, opened with a cheap
+/// Weaken or Magic Arrow and poisoned one it had not seen cure; a foe running low it chased
+/// with short words; a melee chaser it walled off. In a group its Explosion landed in the
+/// second its side called. The burst is timed by the
 /// engine's own clocks for the running era: the Explosion blast waits 2.5 seconds before AOS
 /// and 3 after (ExplosionSpell.InternalTimer), and the next words wait out the cast recovery
 /// (Spell.GetCastRecovery: 0.75 seconds before AOS, 6 / 4 seconds from AOS on). Pure.
@@ -65,13 +81,81 @@ public static class MageTacticsRules
     public const double NoDispelChance = 0;
     public const double SureDispelChance = 1;
 
+    /// <summary>The share of person openers that are Weaken; the rest are Magic Arrows.</summary>
+    public const double WeakenOpenerShare = 0.5;
+
     /// <summary>
-    /// The first spell of the fight on a free melee foe is Paralyze, when it can be cast and
-    /// fits the circle the footwork can buy. A held foe is walked away from
-    /// (<see cref="CombatStance.ParalyzeThenKite"/>), so the rest is cast from range.
+    /// The first spell of the fight on a free foe; a held one is not opened on, since any blow
+    /// or Weaken frees it (Mobile.Damage, WeakenSpell). On a person a cheap first hit: Weaken or
+    /// a Magic Arrow by <paramref name="weakenRoll"/>. On a monster that fights up close or
+    /// casts, Paralyze, when it can be cast and fits the circle the footwork can buy: a held
+    /// melee foe is walked away from (<see cref="CombatStance.ParalyzeThenKite"/>), and a held
+    /// caster says no words (Spell.Cast). Null when the fight is opened or nothing fits.
     /// </summary>
-    public static bool OpensWithParalyze(bool opened, CombatStyle foeStyle, bool foeHeld, bool canParalyze, int planCircle) =>
-        !opened && foeStyle == CombatStyle.Melee && !foeHeld && canParalyze && SpellBook.Fits(SpellBook.Paralyze, planCircle);
+    public static SpellKind? Opener(
+        bool opened,
+        bool foeIsPerson,
+        CombatStyle foeStyle,
+        bool foeHeld,
+        bool canParalyze,
+        bool canWeaken,
+        bool canArrow,
+        int planCircle,
+        double weakenRoll
+    )
+    {
+        if (opened || foeHeld)
+        {
+            return null;
+        }
+
+        if (!foeIsPerson)
+        {
+            return foeStyle is CombatStyle.Melee or CombatStyle.Mage && canParalyze && SpellBook.Fits(SpellBook.Paralyze, planCircle)
+                ? SpellKind.Paralyze
+                : null;
+        }
+
+        var weaken = canWeaken && SpellBook.Fits(SpellBook.Weaken, planCircle);
+        var arrow = canArrow && SpellBook.Fits(SpellBook.MagicArrow, planCircle);
+
+        return weaken && (weakenRoll < WeakenOpenerShare || !arrow) ? SpellKind.Weaken
+            : arrow ? SpellKind.MagicArrow
+            : null;
+    }
+
+    /// <summary>
+    /// Poison is planned first on a person that is not poisoned and that this mage has not seen
+    /// cure: a player poisoned first and let the poison work while the big spells came.
+    /// </summary>
+    public static bool PoisonFirst(bool foeIsPerson, bool foePoisoned, bool cureSeen) =>
+        foeIsPerson && !foePoisoned && !cureSeen;
+
+    /// <summary>
+    /// Magic Reflection goes up before the first blow on a person, in an era where it sends the
+    /// next spell back (before AOS; from AOS on a second cast takes it down), when it is not up
+    /// yet, can be cast, and fits the circle the footwork can buy.
+    /// </summary>
+    public static bool RaisesReflect(bool absorbsSpell, bool foeIsPerson, bool opened, bool reflectUp, bool canReflect, int planCircle) =>
+        absorbsSpell && foeIsPerson && !opened && !reflectUp && canReflect && SpellBook.Fits(SpellBook.MagicReflect, planCircle);
+
+    /// <summary>A foe running low is chased with spells of this circle at most: Magic Arrow, Harm, Fireball and Lightning, whose words are short.</summary>
+    public const int ChaseCircle = 4;
+
+    /// <summary>The circle a mage plans at: no higher than <see cref="ChaseCircle"/> while its foe runs low (<see cref="FootworkRules.RunsLow"/>).</summary>
+    public static int ChaseCap(int planCircle, bool foeRunsLow) => foeRunsLow ? Math.Min(planCircle, ChaseCircle) : planCircle;
+
+    /// <summary>A chaser this many tiles off or more leaves room for a wall between: one tile nearer is the wall's own tile.</summary>
+    public const int WallMinTiles = 2;
+
+    /// <summary>
+    /// A mage on the run walls off a chaser that fights up close once it closes to
+    /// <see cref="SpellBook.ClosingTiles"/>, while a tile is left between them for the wall and
+    /// the words finish before its blow.
+    /// </summary>
+    public static bool WallsOff(bool chaserFightsUpClose, int chaserDistance, int safeCircle) =>
+        chaserFightsUpClose && chaserDistance >= WallMinTiles && chaserDistance <= SpellBook.ClosingTiles &&
+        SpellBook.Fits(SpellBook.WallOfStone, safeCircle);
 
     /// <summary>
     /// The spell that follows Explosion: Flame Strike when the mana, Magery and
@@ -104,6 +188,24 @@ public static class MageTacticsRules
 
     /// <summary>How long after one spell's words end the next may begin in this era.</summary>
     public static int RecoveryMs(bool aos) => aos ? AosRecoveryMs : PreAosRecoveryMs;
+
+    /// <summary>
+    /// How long after its first word an Explosion lands: its words, the cursor answered on the
+    /// next think (<see cref="FootworkRules.CursorAnswerMs"/>) and the blast's delay.
+    /// </summary>
+    public static int ExplosionLandMs(bool aos) =>
+        CastTiming.CastDelayMs(SpellBook.Explosion.Circle, aos, slowedByProtection: false) + FootworkRules.CursorAnswerMs +
+        ExplosionDelayMs(aos);
+
+    /// <summary>
+    /// An Explosion that would land at <paramref name="landsAtTick"/> against a call to land at
+    /// <paramref name="callAtTick"/>: inside <see cref="BurstWindowMs"/> it lands with the call,
+    /// earlier it waits, later the call is gone and the mage bursts on its own.
+    /// </summary>
+    public static BurstCall Against(long landsAtTick, long callAtTick) =>
+        Math.Abs(landsAtTick - callAtTick) <= BurstWindowMs ? BurstCall.Lands
+        : landsAtTick < callAtTick ? BurstCall.Early
+        : BurstCall.None;
 
     /// <summary>
     /// True when a spell of <paramref name="followCircle"/> said right after Explosion lands

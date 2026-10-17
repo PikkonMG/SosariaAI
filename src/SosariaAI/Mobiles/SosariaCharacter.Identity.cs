@@ -72,7 +72,12 @@ public partial class SosariaCharacter
 
     private void PackStartingStacks()
     {
-        var stacks = VeteranKit.For(PersonProfile, ClassBuilds.TemplateOf(this), CharacterId);
+        var stacks = VeteranKit.For(
+            PersonProfile,
+            ClassBuilds.TemplateOf(this),
+            CharacterId,
+            VeteranKit.PvpMinded(IsPk, Build?.Role)
+        );
 
         for (var i = 0; i < stacks.Count; i++)
         {

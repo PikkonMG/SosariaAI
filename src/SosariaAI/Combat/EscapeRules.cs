@@ -11,8 +11,11 @@ public readonly record struct EscapeProbe(int X, int Y, int Z, int Reach, int Ex
     public Point3D At => new(X, Y, Z);
 }
 
-/// <summary>One place a runner could head for: a tile it can reach, how open it is there, and whether it is known ground.</summary>
-public readonly record struct EscapeOption(Point3D At, int Exits, bool Known);
+/// <summary>
+/// One place a runner could head for: a tile it can reach, how open it is there, whether it is
+/// known ground, and whether no chaser sees it there.
+/// </summary>
+public readonly record struct EscapeOption(Point3D At, int Exits, bool Known, bool OutOfSight = false);
 
 /// <summary>
 /// Where to run, judged on the ground itself. A player backing off a monster looks where it
@@ -51,6 +54,13 @@ public static class EscapeRules
     public const int DeadEndPenalty = 12;
     public const int KnownBonus = 4;
     public const int SafetyBonus = 6;
+
+    /// <summary>
+    /// A goal no chaser sees is worth one tile of leg more: it decides between goals as good
+    /// otherwise, never against a tile more ground away (<see cref="AwayWeight"/>). A player ran
+    /// round a building, out of the chaser's sight, to heal and hide.
+    /// </summary>
+    public const int OutOfSightBonus = LegWeight;
 
     /// <summary>
     /// A hostile not on the runner yet this near where a step or a leg leads is walked into and
@@ -266,10 +276,10 @@ public static class EscapeRules
 
     /// <summary>
     /// How good a goal is: farther from the pack than here by at least <see cref="MinGainTiles"/>,
-    /// then open ground, known ground (walked in by, or on the road net), the way to safety, and
-    /// no idle hostile beside it. A goal that gains too little is no option.
+    /// then open ground, known ground (walked in by, or on the road net), the way to safety, no
+    /// idle hostile beside it, and out of the chasers' sight. A goal that gains too little is no option.
     /// </summary>
-    public static int GoalScore(int gainTiles, int legTiles, int exits, bool known, bool towardSafety, int idleFoesNear)
+    public static int GoalScore(int gainTiles, int legTiles, int exits, bool known, bool towardSafety, int idleFoesNear, bool outOfSight)
     {
         if (gainTiles < MinGainTiles)
         {
@@ -278,7 +288,8 @@ public static class EscapeRules
 
         return gainTiles * AwayWeight - legTiles * LegWeight + exits * ExitWeight +
                (known ? KnownBonus : 0) + (towardSafety ? SafetyBonus : 0) -
-               (exits <= DeadEndExits ? DeadEndPenalty : 0) - idleFoesNear * IdleFoeGoalPenalty;
+               (exits <= DeadEndExits ? DeadEndPenalty : 0) - idleFoesNear * IdleFoeGoalPenalty +
+               (outOfSight ? OutOfSightBonus : 0);
     }
 
     /// <summary>
@@ -309,7 +320,8 @@ public static class EscapeRules
                 option.Exits,
                 option.Known,
                 towardSafety,
-                IdleFoesNear(idleFoes, option.At)
+                IdleFoesNear(idleFoes, option.At),
+                option.OutOfSight
             );
 
             if (score > bestScore)

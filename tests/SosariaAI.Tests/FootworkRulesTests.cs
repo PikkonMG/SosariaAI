@@ -170,4 +170,53 @@ public class FootworkRulesTests
         Assert.Equal(FootworkRules.KiteBandTiles, FootworkRules.ArcherBandMin(CombatStance.Kite));
         Assert.True(FootworkRules.KiteBandTiles <= FootworkRules.ArcherKeepMaxTiles);
     }
+
+    [Fact]
+    public void FacesAway_ThreeEighthsOffTheWayBack()
+    {
+        const int North = 0;
+        const int East = 2;
+        const int SouthEast = 3;
+        const int South = 4;
+        const int NorthWest = 7;
+
+        Assert.False(FootworkRules.FacesAway(North, North));
+        Assert.False(FootworkRules.FacesAway(East, North));
+        Assert.True(FootworkRules.FacesAway(SouthEast, North));
+        Assert.True(FootworkRules.FacesAway(South, North));
+        Assert.False(FootworkRules.FacesAway(NorthWest, North));
+    }
+
+    [Fact]
+    public void RunsLow_BelowTheLineAndFacingAway()
+    {
+        const double Low = 0.2;
+        const double Healthy = 0.8;
+
+        Assert.True(FootworkRules.RunsLow(Low, facesAway: true));
+        Assert.False(FootworkRules.RunsLow(Low, facesAway: false));
+        Assert.False(FootworkRules.RunsLow(Healthy, facesAway: true));
+    }
+
+    [Fact]
+    public void Strafes_UpToTheBudget_NeverWhileHolding()
+    {
+        Assert.True(FootworkRules.Strafes(CombatStance.Press, 0, FootworkRules.MinStrafeSteps));
+        Assert.False(FootworkRules.Strafes(CombatStance.Press, FootworkRules.MaxStrafeSteps, FootworkRules.MaxStrafeSteps));
+        Assert.False(FootworkRules.Strafes(CombatStance.Hold, 0, FootworkRules.MaxStrafeSteps));
+    }
+
+    [Fact]
+    public void SideStep_AQuarterTurnEitherWay_AndKeepsTheBand()
+    {
+        const int North = 0;
+        const int East = 2;
+        const int West = 6;
+
+        Assert.Equal(East, FootworkRules.SideStep(North, left: false));
+        Assert.Equal(West, FootworkRules.SideStep(North, left: true));
+        Assert.True(FootworkRules.KeepsBand(FootworkRules.KeepBandTiles, FootworkRules.KeepBandTiles, CombatBrain.MageKeepMax));
+        Assert.False(FootworkRules.KeepsBand(FootworkRules.KeepBandTiles - 1, FootworkRules.KeepBandTiles, CombatBrain.MageKeepMax));
+        Assert.False(FootworkRules.KeepsBand(CombatBrain.MageKeepMax + 1, FootworkRules.KeepBandTiles, CombatBrain.MageKeepMax));
+    }
 }

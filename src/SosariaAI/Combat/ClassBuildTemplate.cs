@@ -50,6 +50,12 @@ public sealed class ClassBuildTemplate
     /// <summary>Casts in a fight: carries a spellbook and every reagent.</summary>
     public bool Caster => Style == CombatStyle.Mage;
 
+    /// <summary>
+    /// The tank mage: fights with its <see cref="Weapon"/> and casts the first circle where it
+    /// stands, from the spellbook in its pack (<see cref="WieldRules.SwingsAndCasts"/>).
+    /// </summary>
+    public bool TankMage { get; init; }
+
     /// <summary>Casts only to travel and cure: carries a spellbook and the recall reagents.</summary>
     public bool TravelMagic => !Caster && Array.IndexOf(Utility, SkillName.Magery) >= 0;
 

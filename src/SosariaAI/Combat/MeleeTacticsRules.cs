@@ -4,7 +4,7 @@ namespace SosariaAI.Combat;
 /// How a warrior or a fencer fights with its feet, as a 1999 dexxer did: with a wall or a rock
 /// at its back when several foes come at it, so fewer of them can reach it; a step out of
 /// reach while the bandage works when the fight turns, then back in on the same foe; and a
-/// return, healed, to the lone foe it ran from. Live, every fighter ran one loop (press, step
+/// return, healed, to the lone foe it ran from. A tank mage throws an arrow at a foe that runs. Live, every fighter ran one loop (press, step
 /// back, run), and the 11 runners of a 9.5 hour log that turned back healed all turned on a
 /// person: a runner a monster chased ran to the end of its run and picked a fresh fight. Pure.
 /// </summary>
@@ -71,6 +71,15 @@ public static class MeleeTacticsRules
     /// within <see cref="HealOutTiles"/>, and stands still past it: it does not walk back in.
     /// </summary>
     public static bool StepsBack(int nearestFoeDistance) => nearestFoeDistance <= HealOutTiles;
+
+    /// <summary>
+    /// A tank mage (<see cref="ClassBuilds.TankMageShare"/>) throws a Magic Arrow where it
+    /// stands at a foe that turned to run out of its weapon's reach and is still in spell reach
+    /// (<see cref="SpellBook.Reach"/>): the swing cannot follow it, the arrow can. A foe in reach
+    /// gets the weapon; one that walks in is not met with words.
+    /// </summary>
+    public static bool ArrowsRunner(int distance, int weaponReach, bool foeFacesAway) =>
+        foeFacesAway && distance > weaponReach && distance <= SpellBook.Reach;
 
     /// <summary>
     /// A melee fighter that ran from a monster goes back for that same monster once it healed

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Server;
 using Server.Items;
 using Server.Mobiles;
+using Server.Spells;
 using SosariaAI.Behaviour;
 using SosariaAI.Common;
 using SosariaAI.Mobiles;
@@ -12,12 +13,13 @@ using SosariaAI.Spawning;
 
 namespace SosariaAI.Combat;
 
-/// <summary>Self care in and out of a fight. Each remedy has its own cooldown.</summary>
+/// <summary>
+/// Self care in and out of a fight. Each remedy has its own cooldown; a care spell waits only
+/// for the engine's own recovery (Mobile.NextSpellTime), so Heal goes twice in a row the way a
+/// player said "In Mani" twice.
+/// </summary>
 public static partial class CombatBrain
 {
-    /// <summary>A heal or cure spell on oneself, at most this often.</summary>
-    public const int SpellCareGapMs = 3000;
-
     /// <summary>Pre-AOS heal potions share a ten second delay; cure potions wait as long here.</summary>
     public const int PotionGapMs = 10000;
 
@@ -32,6 +34,8 @@ public static partial class CombatBrain
     private const string HealMateLine = "heal mate";
     private const string RaiseMateLine = "raise mate";
     private const string RefreshLine = "refresh";
+    private const string ThrowLine = "throw explosion";
+    private const string PouchLine = "trapped pouch";
 
     /// <summary>The spells self care may cast, for their stock (<see cref="CareFacts.Stock"/>).</summary>
     private static readonly SpellKind[] CareSpells = [SpellKind.Cure, SpellKind.Heal, SpellKind.GreaterHeal];
@@ -75,6 +79,7 @@ public static partial class CombatBrain
             character,
             MemoryOf(character),
             inFight: false,
+            versusPerson: false,
             CastTiming.TopCircle,
             spellsAllowed: true,
             ignoreCooldowns: true
@@ -85,14 +90,14 @@ public static partial class CombatBrain
     /// <summary>
     /// A tamer's heal or cure spell on its pet (<see cref="PetRules.PetSpell"/>), cast from where
     /// it stands, in a fight or out of one. False when no spell fits, the pet is out of the
-    /// spell's reach or sight, or the last care spell is too recent.
+    /// spell's reach or sight, or the engine's spell recovery is not over.
     /// </summary>
     public static bool CastOnPet(SosariaCharacter tamer, BaseCreature pet) => CastHealOn(tamer, pet);
 
     /// <summary>
     /// A heal or cure spell on another body, a pet or a party mate, by the pet rules: from where
-    /// the caster stands, within the spell's reach and sight, not too soon after the last one,
-    /// and in a fight only when its words finish before the next blow (<paramref name="safeCircle"/>).
+    /// the caster stands, within the spell's reach and sight, once the engine's spell recovery is
+    /// over, and in a fight only when its words finish before the next blow (<paramref name="safeCircle"/>).
     /// </summary>
     public static bool CastHealOn(SosariaCharacter caster, Mobile patient, int safeCircle = CastTiming.TopCircle)
     {
@@ -102,18 +107,17 @@ public static partial class CombatBrain
             return false;
         }
 
-        var memory = MemoryOf(caster);
-        var now = Core.TickCount;
-        if (now - memory.NextSpellCareAt < 0 ||
+        if (Core.TickCount - caster.NextSpellTime < 0 ||
             PetRules.PetSpell(patient.Poisoned, PetRules.Wounded(patient.Hits, patient.HitsMax), caster.Skills.Magery.Value, caster.Mana)
                 is not { } kind ||
-            !SpellBook.Fits(SpellBook.EntryOf(kind), safeCircle))
+            !SpellBook.Fits(SpellBook.EntryOf(kind), safeCircle) ||
+            !BeginCast(caster, MemoryOf(caster), kind, patient))
         {
             return false;
         }
 
-        memory.NextSpellCareAt = now + SpellCareGapMs;
-        return BeginCast(caster, memory, kind, patient);
+        RearmTankMage(caster);
+        return true;
     }
 
     /// <summary>
@@ -145,27 +149,37 @@ public static partial class CombatBrain
     }
 
     /// <summary>
-    /// Treats the wound or the poison with what the pack and the safe circle allow. True when
-    /// the best care is a heal spell whose words would not finish before the next blow, so a
-    /// caster should step clear first.
+    /// Treats the wound or the poison with what the pack and the safe circle allow. In a fight
+    /// with a person the bandage runs at any wound (<see cref="SelfCareRules.KeepsBandageRunning"/>);
+    /// the pack is read for it only once the last bandage is done. True when the best care is a
+    /// heal spell whose words would not finish before the next blow, so a caster should step
+    /// clear first.
     /// </summary>
     private static bool Care(SosariaCharacter character, Memory memory, bool inFight, int safeCircle, bool spellsAllowed)
     {
         var pack = character.Backpack;
+        var now = Core.TickCount;
+        var hits = Vitals.HitsFraction(character);
+        var versusPerson = inFight && People.IsLivingPlayer(character.Combatant);
 
-        if (pack == null || !SelfCareRules.NeedsCare(character.Poisoned, Vitals.HitsFraction(character), inFight) ||
+        if (pack == null ||
+            !SelfCareRules.NeedsCare(character.Poisoned, hits, inFight) &&
+            !(SelfCareRules.KeepsBandageRunning(versusPerson, hits) && BandageFree(character, memory, now)) ||
             !SelfCareRules.TreatsNow(character.Hidden, inFight, character.Poisoned))
         {
             return false;
         }
 
-        var now = Core.TickCount;
-        var facts = FactsOf(character, memory, inFight, safeCircle, spellsAllowed, ignoreCooldowns: false);
+        var facts = FactsOf(character, memory, inFight, versusPerson, safeCircle, spellsAllowed, ignoreCooldowns: false);
         var choice = SelfCareRules.Choose(facts);
 
         if (SelfCareRules.SpellOf(choice) is { } spell)
         {
-            SelfCast(character, memory, spell, now);
+            if (BeginCast(character, memory, spell, character))
+            {
+                RearmTankMage(character);
+            }
+
             return false;
         }
 
@@ -202,6 +216,7 @@ public static partial class CombatBrain
         SosariaCharacter character,
         Memory memory,
         bool inFight,
+        bool versusPerson,
         int safeCircle,
         bool spellsAllowed,
         bool ignoreCooldowns
@@ -212,16 +227,15 @@ public static partial class CombatBrain
         var now = Core.TickCount;
         var healing = character.Skills.Healing.Value;
         var potionReady = ignoreCooldowns || now - memory.NextPotionAt >= 0;
-        var bandageReady = ignoreCooldowns ||
-                           now - memory.NextBandageAt >= 0 && character.Target == null &&
-                           BandageContext.GetContext(character) == null;
-        var spellReady = spellsAllowed && IsSpellFighter(character) &&
-                         (ignoreCooldowns || character.Spell == null && memory.CastTarget == null && now - memory.NextSpellCareAt >= 0);
+        var bandageReady = ignoreCooldowns || BandageFree(character, memory, now);
+        var spellReady = spellsAllowed && (IsSpellFighter(character) || FightsAsTankMage(character)) &&
+                         (ignoreCooldowns || character.Spell == null && memory.CastTarget == null && now - character.NextSpellTime >= 0);
 
         return new CareFacts(
             poisoned,
             Vitals.HitsFraction(character),
             inFight,
+            versusPerson,
             safeCircle,
             spellReady,
             character.Skills.Magery.Value,
@@ -239,10 +253,21 @@ public static partial class CombatBrain
         );
     }
 
-    private static void SelfCast(SosariaCharacter character, Memory memory, SpellKind kind, long now)
+    /// <summary>The last bandage is done and its pace is up, and no cursor is in the hands.</summary>
+    private static bool BandageFree(SosariaCharacter character, Memory memory, long now) =>
+        now - memory.NextBandageAt >= 0 && character.Target == null && BandageContext.GetContext(character) == null;
+
+    /// <summary>
+    /// A tank mage takes its weapon back up after a care spell: the engine cleared its hands
+    /// for the words (Spell.ClearHandsOnCast). Before AOS a blow does not break the first
+    /// circle (Spell.Disturb), so it heals where it stands and swings on.
+    /// </summary>
+    private static void RearmTankMage(SosariaCharacter character)
     {
-        memory.NextSpellCareAt = now + SpellCareGapMs;
-        BeginCast(character, memory, kind, character);
+        if (FightsAsTankMage(character))
+        {
+            RearmAfterCast(character);
+        }
     }
 
     /// <summary>The engine's own drink check stands: a free hand, the heal potion delay, and a refresh only when winded.</summary>
@@ -277,6 +302,91 @@ public static partial class CombatBrain
         }
     }
 
+    /// <summary>
+    /// A paralyzed body opens a pouch it trapped with Magic Trap (<see cref="CombatItemRules.FreesFromParalyze"/>):
+    /// the trap's blow frees it, in a fight and on the run. The pack is searched only while the
+    /// body is held.
+    /// </summary>
+    private static void BreakParalyze(SosariaCharacter character)
+    {
+        if (!character.Paralyzed ||
+            character.Backpack?.FindItemByType<Pouch>(true, static pouch => CombatItemRules.FreesFromParalyze(pouch.TrapType))
+                is not { } pouch)
+        {
+            return;
+        }
+
+        character.Use(pouch);
+
+        if (LogsOnce(character, PouchLine, character))
+        {
+            logger.Information("{Name} opens a trapped pouch to break a paralyze", character.Name);
+        }
+    }
+
+    /// <summary>
+    /// An explosion potion at a person held in place (<see cref="CombatItemRules.ThrowsExplosion"/>),
+    /// the way a client does it: use the potion, target the foe. The engine's own pace between
+    /// uses holds (Mobile.NextActionTime, set as the use packet sets it), and the throw is made
+    /// only where the cursor takes it (reach, sight and line of sight, as Target.Invoke checks):
+    /// a lit potion left in the pack blows up on its thrower.
+    /// </summary>
+    private static void TryThrowExplosion(SosariaCharacter character, Memory memory, Mobile foe)
+    {
+        var now = Core.TickCount;
+
+        if (foe == null || foe.Map != character.Map || character.Hidden || character.Spell != null ||
+            character.Target != null || now - character.NextActionTime < 0 || now - memory.NextThrowAt < 0 ||
+            !CombatItemRules.ThrowsExplosion(
+                People.IsLivingPlayer(foe),
+                foe.Paralyzed || foe.Frozen,
+                StyleOf(character, IsSpellFighter(character)) != CombatStyle.Melee,
+                NavMetric.Chebyshev(character.Location, foe.Location),
+                Core.ML
+            ) ||
+            !character.CanSee(foe) || !character.InLOS(foe) || !character.CanBeHarmful(foe, false) ||
+            BlastHitsOthers(character, foe) ||
+            character.Backpack?.FindItemByType<BaseExplosionPotion>() is not { } potion)
+        {
+            return;
+        }
+
+        character.NextActionTime = now + Mobile.ActionDelay;
+        character.Use(potion);
+
+        if (character.Target is not { } cursor)
+        {
+            return;
+        }
+
+        memory.NextThrowAt = now + CombatItemRules.FuseMs;
+        cursor.Invoke(character, foe);
+
+        if (LogsOnce(character, ThrowLine, foe))
+        {
+            logger.Information("{Name} throws an explosion potion at the held {Foe}", character.Name, foe.Name);
+        }
+    }
+
+    /// <summary>
+    /// True when a blast on the foe's tile would hurt someone beside it (BaseExplosionPotion.Explode:
+    /// every body the thrower may harm, its party and guild aside), the foe and anyone fighting
+    /// the thrower not counted.
+    /// </summary>
+    private static bool BlastHitsOthers(SosariaCharacter character, Mobile foe)
+    {
+        foreach (var mobile in foe.Map.GetMobilesInRange(foe.Location, CombatItemRules.BlastTiles))
+        {
+            if (mobile != foe && SpellHelper.ValidIndirectTarget(character, mobile) && character.CanBeHarmful(mobile, false) &&
+                !IsFoe(character, mobile, out _))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>A bandage on oneself the way a client does it: use the bandage, target self.</summary>
     private static void ApplyBandage(SosariaCharacter character, Memory memory, Bandage bandage, long now)
     {
@@ -300,18 +410,25 @@ public static partial class CombatBrain
     /// <summary>
     /// A mage-healer (<see cref="HealerTacticsRules"/>) raises a fallen party mate when it can,
     /// else heals or cures the worst off of its friends in the fight, before it casts at the foe.
-    /// True when that took the think.
+    /// Any other caster heals a friend deep in trouble while its own hits are safe
+    /// (<see cref="HealerTacticsRules.HealsMates"/>). True when that took the think.
     /// </summary>
-    private static bool TryHealerTactics(SosariaCharacter character, Memory memory, Mobile foe, int safeCircle) =>
-        character.PersonProfile.Class == PersonClass.Healer &&
-        (TryRaiseMate(character, memory, foe) || TryHealMate(character, foe, safeCircle));
+    private static bool TryHealerTactics(SosariaCharacter character, Memory memory, Mobile foe, int safeCircle)
+    {
+        var healer = character.PersonProfile.Class == PersonClass.Healer;
+
+        return healer && TryRaiseMate(character, memory, foe) ||
+               HealerTacticsRules.HealsMates(healer, Vitals.HitsFraction(character), character.Poisoned) &&
+               TryHealMate(character, foe, safeCircle, healer);
+    }
 
     /// <summary>
-    /// The friends in reach of a heal spell, in sight: the healer's party, and the people fighting
-    /// its foe that are no foe of its own. One a heal would make the healer a criminal for is left
-    /// alone. The worst off of them that needs it gets a heal or a cure (<see cref="CastHealOn"/>).
+    /// The friends in reach of a heal spell, in sight: the caster's party, a red's gang mates, and
+    /// the people fighting its foe that are no foe of its own. One a heal would make a blue caster
+    /// a criminal for is left alone (<see cref="HealerTacticsRules.MayAid"/>). The worst off of
+    /// them that needs it gets a heal or a cure (<see cref="CastHealOn"/>).
     /// </summary>
-    private static bool TryHealMate(SosariaCharacter healer, Mobile foe, int safeCircle)
+    private static bool TryHealMate(SosariaCharacter healer, Mobile foe, int safeCircle, bool healerClass)
     {
         if (healer.Map is not { } map || map == Map.Internal)
         {
@@ -321,11 +438,14 @@ public static partial class CombatBrain
         MateBodies.Clear();
         MateCares.Clear();
         var party = GameParty.Of(healer);
+        var red = PkRules.IsRed(healer.Kills);
 
         foreach (var mobile in map.GetMobilesInRange(healer.Location, PetRules.SpellReachTiles))
         {
-            if (mobile == healer || !People.IsLivingPlayer(mobile) || healer.IsBeneficialCriminal(mobile) ||
-                !(party != null && GameParty.Of(mobile) == party || mobile.Combatant == foe && !IsFoe(healer, mobile, out _)))
+            if (mobile == healer || !People.IsLivingPlayer(mobile) ||
+                !HealerTacticsRules.MayAid(healer.IsBeneficialCriminal(mobile), red) ||
+                !(party != null && GameParty.Of(mobile) == party || IsGangMate(healer, mobile) ||
+                  mobile.Combatant == foe && !IsFoe(healer, mobile, out _)))
             {
                 continue;
             }
@@ -334,7 +454,7 @@ public static partial class CombatBrain
             MateCares.Add(new MateCare(Vitals.HitsFraction(mobile), mobile.Poisoned));
         }
 
-        var pick = HealerTacticsRules.Pick(MateCares);
+        var pick = HealerTacticsRules.Pick(MateCares, healerClass);
 
         if (pick == HealerTacticsRules.NoPatient || !CastHealOn(healer, MateBodies[pick], safeCircle))
         {
@@ -355,6 +475,10 @@ public static partial class CombatBrain
 
         return true;
     }
+
+    /// <summary>A red of the same outlaw gang (<see cref="PkGangRules.SameGang"/>).</summary>
+    private static bool IsGangMate(SosariaCharacter character, Mobile mobile) =>
+        character.IsPk && mobile is SosariaCharacter { IsPk: true } mate && PkGangRules.SameGang(character.OutlawGang, mate.OutlawGang);
 
     /// <summary>
     /// A fallen party mate in sight and near is raised with Resurrection when nothing fights the

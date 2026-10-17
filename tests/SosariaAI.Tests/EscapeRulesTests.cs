@@ -217,7 +217,26 @@ public class EscapeRulesTests
 
     [Fact]
     public void GoalScore_TooLittleGainIsNoOption() =>
-        Assert.Equal(int.MinValue, EscapeRules.GoalScore(EscapeRules.MinGainTiles - 1, 3, 8, known: true, towardSafety: true, idleFoesNear: 0));
+        Assert.Equal(int.MinValue, EscapeRules.GoalScore(EscapeRules.MinGainTiles - 1, 3, 8, known: true, towardSafety: true, idleFoesNear: 0, outOfSight: true));
+
+    [Fact]
+    public void PickGoal_OutOfTheChasersSightWinsBetweenGoalsAsGoodOtherwise()
+    {
+        var from = new Point3D(10, 10, 0);
+        var even = new List<EscapeOption>
+        {
+            new(new Point3D(10, 2, 0), Exits: 8, Known: false),
+            new(new Point3D(10, 18, 0), Exits: 8, Known: false, OutOfSight: true)
+        };
+        var tileFarther = new List<EscapeOption>
+        {
+            new(new Point3D(10, 1, 0), Exits: 8, Known: false),
+            new(new Point3D(10, 18, 0), Exits: 8, Known: false, OutOfSight: true)
+        };
+
+        Assert.Equal(1, EscapeRules.PickGoal(even, from, 13, 10, safety: null, EscapeRules.NoIdleFoes));
+        Assert.Equal(0, EscapeRules.PickGoal(tileFarther, from, 13, 10, safety: null, EscapeRules.NoIdleFoes));
+    }
 
     [Fact]
     public void PickGoal_KnownGroundBeatsTheSameGainUnwalked()

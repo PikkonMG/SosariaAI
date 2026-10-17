@@ -1,11 +1,13 @@
 using System.Collections.Generic;
+using Server;
 using SosariaAI.Economy;
 using SosariaAI.Spawning;
 
 namespace SosariaAI.Combat;
 
 /// <summary>
-/// The worn and carried kit of a class at a tier. The body pieces come from the armor
+/// The worn and carried kit of a class at a tier. A tank mage, a weapon fighter that casts in
+/// melee (<see cref="CastsInMelee"/>), carries its weapon, the spellbook and every reagent. The body pieces come from the armor
 /// ladder (<see cref="GearLadder"/>): a dexxer wears ring mail up to journeyman, chain at
 /// expert and plate above; archers climb from leather to studded; casters wear leather and
 /// carry no weapon. No build is kitted above its ceiling (see
@@ -81,10 +83,12 @@ public static class ClassKits
 
         AddArmor(kit, template, tier, female, uniqueId);
 
-        if (template.Caster || template.TravelMagic)
+        var fightMagic = template.Caster || CastsInMelee(template);
+
+        if (fightMagic || template.TravelMagic)
         {
             kit.Add(Spellbook);
-            kit.AddRange(template.Caster ? AllReagents : TravelReagents);
+            kit.AddRange(fightMagic ? AllReagents : TravelReagents);
             kit.Add(RecallRune);
         }
 
@@ -97,6 +101,12 @@ public static class ClassKits
 
         return KitVariation.Vary(kit, uniqueId);
     }
+
+    /// <summary>
+    /// The tank mage, who swings and casts Heal and Magic Arrow where it stands. Training Magery
+    /// beside Tactics is not enough: a scribe trains both and fights with neither.
+    /// </summary>
+    public static bool CastsInMelee(ClassBuildTemplate template) => template.TankMage;
 
     /// <summary>The shield this person carries at this tier, the same one on every boot.</summary>
     public static string ShieldFor(SkillTier tier, string uniqueId) => PersonDice.Pick(uniqueId, ShieldSalt, ShieldsFor(tier));

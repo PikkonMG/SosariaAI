@@ -16,6 +16,7 @@ using Server.Targeting;
 using SosariaAI.Common;
 using SosariaAI.Configuration;
 using SosariaAI.Mobiles;
+using SosariaAI.Navigation;
 using SosariaAI.Skills;
 
 namespace SosariaAI.Combat;
@@ -41,14 +42,19 @@ public static partial class CombatBrain
     private const string RecallOutLine = "recall out";
     private const string LeaveHiddenLine = "leave hidden";
     private const string CrimeCastLine = "crime cast";
+    private const string ReflectLine = "reflect";
+    private const string WallOffLine = "wall off";
+    private const string BurstCallLine = "burst call";
+    private const string ChaseLine = "chase";
 
     // Weak keys: a deleted character's tactics go with it, as its fight memory does.
     private static readonly ConditionalWeakTable<SosariaCharacter, CasterTactics> Tactics = new();
 
     /// <summary>
     /// A caster's tactics for the fight it is in, beside the fight memory: whether it opened,
-    /// the spell its burst still owes, when the fight began and since when it stands hidden. A
-    /// new fight (<see cref="Memory.FightId"/>) starts them afresh.
+    /// the spell its burst still owes, when the fight began and since when it stands hidden,
+    /// the foe it watches for a cure and whether it saw one, and its side steps since the last
+    /// cast. A new fight (<see cref="Memory.FightId"/>) starts them afresh.
     /// </summary>
     private sealed class CasterTactics
     {
@@ -58,6 +64,12 @@ public static partial class CombatBrain
         public SpellKind? FollowUp;
         public long HiddenSince;
         public long NextRecallLookAt;
+        public Mobile CureWatch;
+        public bool CureWatchPoisoned;
+        public bool CureSeen;
+        public int StrafeSteps;
+        public int StrafeBudget;
+        public bool StrafeLeft;
     }
 
     private static CasterTactics TacticsOf(SosariaCharacter character, Memory memory)
@@ -72,9 +84,37 @@ public static partial class CombatBrain
             tactics.FollowUp = null;
             tactics.HiddenSince = 0;
             tactics.NextRecallLookAt = 0;
+            tactics.CureWatch = null;
+            tactics.CureWatchPoisoned = false;
+            tactics.CureSeen = false;
+            NewStrafeGap(tactics);
         }
 
         return tactics;
+    }
+
+    /// <summary>A new gap between casts: no side step taken yet, and a fresh budget of one or two (<see cref="FootworkRules.Strafes"/>).</summary>
+    private static void NewStrafeGap(CasterTactics tactics)
+    {
+        tactics.StrafeSteps = 0;
+        tactics.StrafeBudget = Utility.RandomMinMax(FootworkRules.MinStrafeSteps, FootworkRules.MaxStrafeSteps);
+    }
+
+    /// <summary>
+    /// Watches the foe for a cure: words of Cure or Arch Cure, or poison gone from it since the
+    /// last look (a spell or a potion). The watch starts afresh on another foe.
+    /// </summary>
+    private static void WatchForCure(CasterTactics tactics, Mobile foe)
+    {
+        if (tactics.CureWatch != foe)
+        {
+            tactics.CureWatch = foe;
+            tactics.CureWatchPoisoned = false;
+            tactics.CureSeen = false;
+        }
+
+        tactics.CureSeen |= foe.Spell is CureSpell or ArchCureSpell || tactics.CureWatchPoisoned && !foe.Poisoned;
+        tactics.CureWatchPoisoned = foe.Poisoned;
     }
 
     /// <summary>
@@ -154,10 +194,12 @@ public static partial class CombatBrain
     /// <summary>
     /// The spell this mage wants next: the ward in the Protect stance, Paralyze on a free foe in
     /// the ParalyzeThenKite stance, nothing while it heals or walks off a held foe, else what its
-    /// tactics call for (<see cref="TacticSpell"/>), else the planned attack, picked up to the circle <see cref="FootworkRules.PlanCircle"/> gives. A
-    /// foe in the band with nothing that fits now gets a plan for open ground, so the footwork
-    /// steps for the room. The plan stands until it is cast, cannot be, or no longer fits the
-    /// plan circle.
+    /// tactics call for (<see cref="TacticSpell"/>), nothing while it waits for its side's burst
+    /// call, else the planned attack, picked up to the circle <see cref="FootworkRules.PlanCircle"/>
+    /// gives. A foe running low (<see cref="FootworkRules.RunsLow"/>) caps the circle at the short
+    /// words of the chase (<see cref="MageTacticsRules.ChaseCap"/>). A foe in the band with
+    /// nothing that fits now gets a plan for open ground, so the footwork steps for the room. The
+    /// plan stands until it is cast, cannot be, or no longer fits the plan circle.
     /// </summary>
     private static SpellKind? Wish(
         SosariaCharacter character,
@@ -176,6 +218,8 @@ public static partial class CombatBrain
         var magery = character.Skills.Magery.Value;
         var mana = character.Mana;
         var held = foe.Paralyzed || foe.Frozen;
+        var tactics = TacticsOf(character, memory);
+        WatchForCure(tactics, foe);
 
         switch (stance)
         {
@@ -212,11 +256,26 @@ public static partial class CombatBrain
             }
         }
 
-        var planCircle = FootworkRules.PlanCircle(distance, FootworkRules.BandMin(stance, held), MageKeepMax, safeCircle);
+        var runsLow = RunsLow(foe, character);
+        var openCircle = MageTacticsRules.ChaseCap(CastTiming.TopCircle, runsLow);
+        var planCircle = MageTacticsRules.ChaseCap(
+            FootworkRules.PlanCircle(distance, FootworkRules.BandMin(stance, held), MageKeepMax, safeCircle),
+            runsLow
+        );
 
-        if (TacticSpell(character, memory, foe, held, planCircle) is { } tactic)
+        if (runsLow && LogsOnce(character, ChaseLine, foe))
+        {
+            logger.Information("{Name} chases {Foe} running low with short words", character.Name, foe.Name);
+        }
+
+        if (TacticSpell(character, memory, foe, held, planCircle, out var waitsForCall) is { } tactic)
         {
             return tactic;
+        }
+
+        if (waitsForCall)
+        {
+            return null;
         }
 
         if (memory.Planned is { } planned && StillWorthCasting(planned, magery, mana, held, foe.Poisoned, memory.Kit.Stock) &&
@@ -225,45 +284,71 @@ public static partial class CombatBrain
             return planned;
         }
 
-        memory.Planned = PlanSpell(character, foe, distance, planCircle, memory.Kit.Stock) ??
-                         PlanSpell(character, foe, distance, CastTiming.TopCircle, memory.Kit.Stock);
+        var poisonFirst = MageTacticsRules.PoisonFirst(People.IsLivingPlayer(foe), foe.Poisoned, tactics.CureSeen);
+        memory.Planned = PlanSpell(character, foe, distance, planCircle, memory.Kit.Stock, runsLow, poisonFirst) ??
+                         PlanSpell(character, foe, distance, openCircle, memory.Kit.Stock, runsLow, poisonFirst);
         return memory.Planned;
     }
 
     /// <summary>
-    /// A spell at or under <paramref name="circle"/>: Paralyze or Poison by chance, else a pick
-    /// among the strongest attacks (<see cref="SpellBook"/>). Null when nothing can be cast.
+    /// A spell at or under <paramref name="circle"/>: Poison first on a person not seen to cure
+    /// (<paramref name="poisonFirst"/>), Paralyze or Poison by chance, else a pick among the
+    /// strongest attacks (<see cref="SpellBook"/>); a foe <paramref name="runsLow"/> gets only
+    /// the attack. Null when nothing can be cast.
     /// </summary>
-    private static SpellKind? PlanSpell(SosariaCharacter character, Mobile foe, int distance, int circle, SpellStock stock)
+    private static SpellKind? PlanSpell(
+        SosariaCharacter character,
+        Mobile foe,
+        int distance,
+        int circle,
+        SpellStock stock,
+        bool runsLow,
+        bool poisonFirst
+    )
     {
         var magery = character.Skills.Magery.Value;
         var mana = character.Mana;
+        var utility = runsLow
+            ? null
+            : SpellBook.PickUtility(
+                magery,
+                mana,
+                distance,
+                circle,
+                foe.Paralyzed || foe.Frozen,
+                foe.Poisoned,
+                poisonFirst,
+                Utility.RandomDouble(),
+                Utility.RandomDouble(),
+                stock
+            );
 
-        return SpellBook.PickUtility(
-                   magery,
-                   mana,
-                   distance,
-                   circle,
-                   foe.Paralyzed || foe.Frozen,
-                   foe.Poisoned,
-                   Utility.RandomDouble(),
-                   Utility.RandomDouble(),
-                   stock
-               ) ??
-               SpellBook.PickAttack(magery, mana, distance, circle, Utility.RandomDouble(), stock);
+        return utility ?? SpellBook.PickAttack(magery, mana, distance, circle, Utility.RandomDouble(), stock);
     }
 
     /// <summary>
     /// The spell a mage's tactics call for (<see cref="MageTacticsRules"/>): Dispel on a summoned
-    /// foe it will likely unmake, the burst's follow-up while it is owed, Paralyze to open on a
-    /// free melee foe, or Explosion to start a burst when the mana holds both spells; null when
-    /// none does.
+    /// foe it will likely unmake, the burst's follow-up while it is owed, Magic Reflection before
+    /// the first blow on a person, the opener (<see cref="MageTacticsRules.Opener"/>), or
+    /// Explosion to start a burst when the mana holds both spells, timed to land with its side's
+    /// call (<see cref="GroupBurst"/>); null when none does. <paramref name="waitsForCall"/> is
+    /// true when the burst waits for that call's window.
     /// </summary>
-    private static SpellKind? TacticSpell(SosariaCharacter character, Memory memory, Mobile foe, bool held, int planCircle)
+    private static SpellKind? TacticSpell(
+        SosariaCharacter character,
+        Memory memory,
+        Mobile foe,
+        bool held,
+        int planCircle,
+        out bool waitsForCall
+    )
     {
         var tactics = TacticsOf(character, memory);
         var magery = character.Skills.Magery.Value;
         var mana = character.Mana;
+        var stock = memory.Kit.Stock;
+        var person = People.IsLivingPlayer(foe);
+        waitsForCall = false;
 
         if (foe is BaseCreature { IsDispellable: true } summon &&
             MageTacticsRules.Dispels(
@@ -285,20 +370,51 @@ public static partial class CombatBrain
             tactics.FollowUp = null;
         }
 
-        if (MageTacticsRules.OpensWithParalyze(
+        if (MageTacticsRules.RaisesReflect(
+                !Core.AOS,
+                person,
                 tactics.Opened,
-                StyleOfFoe(foe),
-                held,
-                memory.Kit.Stock.Has(SpellKind.Paralyze) && SpellBook.CanCast(SpellBook.Paralyze, magery, mana),
+                character.MagicDamageAbsorb > 0,
+                stock.Has(SpellKind.MagicReflect) && SpellBook.CanCast(SpellBook.MagicReflect, magery, mana),
                 planCircle
             ))
         {
-            return SpellKind.Paralyze;
+            return SpellKind.MagicReflect;
         }
 
-        return MageTacticsRules.StartsBurst(magery, mana, planCircle, Vitals.HitsFraction(foe), Core.AOS, memory.Kit.Stock)
-            ? SpellKind.Explosion
-            : null;
+        if (MageTacticsRules.Opener(
+                tactics.Opened,
+                person,
+                StyleOfFoe(foe),
+                held,
+                stock.Has(SpellKind.Paralyze) && SpellBook.CanCast(SpellBook.Paralyze, magery, mana),
+                stock.Has(SpellKind.Weaken) && SpellBook.CanCast(SpellBook.Weaken, magery, mana),
+                stock.Has(SpellKind.MagicArrow) && SpellBook.CanCast(SpellBook.MagicArrow, magery, mana),
+                planCircle,
+                Utility.RandomDouble()
+            ) is { } opener)
+        {
+            return opener;
+        }
+
+        if (!MageTacticsRules.StartsBurst(magery, mana, planCircle, Vitals.HitsFraction(foe), Core.AOS, stock))
+        {
+            return null;
+        }
+
+        waitsForCall = CallFor(character, foe, out _) == BurstCall.Early;
+        return waitsForCall ? null : SpellKind.Explosion;
+    }
+
+    /// <summary>
+    /// How an Explosion said now, landing at <paramref name="landsAt"/>, meets the burst call of
+    /// this caster's side on <paramref name="foe"/> (<see cref="MageTacticsRules.Against"/>);
+    /// <see cref="BurstCall.None"/> when there is no call.
+    /// </summary>
+    private static BurstCall CallFor(SosariaCharacter character, Mobile foe, out long landsAt)
+    {
+        landsAt = Core.TickCount + MageTacticsRules.ExplosionLandMs(Core.AOS);
+        return GroupBurst.TryCall(character, foe, out var callAt) ? MageTacticsRules.Against(landsAt, callAt) : BurstCall.None;
     }
 
     /// <summary>
@@ -346,7 +462,7 @@ public static partial class CombatBrain
         var attackers = memory.Picture.Attackers;
         var losing = !hidden && MageTacticsRules.Losing(
             Vitals.HitsFraction(character),
-            RetreatRules.Line(BaseLineOf(character), NerveOf(character, memory), attackers),
+            RetreatRules.Line(BaseLineOf(character), NerveOf(character, memory), attackers, CasterAttackers(memory)),
             memory.Outlook,
             attackers
         );
@@ -537,6 +653,57 @@ public static partial class CombatBrain
         return true;
     }
 
+    /// <summary>
+    /// A caster on the run from a foe that fights up close says Wall of Stone between them once
+    /// it closes in (<see cref="MageTacticsRules.WallsOff"/>): the wall stands across the way for
+    /// ten seconds and the chaser walks round it. The cursor goes on the tile toward the chaser
+    /// when the words end (<see cref="WallSpot"/>). Read on the scan pace, from this scan's chaser.
+    /// </summary>
+    private static bool WallsOffChaser(SosariaCharacter character, Memory memory, bool scanned)
+    {
+        if (!scanned || character.Hidden || !IsSpellFighter(character) || !CastReady(character, memory) ||
+            ChaserOnRunner(character, memory) is not { } chaser || StyleOfFoe(chaser) != CombatStyle.Melee)
+        {
+            return false;
+        }
+
+        ReadThreats(character, memory, chaser);
+
+        if (!MageTacticsRules.WallsOff(
+                chaserFightsUpClose: true,
+                NavMetric.Chebyshev(character.Location, chaser.Location),
+                SafeCircleNow(character, memory)
+            ) ||
+            !Readies(character, SpellKind.WallOfStone) || !CastAid(character, memory, SpellKind.WallOfStone, chaser))
+        {
+            return false;
+        }
+
+        if (LogsOnce(character, WallOffLine, chaser))
+        {
+            logger.Information("{Name} puts a Wall of Stone between itself and {Foe} on the run", character.Name, chaser.Name);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The tile for a wall between the caster and <paramref name="chaser"/>: one step from the
+    /// caster toward it, while the chaser still stands <see cref="MageTacticsRules.WallMinTiles"/>
+    /// or more off; null once it is too close for a wall between.
+    /// </summary>
+    private static Point3D? WallSpot(Mobile caster, Mobile chaser)
+    {
+        if (NavMetric.Chebyshev(caster.Location, chaser.Location) < MageTacticsRules.WallMinTiles)
+        {
+            return null;
+        }
+
+        var spot = caster.Location;
+        Server.Movement.Movement.Offset(caster.GetDirectionTo(chaser), ref spot);
+        return spot;
+    }
+
     /// <summary>A spell that helps, on itself, a friend, a pet or a ghost. The cast gap holds as for an attack.</summary>
     private static bool CastAid(SosariaCharacter character, Memory memory, SpellKind kind, Mobile target)
     {
@@ -551,7 +718,7 @@ public static partial class CombatBrain
 
     private static bool StillWorthCasting(SpellKind kind, double magery, int mana, bool foeHeld, bool foePoisoned, SpellStock stock) =>
         SpellBook.CanCast(SpellBook.EntryOf(kind), magery, mana) && stock.Has(kind) &&
-        !(kind == SpellKind.Paralyze && foeHeld) &&
+        !(kind is SpellKind.Paralyze or SpellKind.Weaken && foeHeld) &&
         !(kind == SpellKind.Poison && foePoisoned);
 
     /// <summary>The best attack whose words finish before the next blow, or null.</summary>
@@ -568,10 +735,11 @@ public static partial class CombatBrain
     /// <summary>
     /// Nothing to cast this tick: hold the band for the stance. Too near, or a heal that needs
     /// more room, steps clear by the footwork rules, so once the grace runs out it stands where
-    /// it is for the commit window; too far walks in; inside the band it stands. Only a cast
-    /// ends the break-away (<see cref="CastAt"/>). Stepping out on its own clock, and ending
-    /// the break-away whenever the band held for a moment, restarted the grace between every
-    /// two casts, and mages ran the whole fight.
+    /// it is for the commit window; too far walks in; inside the band it takes a side step or
+    /// two (<see cref="Strafe"/>) and then stands. Only a cast ends the break-away
+    /// (<see cref="CastAt"/>). Stepping out on its own clock, and ending the break-away whenever
+    /// the band held for a moment, restarted the grace between every two casts, and mages ran
+    /// the whole fight.
     /// </summary>
     private static void KeepBand(
         SosariaCharacter character,
@@ -606,6 +774,48 @@ public static partial class CombatBrain
         if (distance > MageKeepMax)
         {
             Approach(character, memory, foe, MageKeepMax);
+            return;
+        }
+
+        Strafe(character, memory, foe, stance, FootworkRules.BandMin(stance, held));
+    }
+
+    /// <summary>
+    /// A side step inside the band between casts (<see cref="FootworkRules.Strafes"/>): a quarter
+    /// turn off the way to the foe, the side of the last step first, onto a tile that keeps the
+    /// band (<see cref="FootworkRules.KeepsBand"/>) and is no nearer the hostiles not on it yet.
+    /// A mage that stood still between its words was the easy target of every swing and arrow.
+    /// </summary>
+    private static void Strafe(SosariaCharacter character, Memory memory, Mobile foe, CombatStance stance, int bandMin)
+    {
+        var tactics = TacticsOf(character, memory);
+
+        if (!FootworkRules.Strafes(stance, tactics.StrafeSteps, tactics.StrafeBudget) || !CanWalk(character) ||
+            !character.Motor.CanMoveNow)
+        {
+            return;
+        }
+
+        var toward = (int)(character.GetDirectionTo(foe) & Direction.Mask);
+        var idleHere = EscapeRules.IdleFoesNear(memory.IdleFoes, character.Location);
+
+        ReadOnlySpan<bool> sides = [tactics.StrafeLeft, !tactics.StrafeLeft];
+
+        foreach (var left in sides)
+        {
+            var direction = (Direction)FootworkRules.SideStep(toward, left);
+            var spot = character.Location;
+            Server.Movement.Movement.Offset(direction, ref spot);
+
+            if (!FootworkRules.KeepsBand(NavMetric.Chebyshev(spot, foe.Location), bandMin, MageKeepMax) ||
+                EscapeRules.IdleFoesNear(memory.IdleFoes, spot) > idleHere || !character.Motor.DoMove(direction))
+            {
+                continue;
+            }
+
+            tactics.StrafeSteps++;
+            tactics.StrafeLeft = left;
+            return;
         }
     }
 
@@ -646,7 +856,7 @@ public static partial class CombatBrain
     }
 
     /// <summary>
-    /// Casts at the foe, or on itself for the ward. A cast bought by steps out of reach, and one
+    /// Casts at the foe, or on itself for the ward or Magic Reflection. A cast bought by steps out of reach, and one
     /// cast where it stands because the steps could not buy the room, are logged to be counted.
     /// A cast where it stands keeps the break-away clock, so the stand ends and the steps resume.
     /// </summary>
@@ -659,7 +869,7 @@ public static partial class CombatBrain
         CombatStance stance = CombatStance.Press
     )
     {
-        var self = kind == SpellBook.WardOf(Core.UOR);
+        var self = SpellBook.OnSelf(kind, Core.UOR);
 
         if (!self && !character.CanBeHarmful(foe, false) || !BeginCast(character, memory, kind, self ? character : foe))
         {
@@ -704,7 +914,8 @@ public static partial class CombatBrain
     /// <summary>
     /// Books a cast for the tactics: the first harmful one opens the fight, and Explosion owes
     /// its follow-up (<see cref="MageTacticsRules.BurstFollowUp"/>) on the mana its words leave;
-    /// any other cast settles the debt.
+    /// any other cast settles the debt. An Explosion that does not land with its side's call
+    /// opens a call of its own for its side to land beside (<see cref="GroupBurst.Join"/>).
     /// </summary>
     private static void NoteTactic(SosariaCharacter character, Memory memory, Mobile foe, SpellKind kind, bool self)
     {
@@ -720,15 +931,41 @@ public static partial class CombatBrain
             logger.Information("{Name} casts Dispel on the summoned {Foe}", character.Name, foe.Name);
         }
 
-        if (opening && kind == SpellKind.Paralyze && LogsOnce(character, OpenerLine, foe))
+        if (opening && LogsOnce(character, OpenerLine, foe))
         {
-            logger.Information("{Name} opens on {Foe} with Paralyze", character.Name, foe.Name);
+            logger.Information("{Name} opens on {Foe} with {Spell}", character.Name, foe.Name, kind);
+        }
+
+        if (kind == SpellKind.MagicReflect && LogsOnce(character, ReflectLine, foe))
+        {
+            logger.Information("{Name} puts up Magic Reflection before it fights {Foe}", character.Name, foe.Name);
+        }
+
+        if (kind == SpellKind.Explosion)
+        {
+            NoteBurstCall(character, foe);
         }
 
         if (tactics.FollowUp is { } follow && LogsOnce(character, BurstLine, foe))
         {
             logger.Information("{Name} starts a burst on {Foe}: Explosion, then {Spell}", character.Name, foe.Name, follow);
         }
+    }
+
+    /// <summary>An Explosion just begun lands with its side's call, or opens one at its own landing (<see cref="GroupBurst"/>).</summary>
+    private static void NoteBurstCall(SosariaCharacter character, Mobile foe)
+    {
+        if (CallFor(character, foe, out var landsAt) == BurstCall.Lands)
+        {
+            if (LogsOnce(character, BurstCallLine, foe))
+            {
+                logger.Information("{Name} times its Explosion on {Foe} to land with its side's burst", character.Name, foe.Name);
+            }
+
+            return;
+        }
+
+        GroupBurst.Join(character, foe, landsAt);
     }
 
     /// <summary>
@@ -761,11 +998,15 @@ public static partial class CombatBrain
             return false;
         }
 
+        var held = HeldWeapon(character);
+
         if (!spell.Cast())
         {
             return false;
         }
 
+        NoteWeaponBeforeCast(character, held);
+        NewStrafeGap(TacticsOf(character, memory));
         memory.CastTarget = target;
         memory.CastKind = kind;
         memory.CastWasCrime = IsCrime(character, kind, target);
@@ -797,6 +1038,17 @@ public static partial class CombatBrain
                 if (target.Deleted || target.Alive == SpellBook.RaisesDead(memory.CastKind) || target.Map != character.Map)
                 {
                     cursor.Cancel(character, TargetCancelType.Canceled);
+                }
+                else if (SpellBook.TargetsGround(memory.CastKind))
+                {
+                    if (WallSpot(character, target) is { } spot)
+                    {
+                        cursor.Invoke(character, new LandTarget(spot, character.Map));
+                    }
+                    else
+                    {
+                        cursor.Cancel(character, TargetCancelType.Canceled);
+                    }
                 }
                 else if (LawfulRules.BecameCrime(memory.CastWasCrime, IsCrime(character, memory.CastKind, target)))
                 {
@@ -835,9 +1087,12 @@ public static partial class CombatBrain
         }
     }
 
-    /// <summary>The spell on this target is a crime now: a blow on an innocent, or help to a gray or red.</summary>
+    /// <summary>
+    /// The spell on this target is a crime now: a blow on an innocent, or help to a gray or red.
+    /// A spell on the ground touches no one.
+    /// </summary>
     private static bool IsCrime(SosariaCharacter character, SpellKind kind, Mobile target) =>
-        target != null && target != character &&
+        target != null && target != character && !SpellBook.TargetsGround(kind) &&
         (SpellBook.IsHarmful(kind) ? character.IsHarmfulCriminal(target) : character.IsBeneficialCriminal(target));
 
     private static Spell NewSpell(SpellKind kind, Mobile caster) =>
@@ -861,6 +1116,9 @@ public static partial class CombatBrain
             SpellKind.Invisibility => new InvisibilitySpell(caster),
             SpellKind.Resurrection => new ResurrectionSpell(caster),
             SpellKind.Dispel => new DispelSpell(caster),
+            SpellKind.Weaken => new WeakenSpell(caster),
+            SpellKind.MagicReflect => new MagicReflectSpell(caster),
+            SpellKind.WallOfStone => new WallOfStoneSpell(caster),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
         };
 }

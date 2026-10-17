@@ -12,7 +12,8 @@ namespace SosariaAI.Combat;
 /// tier. The dexxer, the pure mage, the provoking bard and the fighting smith are
 /// the templates players of the period ran. Fighters fight with weapons and keep magery
 /// only to travel; casters hold a spellbook, no weapon, and wear leather so they can
-/// meditate. Worker classes carry the swords,
+/// meditate; the tank mage swings a polearm and casts from the book in its pack. Worker
+/// classes carry the swords,
 /// tactics, anatomy, healing and resist a worker keeps for the road, so their seven
 /// skills stay inside the 700 cap. Rolled from the id, so a reboot rebuilds the
 /// same template.
@@ -44,6 +45,14 @@ public static class ClassBuilds
     /// </summary>
     public const int PeaceTamerShare = 25;
 
+    /// <summary>
+    /// The share of fighting mages that do not provoke that are tank mages, out of
+    /// <see cref="PercentBase"/>: magery, evaluate, resist and meditation beside swords, tactics
+    /// and anatomy, a halberd in the hands and the book in the pack. Robed and two-handed, two
+    /// of them traded swings and "In Mani" in a T2A duel.
+    /// </summary>
+    public const int TankMageShare = 20;
+
     public const string ThiefDagger = "Dagger";
     public const string MinerPick = "Pickaxe";
     public const string TailorKnife = "SkinningKnife";
@@ -54,6 +63,7 @@ public static class ClassBuilds
     private const int SecondaryJitterSalt = 613;
     private const int PercentBase = 100;
     private const int SongSalt = 619;
+    private const int TankMageSalt = 631;
 
     // Full stat lines at 225, the era's stat cap, each stat at most 100.
     public static readonly (int Strength, int Dexterity, int Intelligence) DexxerStats = (100, 100, 25);
@@ -70,6 +80,7 @@ public static class ClassBuilds
     public static readonly (int Strength, int Dexterity, int Intelligence) TailorStats = (75, 75, 75);
     public static readonly (int Strength, int Dexterity, int Intelligence) FishermanStats = (90, 80, 55);
     public static readonly (int Strength, int Dexterity, int Intelligence) NinjaStats = (85, 100, 40);
+    public static readonly (int Strength, int Dexterity, int Intelligence) TankMageStats = (90, 35, 100);
 
     private static readonly SkillName[] WorkerGuard =
     [
@@ -144,7 +155,7 @@ public static class ClassBuilds
         {
             PersonClass.Warrior => Warrior(role, uniqueId),
             PersonClass.Fencer => Fencer(uniqueId),
-            PersonClass.Mage => Mage(uniqueId),
+            PersonClass.Mage => Mage(role, uniqueId),
             PersonClass.Archer => new ClassBuildTemplate
             {
                 Primary = SkillName.Archery,
@@ -301,11 +312,17 @@ public static class ClassBuilds
     /// an instrument in the pack. A fighter does not spend its points on hiding: only the
     /// ranger and the thief train it. It holds its spellbook, never
     /// a weapon (the engine puts a weapon in the pack at every cast), and wears leather, the only
-    /// armor that lets it meditate in full.
+    /// armor that lets it meditate in full. A fighting mage that does not provoke may be a tank
+    /// mage instead (<see cref="TankMageShare"/>).
     /// </summary>
-    private static ClassBuildTemplate Mage(string uniqueId)
+    private static ClassBuildTemplate Mage(CharacterRole role, string uniqueId)
     {
         var provokes = PersonDice.Chance(uniqueId, SongSalt, ProvokeMageShare);
+
+        if (!provokes && role != CharacterRole.Worker && PersonDice.Chance(uniqueId, TankMageSalt, TankMageShare))
+        {
+            return TankMage();
+        }
 
         return new ClassBuildTemplate
         {
@@ -319,6 +336,25 @@ public static class ClassBuilds
             ClassPieces = provokes ? [KitVariation.Instrument] : []
         };
     }
+
+    /// <summary>
+    /// The T2A tank mage: magery leads, swords, tactics, resist, evaluate, meditation and
+    /// anatomy follow. It swings a two-handed weapon and says first circle words where it
+    /// stands, which a blow cannot break before AOS (Spell.Disturb); the words put the weapon
+    /// in the pack (Mobile.ClearHands) and it draws it again after. Leather under the robe lets
+    /// it meditate and does not stop a cast.
+    /// </summary>
+    private static ClassBuildTemplate TankMage() =>
+        new()
+        {
+            Primary = SkillName.Magery,
+            Secondary = [SkillName.Swords, SkillName.Tactics, SkillName.MagicResist, SkillName.EvalInt, SkillName.Meditation, SkillName.Anatomy],
+            Stats = TankMageStats,
+            Style = CombatStyle.Melee,
+            Weapon = KitVariation.TwoHandedSword,
+            Armor = KitArmor.Light,
+            TankMage = true
+        };
 
     /// <summary>
     /// The mage-tamer (<see cref="TamerCore"/>), or, for a peace tamer (<see cref="PeaceTamerShare"/>),

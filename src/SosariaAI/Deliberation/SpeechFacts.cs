@@ -26,6 +26,15 @@ public static class SpeechFacts
         Options
     );
 
+    /// <summary>
+    /// A watch for reds: asking after them or warning of them. A red is the danger it would ask
+    /// about: reds at the Britain bank asked a player "seen any reds?".
+    /// </summary>
+    private static readonly Regex AfterRedsWords = new(
+        @"\b(any|seen|see|spot|spotted|watch|beware|heard)\b.*\b(reds?|pks?|pkers?|murderers?|pk trouble)\b",
+        Options
+    );
+
     /// <summary>The step kinds whose whole work is getting somewhere: a walk, a cast, a ride, a sail, a follow.</summary>
     private static readonly HashSet<string> TripKinds = new(StringComparer.Ordinal)
     {
@@ -59,6 +68,9 @@ public static class SpeechFacts
 
         /// <summary>True while the speaker is in a real deal (<see cref="Behaviour.TradeSessions.IsBusy"/>).</summary>
         public bool InDeal { get; init; }
+
+        /// <summary>True when the speaker is a red: it asks after no reds (<see cref="AsksAfterReds"/>).</summary>
+        public bool IsRed { get; init; }
     }
 
     public static bool Contradicts(string say, Snapshot facts)
@@ -108,8 +120,12 @@ public static class SpeechFacts
             return true;
         }
 
-        return false;
+        return facts.IsRed && AsksAfterReds(say);
     }
+
+    /// <summary>The line asks after reds or warns of them: "seen any reds", "any pks about?".</summary>
+    public static bool AsksAfterReds(string say) =>
+        !string.IsNullOrWhiteSpace(say) && AfterRedsWords.IsMatch(say);
 
     /// <summary>The speaker sets a group's pace: "keep up", "stay close", "i dont wait".</summary>
     public static bool ClaimsLeading(string say) =>

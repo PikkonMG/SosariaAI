@@ -1,8 +1,13 @@
 using System;
 using System.Collections.Generic;
 using Server;
+using Server.Items;
 using Server.Logging;
 using Server.Mobiles;
+using Server.Spells;
+using Server.Spells.Fifth;
+using Server.Spells.First;
+using Server.Spells.Fourth;
 using SosariaAI.Behaviour;
 using SosariaAI.Combat;
 using SosariaAI.Common;
@@ -21,18 +26,23 @@ namespace SosariaAI.Skills;
 /// there, and looks the ground over. Its pets stay back ("all stay") while it walks up to the
 /// strongest beast it may take and uses the engine's own Animal Taming on it: the cursor, the
 /// three or four rounds of sweet talk, the engine's check. A beast that bites back is not
-/// fought: the tamer takes its blows, heals itself with its magery between tries (the combat
-/// brain's out-of-fight care), and gives up only when its hits run low. A beast strong for the
-/// tamer's tier is kept and the trip ends; a practice beast is let go at once and the tamer
-/// tries the next, until its practice session is full (<see cref="TameRules.SessionFull"/>):
-/// then its taming rests (<see cref="TamePractice"/>) and the trip goes on for a keeper only. A
-/// kept beast that outdoes the tamer's fighter sends the old one back to the wild
-/// (<see cref="PetKeeper.LetGoSparePets"/>). A ground with nothing on it is marked dry and the
-/// next ground is tried. A trip holds its area (<see cref="TamingGrounds.Claim"/>) and starts
-/// on no beast in an area other tamers already fill. It goes to no ground, and works no beast
-/// in sight, where another monster stands that the tamer and its pets cannot take on
+/// fought: the tamer takes its blows, heals itself with its bandages or its magery between
+/// tries (the combat brain's out-of-fight care), and gives up only when its hits run low. A
+/// beast that angers on a try is tried again at once; a bard-tamer calms it and a mage-tamer
+/// paralyzes it first, and a tamer it wears down steps back to heal and comes back
+/// (<see cref="TameStandRules"/>). A beast strong for the tamer's tier is kept and the trip
+/// ends, the tamer riding it when it is a better mount than its own; a practice beast is let
+/// go at once and the tamer tries the next, until its practice session is full
+/// (<see cref="TameRules.SessionFull"/>): then its taming rests (<see cref="TamePractice"/>)
+/// and the trip goes on for a keeper only. A kept beast that outdoes the tamer's fighter sends
+/// the old one back to the wild (<see cref="PetKeeper.LetGoSparePets"/>). A ground with
+/// nothing on it is marked dry and the next ground is tried. A trip holds its area
+/// (<see cref="TamingGrounds.Claim"/>) and starts on no beast in an area other tamers already
+/// fill. It goes to no ground, works no beast in sight, and stays nowhere on its way, where
+/// another monster stands that the tamer and its pets cannot take on
 /// (<see cref="TamerTacticsRules.TakesOn"/>): a fresh Master tamer went to Destard for a drake,
-/// among the dragons, and a dragon killed it there.
+/// among the dragons, and a dragon killed it there. A tamer with no bandage and no heal spell
+/// makes no trip and ends one.
 /// </summary>
 public sealed class TameSkill : Skill
 {
@@ -75,6 +85,7 @@ public sealed class TameSkill : Skill
     public static readonly TimeSpan AttemptTimeout = TimeSpan.FromSeconds(15);
 
     private const string NoBeastWhy = "found no beast it could tame";
+    private const string NoHealWhy = "had nothing left to heal itself with";
 
     private static readonly ILogger logger = SosariaLog.For(typeof(TameSkill));
 
@@ -83,7 +94,8 @@ public sealed class TameSkill : Skill
         Travel,
         Seek,
         Approach,
-        Attempt
+        Attempt,
+        Recover
     }
 
     private readonly HashSet<Serial> _passed = [];
@@ -94,6 +106,8 @@ public sealed class TameSkill : Skill
     private BaseCreature _quarry;
     private DateTime _endsAt;
     private DateTime _attemptEnds;
+    private DateTime _nextTryAt;
+    private long _nextSongAt;
     private bool _attempting;
     private int _attempts;
     private int _quarryTries;
@@ -103,8 +117,8 @@ public sealed class TameSkill : Skill
 
     public override string Name => SkillKinds.Tame;
 
-    /// <summary>The beast the tamer is walking up to or taming now, or null.</summary>
-    public BaseCreature Quarry => _phase is Phase.Approach or Phase.Attempt ? _quarry : null;
+    /// <summary>The beast the tamer is walking up to, taming, or stepping back from to heal; null when none.</summary>
+    public BaseCreature Quarry => _phase is Phase.Approach or Phase.Attempt or Phase.Recover ? _quarry : null;
 
     /// <summary>True while the tamer works a beast close by: its pets stay back, out of the way.</summary>
     public bool HoldsPets => Quarry != null && _tamer?.InRange(_quarry, PetHoldTiles) == true;
@@ -119,11 +133,12 @@ public sealed class TameSkill : Skill
     public static bool MayTryAnotherGround(int grounds) => grounds < MaxGroundsPerTrip;
 
     /// <summary>
-    /// True when the tamer has room for a beast and one in sight, in an area not full of tamers,
-    /// or a ground in reach suits it.
+    /// True when the tamer has room for a beast and the means to heal itself
+    /// (<see cref="HealsSelf"/>), and one in sight, in an area not full of tamers, or a ground
+    /// in reach suits it.
     /// </summary>
     public static bool CanSeek(SosariaCharacter tamer) =>
-        People.InWorld(tamer) && tamer.Followers < tamer.FollowersMax &&
+        People.InWorld(tamer) && tamer.Followers < tamer.FollowersMax && HealsSelf(tamer) &&
         (!TamingGrounds.IsCrowded(tamer, tamer.Location) && SafeQuarryInSight(tamer, null) != null ||
          TamingGrounds.Pick(tamer) is { } ground && GroundSafe(tamer, ground));
 
@@ -230,9 +245,29 @@ public sealed class TameSkill : Skill
     public static bool TakesBlowFrom(SosariaCharacter tamer, Mobile aggressor) =>
         tamer?.Routine?.CurrentSkill is TameSkill tame && tame.TakeUp(tamer, aggressor);
 
-    /// <summary>True while the tamer's trip braves the ground's danger instead of running from it.</summary>
+    /// <summary>
+    /// True while the tamer's trip braves the ground's danger instead of running from it: the
+    /// trip reads the danger itself each tick, its own beast aside, and ends past it
+    /// (<see cref="MonsterPastTamer"/>).
+    /// </summary>
     public static bool BravesDanger(SosariaCharacter tamer) =>
         tamer?.Routine?.CurrentSkill is TameSkill && KeepsTaming(Vitals.HitsFraction(tamer));
+
+    /// <summary>
+    /// True when the tamer can heal itself on a trip (<see cref="TameStandRules.HealsSelf"/>): a
+    /// bandage, or Heal or Greater Heal in its book with the reagents in its pack.
+    /// </summary>
+    public static bool HealsSelf(SosariaCharacter tamer) =>
+        TameStandRules.HealsSelf(
+            tamer.Skills.Healing.Value,
+            tamer.Backpack?.FindItemByType<Bandage>() != null,
+            tamer.Skills.Magery.Value,
+            InHand(tamer, new HealSpell(tamer)),
+            InHand(tamer, new GreaterHealSpell(tamer))
+        );
+
+    private static bool InHand(SosariaCharacter caster, Spell spell) =>
+        SpellCasting.Knows(caster, spell) && SpellCasting.HasReagents(caster.Backpack, spell.Info);
 
     /// <summary>The strongest beast in range the tamer may try now, a nearer one when about as strong; null when none.</summary>
     public static BaseCreature BestQuarry(SosariaCharacter tamer, int range, ISet<Serial> passed)
@@ -266,12 +301,19 @@ public sealed class TameSkill : Skill
             return CannotStart("has no room for another pet");
         }
 
+        if (!HealsSelf(character))
+        {
+            return CannotStart("has no bandage and no heal spell");
+        }
+
         _tamer = character;
         _passed.Clear();
         _walk = null;
         _quarry = null;
         _ground = null;
         _attempting = false;
+        _nextTryAt = DateTime.MinValue;
+        _nextSongAt = 0;
         _attempts = 0;
         _grounds = 0;
         _tamed = 0;
@@ -317,11 +359,17 @@ public sealed class TameSkill : Skill
             return Fail($"the {_quarry.Name} was too much for it");
         }
 
+        if (MonsterPastTamer() is { } monster)
+        {
+            return Fail($"a {monster.Name} came near that was too much for it");
+        }
+
         return _phase switch
         {
             Phase.Travel => TickTravel(),
             Phase.Seek => TickSeek(),
             Phase.Approach => TickApproach(),
+            Phase.Recover => TickRecover(),
             _ => TickAttempt()
         };
     }
@@ -338,6 +386,7 @@ public sealed class TameSkill : Skill
     public override void Resume(TimeSpan held)
     {
         _endsAt = SkillClock.Shift(_endsAt, held);
+        _nextTryAt = SkillClock.Shift(_nextTryAt, held);
         _walk?.Resume(held);
     }
 
@@ -352,7 +401,7 @@ public sealed class TameSkill : Skill
             return false;
         }
 
-        if (beast == _quarry && _phase is Phase.Approach or Phase.Attempt)
+        if (beast == _quarry && _phase is Phase.Approach or Phase.Attempt or Phase.Recover)
         {
             return true;
         }
@@ -452,6 +501,11 @@ public sealed class TameSkill : Skill
             return PassOver();
         }
 
+        if (StepsBack())
+        {
+            return StartRecover();
+        }
+
         // Near the beast the pets hear "all stay"; a new order waits for the command gap.
         if (HoldsPets)
         {
@@ -491,8 +545,16 @@ public sealed class TameSkill : Skill
                 return SkillStatus.Running;
             }
 
-            // A spell in the hands or a cursor up waits: the engine takes no skill then.
-            return _tamer.Spell != null || _tamer.Target != null ? SkillStatus.Running : StartAttempt();
+            if (StepsBack())
+            {
+                return StartRecover();
+            }
+
+            // A spell in the hands or a cursor up waits: the engine takes no skill then. The
+            // beast is held, if the tamer can, while the gap after an anger runs.
+            return AimParalyze() || _tamer.Spell != null || _tamer.Target != null || HoldQuarry() || Core.Now < _nextTryAt
+                ? SkillStatus.Running
+                : StartAttempt();
         }
 
         if (_quarry.ControlMaster == _tamer)
@@ -518,9 +580,17 @@ public sealed class TameSkill : Skill
         return HasMoreAttempts(_attempts) ? SkillStatus.Running : Fail($"failed to tame the {_quarry.Name}");
     }
 
-    /// <summary>Uses Animal Taming on the beast the way a client does: the skill, then its cursor on the beast.</summary>
+    /// <summary>
+    /// Uses Animal Taming on the beast the way a client does: the skill, then its cursor on the
+    /// beast. A tamer with nothing left to heal itself with tries no more.
+    /// </summary>
     private SkillStatus StartAttempt()
     {
+        if (!HealsSelf(_tamer))
+        {
+            return Fail(NoHealWhy);
+        }
+
         if (!Server.Skills.UseSkill(_tamer, SkillName.AnimalTaming) || _tamer.Target is not { } cursor)
         {
             return SkillStatus.Running;
@@ -528,10 +598,18 @@ public sealed class TameSkill : Skill
 
         cursor.Invoke(_tamer, _quarry);
 
-        // A started try holds the skill clock until its last round; a refusal gives it back at once.
+        // A started try holds the skill clock until its last round; a refusal gives it back at
+        // once, and so does an anger: the beast turned on the tamer, which tries it again.
         if (Core.TickCount - _tamer.NextSkillTime >= 0)
         {
-            return PassOver();
+            if (!TameStandRules.Angered(_quarry.CanAngerOnTame, _quarry.Combatant == _tamer, _quarry.Controlled))
+            {
+                return PassOver();
+            }
+
+            _quarryTries++;
+            _nextTryAt = Core.Now + TameStandRules.AngerRetry;
+            return SkillStatus.Running;
         }
 
         _attempting = true;
@@ -545,11 +623,12 @@ public sealed class TameSkill : Skill
         _attempting = false;
         _quarry = null;
         _tamed++;
-        Talk.Maybe(_tamer, TalkCategory.TameSuccess, TalkOdds.TameSuccessPercent, new TalkSlots { Item = TalkWords.Foe(pet) });
 
         if (PetKeeper.Keeps(_tamer, pet))
         {
             LogTame("tamed", pet);
+            Talk.Maybe(_tamer, TalkCategory.TameSuccess, TalkOdds.TameSuccessPercent, new TalkSlots { Item = TalkWords.Foe(pet) });
+            RideIfBetter(pet);
             PetKeeper.LetGoSparePets(_tamer);
             return Finish();
         }
@@ -569,6 +648,144 @@ public sealed class TameSkill : Skill
         _phase = Phase.Seek;
         return SkillStatus.Running;
     }
+
+    /// <summary>
+    /// A kept mount stronger than the one the tamer rides (<see cref="MountRules.SwapsMount"/>):
+    /// the tamer gets off, rides the new one and lets the old one go. The swap comes before the
+    /// spare pets go, so the pet now ridden is no longer weighed as the fighter.
+    /// </summary>
+    private void RideIfBetter(BaseCreature pet)
+    {
+        if (pet is not BaseMount mount || _tamer.Mount is not BaseMount ridden ||
+            !MountRules.SwapsMount(TamingGrounds.ProfileOf(mount).Power, TamingGrounds.ProfileOf(ridden).Power) ||
+            !OwnedMounts.SwapTo(_tamer, mount))
+        {
+            return;
+        }
+
+        PetKeeper.Release(_tamer, ridden);
+    }
+
+    /// <summary>
+    /// The strongest monster in sight that the tamer and its pets cannot take on
+    /// (<see cref="TamerTacticsRules.TakesOn"/>), the beasts of the kind it works or goes for
+    /// aside; null when none. Read each tick of the trip.
+    /// </summary>
+    private BaseCreature MonsterPastTamer()
+    {
+        var kind = Quarry?.GetType().Name ?? _ground?.Beast.Kind;
+        var (threat, monster) = StrongestNear(_tamer.Map, _tamer.Location, SightTiles, kind);
+        return TamerTacticsRules.TakesOn(threat, DungeonGround.FightingPower(_tamer)) ? null : monster;
+    }
+
+    private static bool Held(BaseCreature beast) => beast.Paralyzed || beast.BardPacified;
+
+    /// <summary>True when the beast is on the tamer and has worn it down (<see cref="TameStandRules.StepsBack"/>).</summary>
+    private bool StepsBack() =>
+        TameStandRules.StepsBack(_quarry.Combatant == _tamer, Held(_quarry), Vitals.HitsFraction(_tamer));
+
+    private SkillStatus StartRecover()
+    {
+        _walk?.Abort();
+        _walk = null;
+        _phase = Phase.Recover;
+
+        if (SosariaSettings.LogActivity)
+        {
+            logger.Information(
+                "{Name} steps back from the {Beast} to heal at {Hits}/{HitsMax} hits",
+                _tamer.Name,
+                _quarry.GetType().Name,
+                _tamer.Hits,
+                _tamer.HitsMax
+            );
+        }
+
+        return SkillStatus.Running;
+    }
+
+    /// <summary>
+    /// The tamer holds the beast if it can, backs off to <see cref="TameStandRules.StepBackMinTiles"/>
+    /// or more, and stands while the combat brain's out-of-fight care heals it; back at the heal
+    /// line it walks up for the next try. With nothing at hand to heal it, the trip ends.
+    /// </summary>
+    private SkillStatus TickRecover()
+    {
+        if (!StillQuarry())
+        {
+            return PassOver();
+        }
+
+        if (TameStandRules.Recovered(Vitals.HitsFraction(_tamer)))
+        {
+            _phase = Phase.Approach;
+            return SkillStatus.Running;
+        }
+
+        if (!CombatBrain.HasRemedy(_tamer))
+        {
+            return Fail(NoHealWhy);
+        }
+
+        if (AimParalyze() || _tamer.Spell == null && _tamer.Target == null && HoldQuarry())
+        {
+            return SkillStatus.Running;
+        }
+
+        var steps = Held(_quarry) ? 0 : TameStandRules.StepsAway(NavMetric.Chebyshev(_tamer.Location, _quarry.Location));
+
+        if (steps == 0 || !_tamer.Motor.BackAway(_quarry, steps, EscapeRules.NoIdleFoes))
+        {
+            _tamer.Motor.ClearMoveIntent();
+        }
+
+        return SkillStatus.Running;
+    }
+
+    /// <summary>
+    /// Calms or paralyzes an angry beast before the next try (<see cref="TameStandRules.HoldFor"/>).
+    /// A song rests the way a bard's does; Paralyze waits for the engine's spell recovery. True
+    /// when that took the moment.
+    /// </summary>
+    private bool HoldQuarry()
+    {
+        var now = Core.TickCount;
+        var peacemaking = _tamer.Skills.Peacemaking.Value;
+        var instrument = BardSongRules.CanCalm(peacemaking) && now - _nextSongAt >= 0 ? MusicRules.FindInstrument(_tamer) : null;
+        var hold = TameStandRules.HoldFor(
+            _quarry.CanAngerOnTame,
+            _quarry.Combatant == _tamer,
+            Held(_quarry),
+            instrument != null,
+            now - _tamer.NextSpellTime >= 0 && SpellBook.CanCast(SpellBook.Paralyze, _tamer.Skills.Magery.Value, _tamer.Mana)
+        );
+
+        switch (hold)
+        {
+            case QuarryHold.Calm:
+            {
+                _nextSongAt = now + Utility.RandomMinMax(BardSongRules.MinRestMs, BardSongRules.MaxRestMs);
+
+                if (InstrumentPlay.Try(_tamer, instrument, SkillName.Peacemaking, PeaceRules.PracticeMin, PeaceRules.PracticeMax))
+                {
+                    PeaceSkill.Calm(_tamer, _quarry, TimeSpan.FromSeconds(BardSongRules.CalmSeconds(peacemaking)));
+                }
+
+                return true;
+            }
+            case QuarryHold.Paralyze:
+            {
+                return SpellCasting.TryBegin(_tamer, new ParalyzeSpell(_tamer));
+            }
+            default:
+            {
+                return false;
+            }
+        }
+    }
+
+    /// <summary>The tamer's Paralyze, its words done, goes on the beast. True when it was aimed.</summary>
+    private bool AimParalyze() => _tamer.Spell is ParalyzeSpell && SpellCasting.TryAim(_tamer, _quarry);
 
     /// <summary>A trip that let practice beasts go ends the tamer's session: its taming rests a while.</summary>
     private void EndPracticeSession()

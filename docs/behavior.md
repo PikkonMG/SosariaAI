@@ -71,8 +71,12 @@ only when they can start: the Hiding and light armour stealth needs, a rider on
 foot with its own mount in reach, a place near home to look at. Mages, healers, bards, and
 tamers are casters: they hold only a spellbook, never a weapon, and wear
 leather, because the engine puts a held weapon in the pack at every cast and
-any armor heavier than leather cuts meditation. Only casters cast spells in a
-fight or to heal. Fighters (warriors, fencers, archers, rangers, thieves, and
+any armor heavier than leather cuts meditation. About one fighting mage in
+seven is a tank mage instead: a polearm, leather, and Magery beside Swords and
+Tactics. It swings like a fighter and, next to its foe, casts first-circle Heal
+and Magic Arrow where it stands (before AOS a blow breaks no first-circle
+spell), then takes its weapon back up. Only casters and tank mages cast spells
+in a fight or to heal. Fighters (warriors, fencers, archers, rangers, thieves, and
 workers) fight with their weapon, bandages, and potions; their magery is only
 for travel, and their spellbook stays in the pack. The same rule holds every
 time a hand is filled, not only on the first day: at a fight, after a death,
@@ -306,6 +310,17 @@ ground within 64 tiles. The next tamer goes somewhere else. A taming trip goes
 only to a ground where a live beast of the wanted kind stands within 30 tiles
 now.
 
+**Taming.** A beast that gets angry is tried again two seconds later, from two
+tiles off; anger does not make the tamer give up on it. A dragon, white wyrm or
+nightmare (the beasts the engine lets anger on almost every try) that attacks
+the tamer is calmed first by a tamer with Peacemaking, else paralyzed by a
+tamer with Magery. A tamer below 60% of its hits with the beast on it backs off
+three to five tiles, heals to 85%, and goes back. The trip watches for a
+monster too strong for it the whole way, and ends when the tamer has no
+bandage and no heal spell left. A kept mount stronger than the one it rides
+takes its place, and the old one is let go. After the vet step the trip goes
+home. The tamer says "new pet" only for a beast it keeps.
+
 **Stables.** A tamer uses the animal trainer's own stable, at 30 gold a pet from
 the pack or the bank, up to the trainer's limit. It looks at its pets between
 two steps and while it stands about. It stables them when its slots are too full
@@ -338,7 +353,9 @@ A healer in a party bandages a party member who is poisoned or below 85% of its
 hits and stands next to it (one tile, the era's bandage reach). It uses a
 bandage from its pack, as a player does, and leaves a scratch to heal alone. It
 does not bandage a gray member: that heal would make the healer gray too. A
-party member takes up the leader's foe only when its own blow is no crime. A
+party member takes up the leader's foe only when its own blow is no crime.
+After a kill, a member or a gang mate takes the side's called foe while it lives
+and stands in reach, before the nearest attacker. A
 party member raises a fallen mate only within one walking leg (32 tiles).
 
 A crew member does not follow its crew after the crew breaks up. It waits until
@@ -398,6 +415,13 @@ every fighter has.
 The fight rules pick every stance. No model is asked unless `brain.json` sets
 `fightStances` to `"model"` (see [Fight stances](brain-config.md#fight-stances)).
 
+In a fight with a person, a fighter keeps a bandage running at any wound, the
+next one as soon as the last ends. A fighter that does not fight in melee
+throws an explosion potion at a held person 3 to 10 tiles off, when no one else
+stands in the blast. A caster held by a paralyze opens a pouch trapped with
+Magic Trap: the blast breaks the hold. Reds and fighters carry these from
+Journeyman on.
+
 - A foe at or below 25% of its hits is finished first. The fighter does not
   kite or step out to heal from it while it has 25% of its own hits or more and
   is not losing the trade of blows.
@@ -450,6 +474,21 @@ The fight rules pick every stance. No model is asked unless `brain.json` sets
 
 Mages, healers, tamers and bards fight with spells. The timings are the
 engine's own for the running era.
+
+- **Against a person.** A mage puts up Magic Reflect before the first blow,
+  opens with Weaken or Magic Arrow, and casts Poison first on a person not
+  poisoned that it has not seen cure. A monster that fights in melee or casts
+  gets Paralyze first. Heal may be cast twice in a row: only the engine's own
+  recovery spaces care spells.
+- **Footwork.** Between casts a mage takes one or two side steps inside its
+  band; its feet stop only for the words.
+- **A runner.** A foe that turns and runs below 35% of its hits gets the short
+  spells (Magic Arrow, Harm, Fireball, Lightning), and the mage follows its last
+  seen spot while the lost-foe grace lasts. A mage that runs from a melee foe
+  closing to 2 to 4 tiles puts a Wall of Stone between them.
+- **Together.** Mages of one party or one red gang time their Explosions to land
+  in the same window on the same target. Any caster heals a mate below 50% of
+  its hits while its own hits are at 70% or more.
 
 - **Mage.** Its first spell on a free melee foe is Paralyze. Then it walks off
   the frozen foe and casts from range. With the mana for both, it casts
@@ -609,10 +648,14 @@ may use, never a guarded pad.
 
 ### Heat of battle
 
-For 30 seconds after a blow dealt to or taken from another player-bodied person
-(every character is one), no character takes a public moongate, steps through a
-spell gate, or casts Recall or Gate Travel. A gray (criminal) person takes no
-public moongate or spell gate at all.
+For 30 seconds after a blow it dealt to another player-bodied person (every
+character is one), no character takes a public moongate, or casts Recall or
+Gate Travel, as the engine counts it before AOS: a victim that only runs may
+travel. A gray (criminal) person takes no public moongate at all.
+
+Each attacker that fights with spells counts twice toward the hit line where a
+fighter runs. Between escape spots that are as good, the runner takes one its
+chasers cannot see.
 
 A red that runs from a fight recalls home to the Den once it breaks contact,
 that is, when every blow on it would land after the words of the spell end.
@@ -623,7 +666,8 @@ A runner with Hiding 30 or more hides once no attacker can see it, and stands
 still while hidden. It does not bandage or drink while hidden, because that
 shows it again. A chaser that cannot see its foe gives it up.
 
-A fighter that a person keeps chasing turns and fights that person in two
+A runner turns on a person chasing it alone when that person is weaker. A
+fighter that a person keeps chasing turns and fights that person in two
 cases. The first case is when it ran below 80% of its hits and healed back to
 80% on the way, and the fight is one it would hold. The second case is when the
 person is still on it 45 seconds after the run began. A worker, or a person

@@ -133,10 +133,10 @@ public class SpellBookTests
     {
         Assert.Equal(
             SpellKind.Paralyze,
-            SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, false, false, AlwaysRoll, NeverRoll, TestSpellStock.Every)
+            SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, false, false, poisonFirst: false, AlwaysRoll, NeverRoll, TestSpellStock.Every)
         );
-        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, true, true, AlwaysRoll, NeverRoll, TestSpellStock.Every));
-        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, FarDistance, TopCircle, false, true, AlwaysRoll, NeverRoll, TestSpellStock.Every));
+        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, true, true, poisonFirst: false, AlwaysRoll, NeverRoll, TestSpellStock.Every));
+        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, FarDistance, TopCircle, false, true, poisonFirst: false, AlwaysRoll, NeverRoll, TestSpellStock.Every));
     }
 
     [Fact]
@@ -144,22 +144,22 @@ public class SpellBookTests
     {
         Assert.Equal(
             SpellKind.Poison,
-            SpellBook.PickUtility(Grandmaster, FullMana, FarDistance, TopCircle, false, false, NeverRoll, AlwaysRoll, TestSpellStock.Every)
+            SpellBook.PickUtility(Grandmaster, FullMana, FarDistance, TopCircle, false, false, poisonFirst: false, NeverRoll, AlwaysRoll, TestSpellStock.Every)
         );
-        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, FarDistance, TopCircle, false, true, NeverRoll, AlwaysRoll, TestSpellStock.Every));
+        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, FarDistance, TopCircle, false, true, poisonFirst: false, NeverRoll, AlwaysRoll, TestSpellStock.Every));
     }
 
     [Fact]
     public void PickUtility_NoParalyzeWhenItsWordsWouldBeBroken() =>
         Assert.Null(
-            SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, Pressed, false, true, AlwaysRoll, NeverRoll, TestSpellStock.Every)
+            SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, Pressed, false, true, poisonFirst: false, AlwaysRoll, NeverRoll, TestSpellStock.Every)
         );
 
     [Fact]
     public void PickUtility_UnskilledOrUnlucky_IsNull()
     {
-        Assert.Null(SpellBook.PickUtility(Novice, FullMana, ClosingDistance, TopCircle, false, false, AlwaysRoll, AlwaysRoll, TestSpellStock.Every));
-        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, false, false, NeverRoll, NeverRoll, TestSpellStock.Every));
+        Assert.Null(SpellBook.PickUtility(Novice, FullMana, ClosingDistance, TopCircle, false, false, poisonFirst: false, AlwaysRoll, AlwaysRoll, TestSpellStock.Every));
+        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, false, false, poisonFirst: false, NeverRoll, NeverRoll, TestSpellStock.Every));
     }
 
     [Fact]
@@ -219,7 +219,7 @@ public class SpellBookTests
 
         Assert.Equal(SpellKind.MagicArrow, SpellBook.PickAttack(Grandmaster, FullMana, OpenGround, TopCircle, LowRoll, arrowOnly));
         Assert.Null(SpellBook.PickAttack(Grandmaster, FullMana, OpenGround, TopCircle, LowRoll, SpellStock.None));
-        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, false, false, AlwaysRoll, AlwaysRoll, arrowOnly));
+        Assert.Null(SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, false, false, poisonFirst: false, AlwaysRoll, AlwaysRoll, arrowOnly));
     }
 
     [Fact]
@@ -238,5 +238,53 @@ public class SpellBookTests
         Assert.False(SpellBook.IsHarmful(SpellKind.GreaterHeal));
         Assert.False(SpellBook.IsHarmful(SpellKind.Resurrection));
         Assert.False(SpellBook.IsHarmful(SpellKind.Invisibility));
+        Assert.True(SpellBook.IsHarmful(SpellKind.Weaken));
+        Assert.False(SpellBook.IsHarmful(SpellKind.MagicReflect));
+        Assert.False(SpellBook.IsHarmful(SpellKind.WallOfStone));
+    }
+
+    [Fact]
+    public void DuelSpells_MatchTheEngine()
+    {
+        // Engine ids (Spells.Initializer), circles and pre-AOS mana by circle.
+        Assert.Equal((7, 1), (SpellBook.Weaken.SpellId, SpellBook.Weaken.Circle));
+        Assert.Equal((35, 5), (SpellBook.MagicReflect.SpellId, SpellBook.MagicReflect.Circle));
+        Assert.Equal((23, 3), (SpellBook.WallOfStone.SpellId, SpellBook.WallOfStone.Circle));
+
+        foreach (var kind in new[] { SpellKind.Weaken, SpellKind.MagicReflect, SpellKind.WallOfStone })
+        {
+            var entry = SpellBook.EntryOf(kind);
+            Assert.Equal(kind, entry.Kind);
+            Assert.Equal(PreAosManaByCircle[entry.Circle - FirstCircle], entry.Mana);
+        }
+    }
+
+    [Fact]
+    public void MagicReflect_GoesOnTheCasterWithNoCursor()
+    {
+        Assert.False(SpellBook.RaisesCursor(SpellKind.MagicReflect, protectionGuardsCasts: false));
+        Assert.True(SpellBook.OnSelf(SpellKind.MagicReflect, protectionGuardsCasts: false));
+        Assert.True(SpellBook.OnSelf(SpellKind.ReactiveArmor, protectionGuardsCasts: false));
+        Assert.False(SpellBook.OnSelf(SpellKind.Weaken, protectionGuardsCasts: false));
+    }
+
+    [Fact]
+    public void OnlyTheWall_TargetsTheGround()
+    {
+        Assert.True(SpellBook.TargetsGround(SpellKind.WallOfStone));
+        Assert.False(SpellBook.TargetsGround(SpellKind.Paralyze));
+    }
+
+    [Fact]
+    public void PickUtility_PoisonFirst_BeatsTheParalyzeRoll()
+    {
+        Assert.Equal(
+            SpellKind.Poison,
+            SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, false, false, poisonFirst: true, AlwaysRoll, NeverRoll, TestSpellStock.Every)
+        );
+        Assert.Equal(
+            SpellKind.Paralyze,
+            SpellBook.PickUtility(Grandmaster, FullMana, ClosingDistance, TopCircle, false, true, poisonFirst: true, AlwaysRoll, NeverRoll, TestSpellStock.Every)
+        );
     }
 }

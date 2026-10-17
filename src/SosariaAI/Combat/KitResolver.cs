@@ -65,6 +65,13 @@ public static class KitResolver
             book.Content = ulong.MaxValue;
         }
 
+        // A kit pouch is carried only to break a paralyze (VeteranKit.TrappedPouch).
+        if (item is Pouch pouch)
+        {
+            pouch.TrapType = TrapType.MagicTrap;
+            pouch.TrapPower = CombatItemRules.MagicTrapPower;
+        }
+
         return item;
     }
 

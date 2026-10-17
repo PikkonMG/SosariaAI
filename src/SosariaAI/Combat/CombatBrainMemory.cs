@@ -112,8 +112,13 @@ public static partial class CombatBrain
         /// <summary>The cast spell was a crime on its target when its words began (<see cref="LawfulRules.BecameCrime"/>).</summary>
         public bool CastWasCrime;
         public long NextCastAt;
-        public long NextSpellCareAt;
         public long NextPotionAt;
+
+        /// <summary>No second explosion potion before the last one's fuse burned down (<see cref="CombatItemRules.FuseMs"/>).</summary>
+        public long NextThrowAt;
+
+        /// <summary>Where a foe running low was last seen; followed during the lost grace.</summary>
+        public Point3D? RunnerSeenAt;
         public long NextRefreshAt;
         public long NextBandageAt;
         public bool Meditating;
@@ -182,6 +187,7 @@ public static partial class CombatBrain
         /// <summary>Drops everything tied to the fight that just ended. Cooldowns stay.</summary>
         public void ForgetFight()
         {
+            RunnerSeenAt = null;
             Foes.Clear();
             AllyTargets.Clear();
             Picture = default;

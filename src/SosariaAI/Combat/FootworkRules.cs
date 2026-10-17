@@ -182,6 +182,52 @@ public static class FootworkRules
     public static bool CanBreakCast(bool foeIsPlayer, long foeCastLeftMs, int breakMs) =>
         foeIsPlayer && foeCastLeftMs > 0 && CastTiming.Holds(breakMs, foeCastLeftMs);
 
+    /// <summary>A foe below this share of its hits that turns away from the fight is running low.</summary>
+    public const double RunnerHitsFraction = 0.35;
+
+    /// <summary>A facing at least this many eighths of a turn off the way back to the fighter faces away from it.</summary>
+    public const int AwayTurns = 3;
+
+    /// <summary>
+    /// True when a foe faces away from the fighter: a body faces the way it steps (Mobile.Move),
+    /// and a foe on the fighter turns to it for each blow, so one that faces off is running.
+    /// <paramref name="facing"/> and <paramref name="towardFighter"/> are directions, 0 to 7.
+    /// </summary>
+    public static bool FacesAway(int facing, int towardFighter)
+    {
+        var turn = ((facing - towardFighter) % EscapeRules.DirectionCount + EscapeRules.DirectionCount) % EscapeRules.DirectionCount;
+        return Math.Min(turn, EscapeRules.DirectionCount - turn) >= AwayTurns;
+    }
+
+    /// <summary>A foe below <see cref="RunnerHitsFraction"/> of its hits that faces away is running low: it is chased, not let go.</summary>
+    public static bool RunsLow(double foeHitsFraction, bool facesAway) => foeHitsFraction < RunnerHitsFraction && facesAway;
+
+    /// <summary>A mage takes at least this many side steps between two casts inside its band.</summary>
+    public const int MinStrafeSteps = 1;
+
+    /// <summary>A mage takes at most this many side steps between two casts inside its band.</summary>
+    public const int MaxStrafeSteps = 2;
+
+    /// <summary>A side step turns this many eighths off the way to the foe, to the right; the left is the same turn the other way.</summary>
+    public const int SideTurns = 2;
+
+    /// <summary>
+    /// A mage inside its band takes side steps between casts, as players on horse or on foot
+    /// never stood still between their words: not while it holds its ground
+    /// (<see cref="CombatStance.Hold"/>), and only up to the <paramref name="stepBudget"/> of
+    /// this gap between casts. The words themselves root the feet (Spell.BlocksMovement).
+    /// </summary>
+    public static bool Strafes(CombatStance stance, int stepsTaken, int stepBudget) =>
+        stance != CombatStance.Hold && stepsTaken < stepBudget;
+
+    /// <summary>The side step's direction: a quarter turn off <paramref name="towardFoe"/>, left or right, 0 to 7.</summary>
+    public static int SideStep(int towardFoe, bool left) =>
+        ((towardFoe + (left ? -SideTurns : SideTurns)) % EscapeRules.DirectionCount + EscapeRules.DirectionCount) %
+        EscapeRules.DirectionCount;
+
+    /// <summary>A side step keeps the band when the foe stands from <paramref name="bandMin"/> out to <paramref name="keepMax"/> after it.</summary>
+    public static bool KeepsBand(int distanceAfter, int bandMin, int keepMax) => distanceAfter >= bandMin && distanceAfter <= keepMax;
+
     /// <summary>A melee fighter turns to a casting person within this many tiles of its reach.</summary>
     public const int InterruptSlackTiles = 1;
 

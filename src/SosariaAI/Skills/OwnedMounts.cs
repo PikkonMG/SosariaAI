@@ -93,6 +93,30 @@ public static class OwnedMounts
         return rider is { Mounted: false };
     }
 
+    /// <summary>
+    /// Gets off the ridden mount and onto <paramref name="mount"/>; the old one stands where the
+    /// rider stood. A mount that will not take this rider is not tried, and the rider climbs
+    /// back on the old one when the new one did not seat it. True when it rides the new one.
+    /// </summary>
+    public static bool SwapTo(SosariaCharacter rider, BaseMount mount)
+    {
+        if (rider?.Mount is not BaseMount ridden || mount == null ||
+            !MountRules.MountIsReady(mount.Deleted, mount.IsDeadPet, mount.Rider != null, mount.Poisoned) ||
+            !MountRules.GenderAllowed(rider.Female, mount.AllowMaleRider, mount.AllowFemaleRider) ||
+            !StepDown(rider))
+        {
+            return false;
+        }
+
+        if (Climb(rider, mount))
+        {
+            return true;
+        }
+
+        Climb(rider, ridden);
+        return false;
+    }
+
     /// <summary>Climbs onto a mount already within arm's reach. Used right after a purchase.</summary>
     public static bool ClimbNearest(SosariaCharacter rider) =>
         Climb(rider, Nearest(rider, MountRules.ReachTiles));

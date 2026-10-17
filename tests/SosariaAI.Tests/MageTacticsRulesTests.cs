@@ -4,7 +4,7 @@ using Xunit;
 namespace SosariaAI.Tests;
 
 /// <summary>
-/// A mage opens on a melee foe with Paralyze, bursts with Explosion and a bolt that land
+/// A mage opens on a monster with Paralyze and on a person with Weaken or an arrow, bursts with Explosion and a bolt that land
 /// together in the running era, and gets out by Recall or Invisibility before it would run.
 /// </summary>
 public class MageTacticsRulesTests
@@ -31,22 +31,93 @@ public class MageTacticsRulesTests
     private const int NoAttacker = 0;
     private const int FirstCircleSpell = 1;
 
+    private const double WeakenRoll = 0.0;
+    private const double ArrowRoll = 0.999;
+    private const long Now = 100_000;
+    private const int ClosingChaser = SpellBook.ClosingTiles;
+    private const int FarChaser = SpellBook.ClosingTiles + 1;
+    private const int AdjacentChaser = 1;
+
     [Fact]
-    public void OpensWithParalyze_OnlyTheFirstSpellOnAFreeMeleeFoe()
+    public void Opener_ParalyzeOnAFreeMonsterThatFightsUpCloseOrCasts()
     {
-        Assert.True(MageTacticsRules.OpensWithParalyze(false, CombatStyle.Melee, false, true, OpenGround));
-        Assert.False(MageTacticsRules.OpensWithParalyze(true, CombatStyle.Melee, false, true, OpenGround));
-        Assert.False(MageTacticsRules.OpensWithParalyze(false, CombatStyle.Mage, false, true, OpenGround));
-        Assert.False(MageTacticsRules.OpensWithParalyze(false, CombatStyle.Melee, true, true, OpenGround));
-        Assert.False(MageTacticsRules.OpensWithParalyze(false, CombatStyle.Melee, false, false, OpenGround));
+        Assert.Equal(SpellKind.Paralyze, Opener(false, false, CombatStyle.Melee, false, OpenGround, WeakenRoll));
+        Assert.Equal(SpellKind.Paralyze, Opener(false, false, CombatStyle.Mage, false, OpenGround, WeakenRoll));
+        Assert.Null(Opener(false, false, CombatStyle.Archer, false, OpenGround, WeakenRoll));
+        Assert.Null(Opener(true, false, CombatStyle.Melee, false, OpenGround, WeakenRoll));
+        Assert.Null(Opener(false, false, CombatStyle.Melee, true, OpenGround, WeakenRoll));
+        Assert.Null(Opener(false, false, CombatStyle.Melee, false, Pressed, WeakenRoll));
     }
 
     [Fact]
-    public void OpensWithParalyze_WaitsForTheRoomToSayIt()
+    public void Opener_OnAPersonIsWeakenOrAMagicArrow()
     {
-        Assert.True(MageTacticsRules.OpensWithParalyze(false, CombatStyle.Melee, false, true, FifthCircle));
-        Assert.False(MageTacticsRules.OpensWithParalyze(false, CombatStyle.Melee, false, true, Pressed));
+        Assert.Equal(SpellKind.Weaken, Opener(false, true, CombatStyle.Mage, false, Pressed, WeakenRoll));
+        Assert.Equal(SpellKind.MagicArrow, Opener(false, true, CombatStyle.Melee, false, Pressed, ArrowRoll));
+        Assert.Null(Opener(false, true, CombatStyle.Melee, true, OpenGround, WeakenRoll));
+        Assert.Null(Opener(true, true, CombatStyle.Melee, false, OpenGround, WeakenRoll));
+        Assert.Equal(
+            SpellKind.MagicArrow,
+            MageTacticsRules.Opener(false, true, CombatStyle.Melee, false, true, canWeaken: false, canArrow: true, OpenGround, WeakenRoll)
+        );
     }
+
+    [Fact]
+    public void PoisonFirst_OnlyOnAClean_PersonNotSeenToCure()
+    {
+        Assert.True(MageTacticsRules.PoisonFirst(foeIsPerson: true, foePoisoned: false, cureSeen: false));
+        Assert.False(MageTacticsRules.PoisonFirst(foeIsPerson: true, foePoisoned: false, cureSeen: true));
+        Assert.False(MageTacticsRules.PoisonFirst(foeIsPerson: true, foePoisoned: true, cureSeen: false));
+        Assert.False(MageTacticsRules.PoisonFirst(foeIsPerson: false, foePoisoned: false, cureSeen: false));
+    }
+
+    [Fact]
+    public void RaisesReflect_BeforeTheFirstBlowOnAPerson_BeforeAos()
+    {
+        Assert.True(MageTacticsRules.RaisesReflect(true, true, false, false, true, OpenGround));
+        Assert.False(MageTacticsRules.RaisesReflect(false, true, false, false, true, OpenGround));
+        Assert.False(MageTacticsRules.RaisesReflect(true, false, false, false, true, OpenGround));
+        Assert.False(MageTacticsRules.RaisesReflect(true, true, true, false, true, OpenGround));
+        Assert.False(MageTacticsRules.RaisesReflect(true, true, false, true, true, OpenGround));
+        Assert.False(MageTacticsRules.RaisesReflect(true, true, false, false, true, Pressed));
+    }
+
+    [Fact]
+    public void ChaseCap_ShortWordsOnARunner()
+    {
+        Assert.Equal(MageTacticsRules.ChaseCircle, MageTacticsRules.ChaseCap(OpenGround, foeRunsLow: true));
+        Assert.Equal(OpenGround, MageTacticsRules.ChaseCap(OpenGround, foeRunsLow: false));
+        Assert.Equal(Pressed, MageTacticsRules.ChaseCap(Pressed, foeRunsLow: true));
+        Assert.Equal(MageTacticsRules.ChaseCircle, SpellBook.Lightning.Circle);
+    }
+
+    [Fact]
+    public void Against_LandsInsideTheWindow_WaitsWhenEarly_ElseNone()
+    {
+        Assert.Equal(BurstCall.Lands, MageTacticsRules.Against(Now, Now + MageTacticsRules.BurstWindowMs));
+        Assert.Equal(BurstCall.Early, MageTacticsRules.Against(Now, Now + MageTacticsRules.BurstWindowMs + 1));
+        Assert.Equal(BurstCall.None, MageTacticsRules.Against(Now + MageTacticsRules.BurstWindowMs + 1, Now));
+    }
+
+    [Fact]
+    public void ExplosionLandMs_WordsCursorAndBlast() =>
+        Assert.Equal(
+            CastTiming.CastDelayMs(SpellBook.Explosion.Circle, false, false) + FootworkRules.CursorAnswerMs + MageTacticsRules.PreAosExplosionDelayMs,
+            MageTacticsRules.ExplosionLandMs(aos: false)
+        );
+
+    [Fact]
+    public void WallsOff_AMeleeChaserClosingIn_WithRoomForTheWall()
+    {
+        Assert.True(MageTacticsRules.WallsOff(true, ClosingChaser, OpenGround));
+        Assert.False(MageTacticsRules.WallsOff(false, ClosingChaser, OpenGround));
+        Assert.False(MageTacticsRules.WallsOff(true, FarChaser, OpenGround));
+        Assert.False(MageTacticsRules.WallsOff(true, AdjacentChaser, OpenGround));
+        Assert.False(MageTacticsRules.WallsOff(true, ClosingChaser, Pressed));
+    }
+
+    private static SpellKind? Opener(bool opened, bool person, CombatStyle style, bool held, int planCircle, double roll) =>
+        MageTacticsRules.Opener(opened, person, style, held, canParalyze: true, canWeaken: true, canArrow: true, planCircle, roll);
 
     [Fact]
     public void BurstFollowUp_FlameStrikeWhenItCan_ElseEnergyBolt()

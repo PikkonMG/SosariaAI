@@ -155,4 +155,12 @@ public class FocusRulesTests
         Assert.False(FocusRules.InDeclinedGroup(DeclinedAt, DeclinedAt + FocusRules.DeclineHoldMs, Near));
         Assert.False(FocusRules.InDeclinedGroup(NeverDeclined, DeclinedAt, Near));
     }
+
+    [Fact]
+    public void TakesCalledFoe_InSpellReachAndNotTheOneThatFell()
+    {
+        Assert.True(FocusRules.TakesCalledFoe(isFallen: false, FocusRules.CalledFoeReachTiles));
+        Assert.False(FocusRules.TakesCalledFoe(isFallen: false, FocusRules.CalledFoeReachTiles + 1));
+        Assert.False(FocusRules.TakesCalledFoe(isFallen: true, Near));
+    }
 }

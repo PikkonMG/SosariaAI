@@ -21,7 +21,10 @@ public enum SpellKind
     Protection,
     Invisibility,
     Resurrection,
-    Dispel
+    Dispel,
+    Weaken,
+    MagicReflect,
+    WallOfStone
 }
 
 /// <summary>
@@ -110,6 +113,25 @@ public static class SpellBook
     /// <summary>Resurrection (ResurrectionSpell): eighth circle, on a ghost one tile off (its TargetRange).</summary>
     public static readonly SpellEntry Resurrection = new(SpellKind.Resurrection, 58, 8, 90, 50, 0);
 
+    /// <summary>
+    /// Weaken (WeakenSpell, garlic and nightshade): first circle, a strength curse that also
+    /// frees a paralyzed target. The cheap first hit of a duel beside the Magic Arrow.
+    /// </summary>
+    public static readonly SpellEntry Weaken = new(SpellKind.Weaken, 7, 1, 20, 4, 0);
+
+    /// <summary>
+    /// Magic Reflection (MagicReflectSpell, garlic, mandrake root and spiders' silk): fifth circle,
+    /// on the caster with no cursor. Before AOS it sends the next spell back at its caster
+    /// (Mobile.MagicDamageAbsorb), and it will not go up while one is still waiting.
+    /// </summary>
+    public static readonly SpellEntry MagicReflect = new(SpellKind.MagicReflect, 35, 5, 60, 14, 0);
+
+    /// <summary>
+    /// Wall of Stone (WallOfStoneSpell, blood moss and garlic): third circle, a wall three tiles
+    /// wide on a ground cursor, across the line from the caster, for ten seconds.
+    /// </summary>
+    public static readonly SpellEntry WallOfStone = new(SpellKind.WallOfStone, 23, 3, 40, 9, 0);
+
     /// <summary>Damage spells, weakest first.</summary>
     public static readonly SpellEntry[] Attacks =
         [MagicArrow, Harm, Fireball, Lightning, MindBlast, EnergyBolt, Explosion, FlameStrike];
@@ -135,6 +157,9 @@ public static class SpellBook
             SpellKind.Invisibility => Invisibility,
             SpellKind.Resurrection => Resurrection,
             SpellKind.Dispel => Dispel,
+            SpellKind.Weaken => Weaken,
+            SpellKind.MagicReflect => MagicReflect,
+            SpellKind.WallOfStone => WallOfStone,
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
         };
 
@@ -145,7 +170,7 @@ public static class SpellBook
     public static bool IsHarmful(SpellKind kind) =>
         kind is SpellKind.MagicArrow or SpellKind.Harm or SpellKind.Fireball or SpellKind.Lightning or
             SpellKind.MindBlast or SpellKind.EnergyBolt or SpellKind.Explosion or SpellKind.FlameStrike or
-            SpellKind.Poison or SpellKind.Paralyze or SpellKind.Dispel;
+            SpellKind.Poison or SpellKind.Paralyze or SpellKind.Dispel or SpellKind.Weaken;
 
     /// <summary>A character fights with spells once its magery holds the first attack.</summary>
     public static bool IsCaster(double magery) => magery >= MagicArrow.MinMagery;
@@ -166,12 +191,24 @@ public static class SpellBook
 
     /// <summary>
     /// A spell that raises a target cursor when its words end. A cast of one that ends with no
-    /// cursor was broken. From UOR on, Protection works at once on the caster, with no cursor.
+    /// cursor was broken. From UOR on, Protection works at once on the caster, with no cursor;
+    /// Magic Reflection always does.
     /// </summary>
     public static bool RaisesCursor(SpellKind kind, bool protectionGuardsCasts) =>
-        kind != SpellKind.Protection || !protectionGuardsCasts;
+        kind != SpellKind.MagicReflect && (kind != SpellKind.Protection || !protectionGuardsCasts);
 
-    /// <summary>Paralyze on a foe closing in, or Poison on a clean one, by chance, from the <paramref name="stock"/>. Null when neither fits.</summary>
+    /// <summary>A spell a fighting mage casts on itself: the ward of the era, or Magic Reflection.</summary>
+    public static bool OnSelf(SpellKind kind, bool protectionGuardsCasts) =>
+        kind == WardOf(protectionGuardsCasts) || kind == SpellKind.MagicReflect;
+
+    /// <summary>A spell whose cursor is answered on the ground, not on a body: Wall of Stone.</summary>
+    public static bool TargetsGround(SpellKind kind) => kind == SpellKind.WallOfStone;
+
+    /// <summary>
+    /// Poison first when <paramref name="poisonFirst"/> (a person with no cure seen, see
+    /// <see cref="MageTacticsRules.PoisonFirst"/>), else Paralyze on a foe closing in, or Poison
+    /// on a clean one, by chance, from the <paramref name="stock"/>. Null when none fits.
+    /// </summary>
     public static SpellKind? PickUtility(
         double magery,
         int mana,
@@ -179,24 +216,26 @@ public static class SpellBook
         int safeCircle,
         bool foeHeld,
         bool foePoisoned,
+        bool poisonFirst,
         double paralyzeRoll,
         double poisonRoll,
         SpellStock stock
     )
     {
+        var poisonFits = !foePoisoned && Fits(Poison, safeCircle) && CanCast(Poison, magery, mana) && stock.Has(SpellKind.Poison);
+
+        if (poisonFirst && poisonFits)
+        {
+            return SpellKind.Poison;
+        }
+
         if (!foeHeld && distance <= ClosingTiles && Fits(Paralyze, safeCircle) &&
             CanCast(Paralyze, magery, mana) && stock.Has(SpellKind.Paralyze) && paralyzeRoll < ParalyzeChance)
         {
             return SpellKind.Paralyze;
         }
 
-        if (!foePoisoned && Fits(Poison, safeCircle) &&
-            CanCast(Poison, magery, mana) && stock.Has(SpellKind.Poison) && poisonRoll < PoisonChance)
-        {
-            return SpellKind.Poison;
-        }
-
-        return null;
+        return poisonFits && poisonRoll < PoisonChance ? SpellKind.Poison : null;
     }
 
     /// <summary>

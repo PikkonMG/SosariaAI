@@ -94,6 +94,11 @@ public class ClassBuildsTests
         {
             var template = ClassBuilds.TemplateFor(PersonClass.Mage, CharacterRole.Fighter, "Felucca:sela#" + i);
 
+            if (template.TankMage)
+            {
+                continue;
+            }
+
             Assert.Null(template.Weapon);
             Assert.False(template.Shield);
             Assert.Equal(KitArmor.Light, template.Armor);
@@ -101,6 +106,49 @@ public class ClassBuildsTests
             Assert.Contains(SkillName.Meditation, template.Secondary);
             Assert.Contains(SkillName.Hiding, template.Secondary);
             Assert.True(template.Trains(SkillName.Inscribe) || template.Trains(SkillName.Provocation));
+        }
+    }
+
+    [Fact]
+    public void TankMages_SwingAPolearm_AndTrainMageryBesideTactics()
+    {
+        // Robed, two-handed and casting: a T2A duel of two tank mages traded swings and "In Mani".
+        const int people = 400;
+        const double slack = 0.06;
+        var tanks = 0;
+
+        for (var i = 0; i < people; i++)
+        {
+            var template = ClassBuilds.TemplateFor(PersonClass.Mage, CharacterRole.Fighter, "Felucca:tank#" + i);
+
+            if (!template.TankMage)
+            {
+                continue;
+            }
+
+            tanks++;
+            Assert.Equal(CombatStyle.Melee, template.Style);
+            Assert.Equal(KitVariation.TwoHandedSword, template.Weapon);
+            Assert.Equal(SkillName.Swords, template.WeaponSkill);
+            Assert.False(template.Shield);
+            Assert.Equal(KitArmor.Light, template.Armor);
+            Assert.Equal(SkillName.Magery, template.Primary);
+            Assert.True(template.Trains(SkillName.Tactics));
+            Assert.True(template.Meditates);
+            Assert.False(template.Caster);
+            Assert.False(template.TravelMagic);
+        }
+
+        var share = (100 - ClassBuilds.ProvokeMageShare) / 100.0 * ClassBuilds.TankMageShare / 100.0;
+        Assert.InRange((double)tanks / people, share - slack, share + slack);
+    }
+
+    [Fact]
+    public void WorkerMages_AreNeverTankMages()
+    {
+        for (var i = 0; i < 200; i++)
+        {
+            Assert.False(ClassBuilds.TemplateFor(PersonClass.Mage, CharacterRole.Worker, "Felucca:tank#" + i).TankMage);
         }
     }
 

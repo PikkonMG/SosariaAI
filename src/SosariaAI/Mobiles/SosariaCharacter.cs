@@ -1428,8 +1428,11 @@ public partial class SosariaCharacter : PlayerMobile
         }
     }
 
-    /// <summary>A bag a character carries things in. A character never owns two: nested packs are emptied and dropped.</summary>
-    public static bool IsCarryBag(Item item) => item is Server.Items.Backpack or Bag or Pouch;
+    /// <summary>
+    /// A bag a character carries things in. A character never owns two: nested packs are emptied
+    /// and dropped. A trapped pouch is a tool (opened, it breaks a paralyze) and stays as it is.
+    /// </summary>
+    public static bool IsCarryBag(Item item) => item is Server.Items.Backpack or Bag || item is Pouch { TrapType: TrapType.None };
 
     private static void CollectExtraBags(Container root, Container current, List<Container> extra)
     {
@@ -3475,7 +3478,8 @@ public partial class SosariaCharacter : PlayerMobile
             LeadsGroup = BacksInvite(),
             Travelling = OnTrip(),
             TakesOrders = Routine?.CurrentSkill is CraftStationSkill && OrderDesk.MayTakeOrder(this),
-            InDeal = TradeSessions.IsBusy(this)
+            InDeal = TradeSessions.IsBusy(this),
+            IsRed = PkRules.IsRed(Kills)
         };
     }
 
@@ -3553,7 +3557,8 @@ public partial class SosariaCharacter : PlayerMobile
     /// <summary>A fixed template line. It is always said, even when it was said before.</summary>
     public void SpeakScripted(string line)
     {
-        if (!CanSpeakHere(line))
+        // A template is always said, but a red never asks after reds, whatever row the file holds.
+        if (!CanSpeakHere(line) || PkRules.IsRed(Kills) && SpeechFacts.AsksAfterReds(line))
         {
             return;
         }

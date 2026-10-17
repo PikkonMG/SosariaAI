@@ -1,3 +1,5 @@
+using SosariaAI.Common;
+
 namespace SosariaAI.Combat;
 
 public enum CareChoice
@@ -15,11 +17,13 @@ public enum CareChoice
 /// What the self-care call reads, as plain values. Each Ready flag is one cooldown.
 /// <see cref="Stock"/> holds the heal and cure spells whose reagents the pack holds.
 /// <see cref="SafeCircle"/> is the highest circle whose words finish before the next blow.
+/// <see cref="VersusPerson"/> is true in a fight with a person.
 /// </summary>
 public readonly record struct CareFacts(
     bool Poisoned,
     double HitsFraction,
     bool InFight,
+    bool VersusPerson,
     int SafeCircle,
     bool SpellReady,
     double Magery,
@@ -38,7 +42,9 @@ public readonly record struct CareFacts(
 /// A player looks after itself in and out of a fight: cure first when poisoned, then a
 /// potion when the fight is going badly, a bandage for anyone with Healing, and a heal spell
 /// for anyone with Magery. A heal spell is cast only when its words finish before the next
-/// blow. Heal potions and heal spells do nothing for the poisoned (engine rule).
+/// blow. Heal potions and heal spells do nothing for the poisoned (engine rule). In a fight
+/// with a person the bandage runs at any wound, the next one on as soon as the last is done:
+/// a player of the period kept it going the whole fight, not only once the hits ran low.
 /// </summary>
 public static class SelfCareRules
 {
@@ -96,6 +102,13 @@ public static class SelfCareRules
     /// </summary>
     public static bool TreatsNow(bool hidden, bool inFight, bool poisoned) => !hidden || !inFight || poisoned;
 
+    /// <summary>
+    /// In a fight with a person a bandage goes on at any wound. The engine refuses a bandage on
+    /// a body at full hits that is not poisoned (BandageContext.BeginHeal), so full hits wait.
+    /// </summary>
+    public static bool KeepsBandageRunning(bool versusPerson, double hitsFraction) =>
+        versusPerson && hitsFraction < Vitals.FullHits;
+
     /// <summary>Cheap gate before any backpack search: nothing to do when clean and above the line.</summary>
     public static bool NeedsCare(bool poisoned, double hitsFraction, bool inFight) =>
         poisoned || hitsFraction < HealLine(inFight);
@@ -145,7 +158,9 @@ public static class SelfCareRules
     {
         if (facts.HitsFraction >= HealLine(facts.InFight))
         {
-            return CareChoice.None;
+            return KeepsBandageRunning(facts.VersusPerson, facts.HitsFraction) && MayBandage(facts)
+                ? CareChoice.Bandage
+                : CareChoice.None;
         }
 
         var potionNow = facts.InFight

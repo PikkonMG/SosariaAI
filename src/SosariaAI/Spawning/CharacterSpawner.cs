@@ -780,7 +780,7 @@ public static class CharacterSpawner
             var profile = PersonProfileRules.Roll(uniqueId, definition);
             var template = ClassBuilds.TemplateFor(profile.Class, build.Role, uniqueId);
             isVeteran[i] = build.Veteran;
-            mayRideRed[i] = RedRosterRules.MayRideRed(PersonJobs.Of(definition.Build), template.Caster, template.TravelMagic, profile.Tier);
+            mayRideRed[i] = RedRosterRules.MayRideRed(PersonJobs.Of(definition.Build), template.Caster || template.TankMage, template.TravelMagic, profile.Tier);
         }
 
         var selected = PkSlotRules.Select(ids, isVeteran, mayRideRed, isPartyLeader, savedReds, redCount);

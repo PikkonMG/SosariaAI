@@ -141,7 +141,8 @@ public static class RoutineDriver
 
     private static void ConsiderDanger(SosariaCharacter character)
     {
-        // A tamer on a taming trip walks up to dragons on purpose; it gives up by its own rule.
+        // A tamer on a taming trip walks up to dragons on purpose: the trip reads the danger
+        // itself each tick, its own beast aside, and ends when another monster is past it.
         if (character.IsGhost || character.Routine?.CurrentSkill is GhostSkill or FleeSkill || TameSkill.BravesDanger(character))
         {
             return;

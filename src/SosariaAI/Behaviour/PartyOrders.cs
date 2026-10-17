@@ -65,6 +65,13 @@ public static class PartyOrders
     public static PartyOrder Current(Mobile member) =>
         member != null && Orders.TryGetValue(member.Serial, out var order) ? order : null;
 
+    /// <summary>The living foe the leader's attack order sent this member onto, or null: the party's called target.</summary>
+    public static Mobile CalledFoe(Mobile member) =>
+        Current(member) is { Kind: PartyOrderKind.Attack, Target: var target } &&
+        World.FindMobile(target) is { Deleted: false, Alive: true } foe
+            ? foe
+            : null;
+
     /// <summary>True while a bot leader stands for a member: its trip does not step on.</summary>
     public static bool LeaderWaits(Mobile leader) => leader != null && Waits.ContainsKey(leader.Serial);
 

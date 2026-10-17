@@ -11,7 +11,8 @@ namespace SosariaAI.Combat;
 /// Picks where a runner heads, from places it can really reach: the end of a straight walk
 /// each of the eight ways (tested step by step, so a coast or a wall ends it), the spots of
 /// the way it came in, and the nearby road nodes. <see cref="EscapeRules.PickGoal"/> weighs
-/// them. A living red out of the guards runs only by ground the guards do not cover
+/// them, and a goal no chaser sees there wins between goals as good otherwise (<see cref="SeenByChaser"/>).
+/// A living red out of the guards runs only by ground the guards do not cover
 /// (<see cref="EscapeRules.KeepsOffGuards"/>), and a guarded safety does not pull it; one under
 /// the guards is pulled to the nearest open ground (<see cref="WayOutOfGuards"/>). World
 /// thread only: it reads the map.
@@ -26,6 +27,12 @@ public static class EscapeRoute
 
     /// <summary>A road node this far above or below is on another floor.</summary>
     public const int MaxFloorGap = 16;
+
+    /// <summary>The engine's eye height over a body's feet (Map.LineOfSight from one mobile to another).</summary>
+    public const int EyeHeight = 14;
+
+    /// <summary>The nearest chasers whose sight a goal is checked against; each costs a line of sight per goal.</summary>
+    public const int MaxChasersWatched = 4;
 
     /// <summary>
     /// The goal of the next leg away from <paramref name="threat"/>, or null when no place
@@ -90,6 +97,13 @@ public static class EscapeRoute
             }
         }
 
+        var chasers = ChasersOf(character, map);
+
+        for (var i = 0; i < options.Count; i++)
+        {
+            options[i] = options[i] with { OutOfSight = !SeenByChaser(map, chasers, options[i].At) };
+        }
+
         var best = EscapeRules.PickGoal(options, from, threat.X, threat.Y, safety, idleFoes);
         return best == EscapeRules.NoChoice ? null : options[best].At;
     }
@@ -116,6 +130,62 @@ public static class EscapeRoute
             character.Location,
             EscapeRules.GuardExitProbeTiles
         );
+    }
+
+    /// <summary>
+    /// The nearest living mobiles, at most <see cref="MaxChasersWatched"/>, whose blows go to the
+    /// runner, out to the range a hunted run is clear at (<see cref="RetreatRules.HuntedClearTiles"/>).
+    /// </summary>
+    private static List<Mobile> ChasersOf(SosariaCharacter character, Map map)
+    {
+        var chasers = new List<Mobile>(MaxChasersWatched);
+
+        foreach (var mobile in map.GetMobilesInRange(character.Location, RetreatRules.HuntedClearTiles))
+        {
+            if (mobile.Deleted || !mobile.Alive || mobile.Combatant != character)
+            {
+                continue;
+            }
+
+            if (chasers.Count < MaxChasersWatched)
+            {
+                chasers.Add(mobile);
+                continue;
+            }
+
+            var farthest = 0;
+
+            for (var i = 1; i < chasers.Count; i++)
+            {
+                if (NavMetric.Chebyshev(character.Location, chasers[i].Location) > NavMetric.Chebyshev(character.Location, chasers[farthest].Location))
+                {
+                    farthest = i;
+                }
+            }
+
+            if (NavMetric.Chebyshev(character.Location, mobile.Location) < NavMetric.Chebyshev(character.Location, chasers[farthest].Location))
+            {
+                chasers[farthest] = mobile;
+            }
+        }
+
+        return chasers;
+    }
+
+    /// <summary>True when one of <paramref name="chasers"/> would see a body standing at <paramref name="spot"/>.</summary>
+    private static bool SeenByChaser(Map map, List<Mobile> chasers, Point3D spot)
+    {
+        var body = new Point3D(spot.X, spot.Y, spot.Z + EyeHeight);
+
+        for (var i = 0; i < chasers.Count; i++)
+        {
+            if (map.LineOfSight(chasers[i], body))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void AddKnown(

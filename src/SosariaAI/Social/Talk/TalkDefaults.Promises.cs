@@ -27,7 +27,9 @@ public static partial class TalkDefaults
         [TalkCategory.RecallAdventure] = ["we should hit {place} again {friend}", "thinking bout {place} again, u in?"],
         [TalkCategory.GoingAsk] = ["anyone going to {place}?", "anyone headed to {place}?", "anyone going {place} later?"],
         [TalkCategory.GoingReply] = ["i might go later"],
-        [TalkCategory.GuardStandDown] = ["take it outside {name}", "outside town, {name}"]
+        [TalkCategory.GuardStandDown] = ["take it outside {name}", "outside town, {name}"],
+        [TalkCategory.TameSuccess] = ["new {item}, gonna name it"],
+        [TalkCategory.TameFail] = ["its angry now, run", "grr it attacked me"]
     };
 
     /// <summary>

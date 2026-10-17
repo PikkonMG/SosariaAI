@@ -10,6 +10,18 @@ public class MountRulesTests
         Assert.Equal(1, MountRules.ReachTiles);
 
     [Fact]
+    public void SwapsMount_OnlyForAStrongerTamedMount()
+    {
+        // Engine pre-AOS power: a nightmare 554, a horse 67.
+        const int NightmarePower = 554;
+        const int HorsePower = 67;
+
+        Assert.True(MountRules.SwapsMount(NightmarePower, HorsePower));
+        Assert.False(MountRules.SwapsMount(HorsePower, NightmarePower));
+        Assert.False(MountRules.SwapsMount(HorsePower, HorsePower));
+    }
+
+    [Fact]
     public void RiderMayMount_WhenAlreadyMounted_IsFalse() =>
         Assert.False(MountRules.RiderMayMount(alreadyMounted: true));
 

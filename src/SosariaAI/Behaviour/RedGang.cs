@@ -54,6 +54,9 @@ public static class RedGang
 
     private static readonly Dictionary<Serial, (DateTime At, int Pack, int Crowd)> _surroundings = new();
 
+    /// <summary>The victim each gang was last called onto (<see cref="Call"/>), by gang; one entry per gang.</summary>
+    private static readonly Dictionary<int, Serial> _gangVictims = new();
+
     /// <summary>This red and every gang mate close enough to join the fight.</summary>
     public static int Power(SosariaCharacter red)
     {
@@ -243,13 +246,19 @@ public static class RedGang
     /// Gang mates in range turn on the victim, on the draw and while the fight lasts; at the draw
     /// any other free red near piles in half the time: reds have no loyalty, only appetite. A
     /// mate that would run from the fight at once, or ran from the victim's side lately, is not
-    /// called in (see <see cref="RedGangRules.JoinsCall"/>).
+    /// called in (see <see cref="RedGangRules.JoinsCall"/>). The gang's victim is kept as its
+    /// called target (<see cref="CalledVictim"/>).
     /// </summary>
     public static void Call(SosariaCharacter red, Mobile victim, bool strays)
     {
         if (red.Map == null || red.Map == Map.Internal)
         {
             return;
+        }
+
+        if (red.OutlawGang != PkGangRules.NoGang && victim != null)
+        {
+            _gangVictims[red.OutlawGang] = victim.Serial;
         }
 
         _called.Clear();
@@ -274,6 +283,26 @@ public static class RedGang
                 mate.JoinAgainst(victim);
             }
         }
+    }
+
+    /// <summary>
+    /// The living victim this red's gang was last called onto, or null: the gang's called target.
+    /// A victim dead or gone is struck off.
+    /// </summary>
+    public static Mobile CalledVictim(SosariaCharacter red)
+    {
+        if (red == null || !_gangVictims.TryGetValue(red.OutlawGang, out var serial))
+        {
+            return null;
+        }
+
+        if (World.FindMobile(serial) is { Deleted: false, Alive: true } victim)
+        {
+            return victim;
+        }
+
+        _gangVictims.Remove(red.OutlawGang);
+        return null;
     }
 
     /// <summary>

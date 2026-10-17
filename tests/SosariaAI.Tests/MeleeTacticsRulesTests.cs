@@ -129,4 +129,16 @@ public class MeleeTacticsRulesTests
         long sinceRunMs = JustRan
     ) =>
         MeleeTacticsRules.ComesBackFor(isPerson, harmless, calmed, packmates, hitsFraction, foeHitsFraction, sinceRunMs);
+
+    [Fact]
+    public void ArrowsRunner_OnlyAFoeRunningOutOfReach_InsideSpellReach()
+    {
+        const int WeaponReach = 1;
+        const int OutOfReach = 3;
+
+        Assert.True(MeleeTacticsRules.ArrowsRunner(OutOfReach, WeaponReach, foeFacesAway: true));
+        Assert.False(MeleeTacticsRules.ArrowsRunner(OutOfReach, WeaponReach, foeFacesAway: false));
+        Assert.False(MeleeTacticsRules.ArrowsRunner(WeaponReach, WeaponReach, foeFacesAway: true));
+        Assert.False(MeleeTacticsRules.ArrowsRunner(SpellBook.Reach + 1, WeaponReach, foeFacesAway: true));
+    }
 }

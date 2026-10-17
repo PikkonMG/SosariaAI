@@ -90,6 +90,14 @@ public static partial class CombatBrain
         );
     }
 
+    /// <summary>
+    /// The tank mage (<see cref="WieldRules.SwingsAndCasts"/>) with the magery for the first
+    /// circle and a spellbook to cast from: it fights as melee and casts where it stands.
+    /// </summary>
+    private static bool FightsAsTankMage(SosariaCharacter character) =>
+        WieldRules.SwingsAndCasts(character.PersonProfile.Class, character.Build) &&
+        SpellBook.IsCaster(character.Skills.Magery.Value) && Spellbook.FindRegular(character) != null;
+
     /// <summary>How a foe fights, as a player would read it at a glance: a bow, a mage's empty hands, or blades and claws.</summary>
     private static CombatStyle StyleOfFoe(Mobile foe)
     {
