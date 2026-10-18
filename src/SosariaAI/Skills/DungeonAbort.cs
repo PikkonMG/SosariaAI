@@ -59,7 +59,8 @@ public static class DungeonAbort
             return;
         }
 
-        logger.Information("{Line}", Line(character.Name, Reason(nextSkill), character.Location));
+        var reason = nextSkill == GhostSkill.SkillName ? DelveFailure.DeathWhy(character) : Reason(nextSkill);
+        logger.Information("{Line}", Line(character.Name, reason, character.Location));
     }
 
     /// <summary>Drops the broken-off trip of a person that left the world for good: no next job will write its end.</summary>

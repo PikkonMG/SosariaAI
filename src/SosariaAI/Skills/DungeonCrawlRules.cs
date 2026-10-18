@@ -190,6 +190,9 @@ public static class DungeonCrawlRules
     public const string SuppliesWhy = "its supplies ran low";
     public const string PackFullWhy = "a full pack";
     public const string RoomsFailedWhy = "no room could be reached";
+
+    /// <summary>A room hunt judged the floor's monsters too strong where the crawler stood.</summary>
+    public const string TooDangerousWhy = "the floor is too dangerous for it";
     public const string FloorEmptyWhy = "the floor offers nothing more";
     public const string OffFloorWhy = "it stands on no mapped floor";
     public const string TooHardWhy = "the floor is too hard for it";
@@ -286,7 +289,14 @@ public static class DungeonCrawlRules
     /// done in two minutes, so the failures never rested the job.
     /// </summary>
     public static bool CrawlFailed(int roomsReached, string leaveReason) =>
-        roomsReached == 0 && leaveReason == RoomsFailedWhy;
+        roomsReached == 0 && leaveReason is RoomsFailedWhy or TooDangerousWhy;
+
+    /// <summary>
+    /// A room hunt that refused its ground as too dangerous found the floor too hard, not out
+    /// of reach: the crawler leaves the floor instead of counting the room as unreachable. Three
+    /// such refusals ended crawls as "no room could be reached" in Britain Sewer and Orc Cave.
+    /// </summary>
+    public static bool FloorTooDangerous(string roomEndReason) => roomEndReason == HuntSkill.TooDangerousWhy;
 
     /// <summary>The line a run that turns for the surface writes, easy to count by reason.</summary>
     public static string LeaveLine(string name, string dungeon, TimeSpan inside, string why) =>

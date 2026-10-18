@@ -123,6 +123,7 @@ public sealed class DungeonTripSkill : Skill, IHuntingSkill
     private int _seed;
     private int _rooms;
     private int _roomFailures;
+    private bool _tooDangerous;
     private int _bareRooms;
     private int _floorId;
     private DungeonFloor? _watched;
@@ -170,6 +171,7 @@ public sealed class DungeonTripSkill : Skill, IHuntingSkill
         _sweptFloors.Clear();
         _rooms = 0;
         _roomFailures = 0;
+        _tooDangerous = false;
         _bareRooms = 0;
         _floorId = -1;
         _watched = null;
@@ -215,7 +217,7 @@ public sealed class DungeonTripSkill : Skill, IHuntingSkill
     {
         if (_character.IsGhost)
         {
-            return Ended(Checked(SkillStatus.Failed, DelveFailure.Died));
+            return Ended(Checked(SkillStatus.Failed, DelveFailure.DeathWhy(_character)));
         }
 
         Party.TickCare(_character);
@@ -285,7 +287,9 @@ public sealed class DungeonTripSkill : Skill, IHuntingSkill
         _phase switch
         {
             Phase.Camp => DelveFailure.HallEmpty,
-            Phase.Crawl or Phase.WalkHome => DelveFailure.NoRoomReached,
+            Phase.Crawl or Phase.WalkHome => _leaveReason == DungeonCrawlRules.TooDangerousWhy
+                ? DelveFailure.FloorTooDangerous
+                : DelveFailure.NoRoomReached,
             _ => TravelSkill.WithWalkWhy(DungeonEntryRules.FailureReason(_leg), _walkIn)
         };
 
@@ -923,8 +927,9 @@ public sealed class DungeonTripSkill : Skill, IHuntingSkill
                 return SkillStatus.Running;
             }
 
-            _failedStop = status == SkillStatus.Failed ? _roomHunt : _failedStop;
-            _roomFailures = status == SkillStatus.Failed ? _roomFailures + 1 : 0;
+            _tooDangerous = status == SkillStatus.Failed && DungeonCrawlRules.FloorTooDangerous(_roomHunt.FailReason);
+            _failedStop = status == SkillStatus.Failed && !_tooDangerous ? _roomHunt : _failedStop;
+            _roomFailures = status == SkillStatus.Failed && !_tooDangerous ? _roomFailures + 1 : 0;
             _roomsReached += status == SkillStatus.Failed ? 0 : 1;
             _bareRooms = DungeonCrawlRules.CountBareRooms(_bareRooms, _roomHunt.EndReason, _roomHunt.Kills);
             EndStop();
@@ -986,6 +991,13 @@ public sealed class DungeonTripSkill : Skill, IHuntingSkill
     /// </summary>
     private bool NextRoom()
     {
+        // A floor whose monsters the last room hunt found too strong is left, and kept off a while.
+        if (_tooDangerous && DungeonGate.NoteWhere(_character) is { } hard)
+        {
+            _tooDangerous = false;
+            return LeaveFloor(hard, DungeonGround.FightingPower(_character), DungeonCrawlRules.TooDangerousWhy, lost: true);
+        }
+
         _leaveReason = LeaveReasonNow();
 
         if (_leaveReason != null)
@@ -1314,9 +1326,16 @@ public sealed class DungeonTripSkill : Skill, IHuntingSkill
     /// </summary>
     private bool StopFailed(Skill stop)
     {
+        _rooms++;
+
+        if (DungeonCrawlRules.FloorTooDangerous(stop.FailReason))
+        {
+            _tooDangerous = true;
+            return NextRoom();
+        }
+
         _failedStop = stop;
         _roomFailures++;
-        _rooms++;
         return NextRoom();
     }
 

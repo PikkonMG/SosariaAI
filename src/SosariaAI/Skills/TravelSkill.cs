@@ -335,8 +335,11 @@ public sealed class TravelSkill : Skill
             return true;
         }
 
+        // Buccaneer's Den is an island: no walk reaches it, and a red that set out on foot
+        // stalled on the mainland for minutes before it recalled anyway.
         return !inParty &&
-               RecallRules.TakesMagic(NavMetric.Chebyshev(_character.Location, goal), Utility.Random(PercentRoll.Scale)) &&
+               (PkRules.InBuccaneersDen(goal.X, goal.Y) ||
+                RecallRules.TakesMagic(NavMetric.Chebyshev(_character.Location, goal), Utility.Random(PercentRoll.Scale))) &&
                StartCast(new RecallSkill(goal));
     }
 
@@ -1517,7 +1520,7 @@ public sealed class TravelSkill : Skill
 
         if (_character != null && leg is { } stuckOn)
         {
-            StallTally.Note(_character.Location, stuckOn);
+            StallTally.Note(_character.Map, _character.Location, stuckOn, Core.Now);
         }
 
         if (SosariaSettings.LogActivity)

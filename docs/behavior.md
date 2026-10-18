@@ -209,6 +209,10 @@ question with its mark, so its exceptional pieces come into the pack. An item
 that makes nothing in two batches is dropped for the session, and three empty
 batches in a row end the session. Anyone who works a station keeps the stock it
 burns: a cook does not sell the meat on its fire to the next cook.
+A crafter that holds 4 unsold pieces of an item, in its pack and its bank box,
+makes no more of it until they sell. When it holds enough of everything it could
+make, it ends the session and goes to sell (`holds enough unsold ... goods and
+goes to sell`).
 
 **Selling.** A crafter's exceptional pieces are its shop stock. They never go
 to an NPC shop. It carries up to eight and banks the rest, and takes more out
@@ -790,6 +794,10 @@ delay ends, instead of waiting 30 minutes. The log line is
 `ghost was stuck N minutes (no healer, shrine or friend it can reach from
 here)`, where N is the time since its death.
 
+**Speech after a raise.** A character thanks someone for a rez only when a
+person or a healer raised it in the last two minutes. A ghost that fell back to
+its home says no such line on its return.
+
 **Red corpse runs.** After a raise, a red goes back for its body when the body
 lies on the same facet and clear of the guards, near or far, and it travels
 there without a step onto guarded ground. When the body lies on another facet
@@ -1157,3 +1165,24 @@ dungeon fit for three. When the party musters with too few for that place, the
 leader takes it to a place that fits the party. When nobody answers, the caller
 goes alone only where it fits alone: `X keeps off destard alone (power 206
 below floor 583)`.
+
+**Buying a horse.** A character buys a horse for 550 gold when its pack holds
+the price, or when its pack and bank together hold it. A short pack goes by the
+bank first and says "withdraw". A red may not walk into a guarded bank, so only
+its pack counts. A failed buy names its reason, such as `it cannot pay for a
+horse` or `the trainer has no horse to sell`.
+
+**Too dangerous floors.** A room hunt that finds a dungeon floor's monsters too
+strong where the crawler stands does not count as an unreachable room. The
+crawler marks the floor too hard for a while and goes up a stair that fits, or
+heads out. Such a trip ends with `the floor was too dangerous for it`. A death
+on the walk to or from a dungeon is logged as `it died on the road to or from
+the dungeon`, not as a dungeon death.
+
+**Stalled steps.** A one-tile step that stalls walkers 3 times is closed to the
+live walker for 30 minutes, so routes go round it. A trip to Buccaneer's Den,
+an island no walk reaches, starts with a recall when a rune serves it.
+
+**Death lines.** Each death line gives the power of both sides and the number of
+people whose blows were fresh: `(kills N, criminal B, power P vs K, A people on
+it)`.

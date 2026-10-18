@@ -1,6 +1,8 @@
 using System;
 using Server;
+using Server.Items;
 using Server.Mobiles;
+using SosariaAI.Combat;
 using SosariaAI.Configuration;
 using SosariaAI.Economy;
 using SosariaAI.Mobiles;
@@ -10,24 +12,36 @@ namespace SosariaAI.Skills;
 
 /// <summary>
 /// Buy a horse from an animal trainer through the real vendor path. The purchase
-/// spawns the mount already controlled; the copy only has to stand close and pay.
+/// spawns the mount already controlled; the copy only has to stand close and pay. The
+/// trainer takes a horse's price from the pack only (<see cref="PackFunds"/>), so a buyer
+/// whose pack is short and whose bank holds the rest goes by the bank first and says
+/// "withdraw", as a player did.
 /// </summary>
 public sealed class BuyMountSkill : Skill
 {
+    private const string ShortWhy = "it cannot pay for a horse";
+    private const string NoTrainerWhy = "no animal trainer in reach";
+    private const string NoBankWalkWhy = "no walk to the bank";
+    private const string NoStableWalkWhy = "no walk to the stable";
+    private const string WithdrawWhy = "the banker gave it no gold";
+    private const string TrainerGoneWhy = "the trainer was not at the stable";
+    private const string SoldOutWhy = "the trainer has no horse to sell";
+    private const string RefusedWhy = "the trainer would not sell";
+
     private SosariaCharacter _character;
-    private TravelSkill _walk;
-    private bool _buying;
+    private Skill _walk;
+    private Point3D _stable;
+    private bool _toBank;
 
     public override string Name => SkillKinds.BuyMount;
 
     public override bool Begin(SosariaCharacter character)
     {
         _character = character;
-        _buying = false;
 
         if (!People.InWorld(character))
         {
-            return false;
+            return CannotStart(ShortWhy);
         }
 
         if (!MountBuyRules.MayBuy(
@@ -37,62 +51,77 @@ public sealed class BuyMountSkill : Skill
                 MountBuyRules.HorseSlots,
                 character.FollowersMax))
         {
-            return false;
+            return CannotStart("it has a mount or no room for one");
         }
 
-        var stable = ShopFinder.Nearest(character, ShopFinder.AnimalTrainerToken, Point3D.Zero);
+        var pack = PackGold();
 
-        if (stable == Point3D.Zero)
+        if (!MountBuyRules.CanFund(pack, Banker.GetBalance(character), PkRules.IsRed(character.Kills)))
         {
-            return false;
+            return CannotStart(ShortWhy);
         }
 
-        _walk = new TravelSkill(stable, NavLimits.ShopArrivalRange, arrivalFloor: true);
-        return _walk.Begin(character);
+        _stable = ShopFinder.Nearest(character, ShopFinder.AnimalTrainerToken, Point3D.Zero);
+
+        if (_stable == Point3D.Zero)
+        {
+            return CannotStart(NoTrainerWhy);
+        }
+
+        _toBank = !MountBuyRules.CanAfford(pack);
+        _walk = _toBank
+            ? new TravelSkill(BankTeller.BankToken, NavLimits.BankArrivalRange)
+            : new TravelSkill(_stable, NavLimits.ShopArrivalRange, arrivalFloor: true);
+        return _walk.Begin(character) || CannotStart(_walk.FailReason ?? (_toBank ? NoBankWalkWhy : NoStableWalkWhy));
     }
 
     public override SkillStatus Tick()
     {
         if (_character == null || _character.Deleted || !People.InWorld(_character))
         {
-            return SkillStatus.Failed;
+            return Fail("it left the world");
         }
 
-        if (_walk != null)
+        var walk = _walk?.Tick() ?? SkillStatus.Failed;
+
+        if (walk == SkillStatus.Running)
         {
-            var walkStatus = _walk.Tick();
-
-            if (walkStatus == SkillStatus.Running)
-            {
-                return SkillStatus.Running;
-            }
-
-            if (walkStatus == SkillStatus.Failed)
-            {
-                return SkillStatus.Failed;
-            }
-
-            _walk = null;
-            _buying = true;
+            return SkillStatus.Running;
         }
 
-        if (_buying)
+        if (walk == SkillStatus.Failed)
         {
-            _buying = false;
-            return BuyHorse() ? SkillStatus.Done : SkillStatus.Failed;
+            return Fail(_walk?.FailReason ?? (_toBank ? NoBankWalkWhy : NoStableWalkWhy));
         }
 
-        return SkillStatus.Failed;
+        _walk = null;
+        return _toBank ? AtBank() : BuyHorse();
     }
 
     public override void Abort()
     {
         _walk?.Abort();
         _walk = null;
-        _buying = false;
     }
 
     public override void Resume(TimeSpan held) => _walk?.Resume(held);
+
+    private int PackGold() => _character.Backpack?.GetAmount(typeof(Gold)) ?? 0;
+
+    // At the bank: one "withdraw" for what the pack lacks, then the walk to the stable.
+    private SkillStatus AtBank()
+    {
+        var before = PackGold();
+
+        if (!BankTeller.Withdraw(_character, MountBuyRules.HorsePrice - before) || PackGold() <= before)
+        {
+            return Fail(WithdrawWhy);
+        }
+
+        _toBank = false;
+        _walk = new TravelSkill(_stable, NavLimits.ShopArrivalRange, arrivalFloor: true);
+        return _walk.Begin(_character) ? SkillStatus.Running : Fail(_walk.FailReason ?? NoStableWalkWhy);
+    }
 
     private bool OwnsMountNearby()
     {
@@ -112,13 +141,11 @@ public sealed class BuyMountSkill : Skill
         return false;
     }
 
-    private bool BuyHorse()
+    private SkillStatus BuyHorse()
     {
-        var vendor = FindTrainer();
-
-        if (vendor is not IVendor trader)
+        if (FindTrainer() is not IVendor trader || trader is not BaseVendor vendor)
         {
-            return false;
+            return Fail(TrainerGoneWhy);
         }
 
         VendorDeal.RestockIfDue(vendor);
@@ -130,16 +157,14 @@ public sealed class BuyMountSkill : Skill
                 continue;
             }
 
-            var entity = buy.GetDisplayEntity();
-
-            if (entity == null || !PackFunds.FundPack(_character, Math.Max(1, buy.Price)))
+            if (buy.GetDisplayEntity() is not { } entity || !PackFunds.FundPack(_character, Math.Max(1, buy.Price)))
             {
-                return false;
+                return Fail(ShortWhy);
             }
 
             if (!trader.OnBuyItems(_character, [new BuyItemResponse(entity.Serial, 1)]))
             {
-                return false;
+                return Fail(RefusedWhy);
             }
 
             FollowOwnedMounts();
@@ -148,10 +173,10 @@ public sealed class BuyMountSkill : Skill
             // follows in the routine never ran. The horse spawns on the buyer's own
             // tile, so this is the one moment it is certain to be in reach.
             OwnedMounts.ClimbNearest(_character);
-            return true;
+            return SkillStatus.Done;
         }
 
-        return false;
+        return Fail(SoldOutWhy);
     }
 
     /// <summary>The vendor leaves a bought mount on Stop; a mount the owner can lose is a pet that Follows.</summary>

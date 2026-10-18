@@ -1,5 +1,6 @@
 using Server;
 using Server.Logging;
+using SosariaAI.Behaviour;
 using SosariaAI.Configuration;
 using SosariaAI.Logging;
 using SosariaAI.Mobiles;
@@ -19,7 +20,19 @@ public sealed class DelveFailure
     public const string NoWayToHall = "the walk to the hall did not finish";
     public const string HallEmpty = "the hall hunt could not start";
     public const string NoRoomReached = "no room on the floor could be reached";
+    public const string FloorTooDangerous = "the floor was too dangerous for it";
     public const string Died = "it died on the trip";
+    public const string DiedOnRoad = "it died on the road to or from the dungeon";
+
+    /// <summary>
+    /// Where a trip's death happened: inside a dungeon, or on the road there or home. Of 129
+    /// deaths counted as dungeon deaths, 67 were players' kills on the overland walk.
+    /// </summary>
+    public static string DeathWhy(bool insideDungeon) => insideDungeon ? Died : DiedOnRoad;
+
+    /// <summary>World side of <see cref="DeathWhy(bool)"/>: whether the dead person stands in a dungeon region.</summary>
+    public static string DeathWhy(Mobile dead) =>
+        DeathWhy(dead?.Map is { } map && map != Map.Internal && DungeonGround.RegionNames(map)(dead.Location) != null);
 
     private static readonly ILogger logger = SosariaLog.For(typeof(DelveFailure));
 

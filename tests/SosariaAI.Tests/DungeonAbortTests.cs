@@ -28,4 +28,10 @@ public class DungeonAbortTests
             "Iolo ended Dungeon (Aborted: it died on the trip) at (2731, 2234, 0)",
             DungeonAbort.Line("Iolo", DelveFailure.Died, new Point3D(2731, 2234, 0))
         );
+
+    [Theory]
+    [InlineData(true, DelveFailure.Died)]
+    [InlineData(false, DelveFailure.DiedOnRoad)]
+    public void DeathWhy_InsideOrOnTheRoad(bool insideDungeon, string why) =>
+        Assert.Equal(why, DelveFailure.DeathWhy(insideDungeon));
 }

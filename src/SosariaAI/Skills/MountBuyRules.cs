@@ -17,4 +17,11 @@ public static class MountBuyRules
         !mounted && !ownsMountNearby && followers + controlSlots <= followersMax;
 
     public static bool CanAfford(int gold) => gold >= HorsePrice;
+
+    /// <summary>
+    /// The buyer can fund a horse: from the pack, or with the bank's help for one that may go
+    /// to a town bank. A red may not walk into a guarded bank, so only its pack counts.
+    /// </summary>
+    public static bool CanFund(int packGold, int bankGold, bool red) =>
+        CanAfford(packGold) || !red && CanAfford(packGold + bankGold);
 }

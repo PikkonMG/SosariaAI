@@ -71,7 +71,13 @@ public static class SpeechFacts
 
         /// <summary>True when the speaker is a red: it asks after no reds (<see cref="AsksAfterReds"/>).</summary>
         public bool IsRed { get; init; }
+
+        /// <summary>True when a person raised the speaker a short while ago (<see cref="ThanksForRez"/>).</summary>
+        public bool RaisedByPerson { get; init; }
     }
+
+    /// <summary>A person's rez this recent still earns a thanks.</summary>
+    public static readonly TimeSpan RezThanksSpan = TimeSpan.FromMinutes(2);
 
     public static bool Contradicts(string say, Snapshot facts)
     {
@@ -120,8 +126,20 @@ public static class SpeechFacts
             return true;
         }
 
+        if (!facts.RaisedByPerson && ThanksForRez(say))
+        {
+            return true;
+        }
+
         return facts.IsRed && AsksAfterReds(say);
     }
+
+    /// <summary>
+    /// The speaker thanks someone for raising it: "ty for the rez". A ghost that fell back to
+    /// its spawn said it on its return, with nobody there who raised it.
+    /// </summary>
+    public static bool ThanksForRez(string say) =>
+        ContainsAny(say, "for the rez", "for the res", "for rez", "for res ", "for the ress", "thx rez", "ty rez");
 
     /// <summary>The line asks after reds or warns of them: "seen any reds", "any pks about?".</summary>
     public static bool AsksAfterReds(string say) =>

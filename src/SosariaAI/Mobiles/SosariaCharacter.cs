@@ -71,6 +71,7 @@ public partial class SosariaCharacter : PlayerMobile
     private double _thinkSeconds = PresenceFocus.NearThinkSeconds;
     private DateTime _fleeUntil;
     private string _restoreReason;
+    private DateTime _raisedByPersonAt;
     private List<Mobile> _murderers;
     private const string EngineResurrectReason = "engine resurrect";
     private const string FallbackReason = "fallback";
@@ -1238,6 +1239,8 @@ public partial class SosariaCharacter : PlayerMobile
             return;
         }
 
+        _raisedByPersonAt = helper != null ? Core.Now : default;
+
         // The same cost a player accepts in the resurrect window: sparkle, murderer
         // stat loss, and a tenth of the fame.
         PlaySound(GhostRules.ResurrectSound);
@@ -2144,7 +2147,11 @@ public partial class SosariaCharacter : PlayerMobile
             OpenOrders = CraftOrders.Count,
             CanMount = !Mounted && MayClimbOn(ownedMount),
             CanBuyMount = MountBuyRules.MayBuy(Mounted, ownedMount != null, Followers, MountBuyRules.HorseSlots, FollowersMax) &&
-                          MountBuyRules.CanAfford(gold),
+                          MountBuyRules.CanFund(
+                              Backpack?.GetAmount(typeof(Gold)) ?? 0,
+                              BankBox?.GetAmount(typeof(Gold)) ?? 0,
+                              PkRules.IsRed(Kills)
+                          ),
             HasWeapon = GearScore.HasWeapon(this),
             NothingToBank = !BankDepositSkill.HasErrand(this),
             FailedGoalCount = FailedGoalCount,
@@ -2237,6 +2244,22 @@ public partial class SosariaCharacter : PlayerMobile
         HouseRules.CanBuy(gold, HousePlots.PriceFor(this), HouseOwned()) &&
         !AmbitionRules.SavesForOtherThanHouse(CurrentAmbition()) &&
         HousePlots.FreeFor(this) != null;
+
+    /// <summary>The player-bodied people whose blows on this character are still fresh.</summary>
+    private int PeopleOnIt()
+    {
+        var count = 0;
+
+        for (var i = 0; i < Aggressors.Count; i++)
+        {
+            if (Aggressors[i] is { Expired: false, Attacker: PlayerMobile })
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
 
     /// <summary>The owner wants to go home now (see <see cref="HomeLifeRules.Due"/>).</summary>
     private bool HomeDue()
@@ -3470,6 +3493,7 @@ public partial class SosariaCharacter : PlayerMobile
 
         return new SpeechFacts.Snapshot
         {
+            RaisedByPerson = _raisedByPersonAt != default && Core.Now - _raisedByPersonAt < SpeechFacts.RezThanksSpan,
             PackCount = pack,
             Gold = Backpack?.GetAmount(typeof(Gold)) ?? 0,
             Hits = Hits,
@@ -3727,13 +3751,17 @@ public partial class SosariaCharacter : PlayerMobile
 
         if (SosariaSettings.LogActivity)
         {
+            // Power on both sides and the people on it tell a fair fight from a gank.
             logger.Information(
-                "{Name} died to {Killer} at {Location} (kills {Kills}, criminal {Criminal})",
+                "{Name} died to {Killer} at {Location} (kills {Kills}, criminal {Criminal}, power {Power} vs {KillerPower}, {Attackers} people on it)",
                 Name,
                 _lastKillerName ?? "something",
                 Location,
                 Kills,
-                Criminal
+                Criminal,
+                CharacterPower.For(this),
+                LastKiller == null ? 0 : CharacterPower.For(LastKiller),
+                PeopleOnIt()
             );
         }
 

@@ -8,10 +8,10 @@ namespace SosariaAI.Skills;
 /// <summary>
 /// One thing a crafter could make now: its place in the craft list, the engine's success
 /// chance, whether the materials for one piece are in the pack or on a nearby shelf, the gold
-/// a try earns past its materials (<see cref="CraftTradeRules.ExpectedProfit"/>), and whether
-/// anyone in reach buys the piece at all.
+/// a try earns past its materials (<see cref="CraftTradeRules.ExpectedProfit"/>), whether
+/// anyone in reach buys the piece at all, and how many of it the crafter already holds unsold.
 /// </summary>
-public readonly record struct CraftOption(int Index, double Chance, bool HasMaterials, int Profit, bool HasBuyer);
+public readonly record struct CraftOption(int Index, double Chance, bool HasMaterials, int Profit, bool HasBuyer, int Held = 0);
 
 /// <summary>
 /// How a crafter works a session at the shop: which item it makes, how many pieces go in a
@@ -35,6 +35,12 @@ public static class CraftTradeRules
 
     /// <summary>An item that still teaches weighs this many times its profit in the pick.</summary>
     public const int TeachWeight = 3;
+
+    /// <summary>
+    /// A crafter holding this many unsold pieces of an item makes no more of it until they sell:
+    /// a grandmaster carpenter made 102 wooden shields in one evening and sold almost none.
+    /// </summary>
+    public const int MaxHeldOfType = 4;
 
     /// <summary>The least weight a pickable item carries, so a thin margin still has a turn.</summary>
     public const int MinPickWeight = 1;
@@ -145,7 +151,7 @@ public static class CraftTradeRules
         {
             var option = options[i];
 
-            if (option.HasMaterials && option.HasBuyer && option.Chance >= MinUsefulChance)
+            if (Ready(option) && !Stocked(option))
             {
                 useful.Add(i);
                 profitable |= option.Profit > 0;
@@ -190,6 +196,39 @@ public static class CraftTradeRules
         }
 
         return useful[^1];
+    }
+
+    /// <summary>An item the crafter could make now: materials, a buyer and even odds or better.</summary>
+    public static bool Ready(CraftOption option) =>
+        option.HasMaterials && option.HasBuyer && option.Chance >= MinUsefulChance;
+
+    /// <summary>The crafter already holds enough unsold pieces of the item.</summary>
+    public static bool Stocked(CraftOption option) => option.Held >= MaxHeldOfType;
+
+    /// <summary>
+    /// True when the crafter could make something but holds enough of every such item: it ends
+    /// the session and sells instead of making more.
+    /// </summary>
+    public static bool AllStocked(IReadOnlyList<CraftOption> options)
+    {
+        var ready = false;
+
+        for (var i = 0; i < (options?.Count ?? 0); i++)
+        {
+            if (!Ready(options[i]))
+            {
+                continue;
+            }
+
+            if (!Stocked(options[i]))
+            {
+                return false;
+            }
+
+            ready = true;
+        }
+
+        return ready;
     }
 
     /// <summary>

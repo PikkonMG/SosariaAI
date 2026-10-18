@@ -42,6 +42,42 @@ public class CraftTradeRulesTests
     }
 
     [Fact]
+    public void Pick_SkipsAnItemTheCrafterHoldsEnoughOf()
+    {
+        // A grandmaster carpenter made 102 wooden shields in one evening and sold almost none.
+        CraftOption[] options =
+        [
+            new(0, Certain, true, Profit * 10, true, Held: CraftTradeRules.MaxHeldOfType),
+            new(1, Certain, true, Profit, true, Held: CraftTradeRules.MaxHeldOfType - 1)
+        ];
+
+        for (var roll = 0; roll < ManyRolls; roll++)
+        {
+            Assert.Equal(1, CraftTradeRules.Pick(options, roll));
+        }
+    }
+
+    [Fact]
+    public void AllStocked_OnlyWhenEveryReadyItemIsHeldEnough()
+    {
+        CraftOption[] stocked =
+        [
+            new(0, Certain, true, Profit, true, Held: CraftTradeRules.MaxHeldOfType),
+            new(1, Certain, HasMaterials: false, Profit, HasBuyer: true)
+        ];
+        CraftOption[] room =
+        [
+            new(0, Certain, true, Profit, true, Held: CraftTradeRules.MaxHeldOfType),
+            new(1, Certain, true, Profit, true)
+        ];
+
+        Assert.True(CraftTradeRules.AllStocked(stocked));
+        Assert.Equal(CraftTradeRules.NoPick, CraftTradeRules.Pick(stocked, 0));
+        Assert.False(CraftTradeRules.AllStocked(room));
+        Assert.False(CraftTradeRules.AllStocked([new(0, Certain, HasMaterials: false, Profit, HasBuyer: true)]));
+    }
+
+    [Fact]
     public void Pick_DropsLossesWhileSomethingEarns()
     {
         CraftOption[] options =

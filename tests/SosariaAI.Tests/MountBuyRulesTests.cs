@@ -24,4 +24,13 @@ public class MountBuyRulesTests
     [Fact]
     public void MayBuy_LastOpenSlot_Buys() =>
         Assert.True(MountBuyRules.MayBuy(mounted: false, ownsMountNearby: false, followers: 4, controlSlots: 1, followersMax: 5));
+
+    [Theory]
+    [InlineData(MountBuyRules.HorsePrice, 0, false, true)]
+    [InlineData(0, MountBuyRules.HorsePrice, false, true)]
+    [InlineData(0, MountBuyRules.HorsePrice, true, false)]
+    [InlineData(MountBuyRules.HorsePrice, 0, true, true)]
+    [InlineData(MountBuyRules.HorsePrice - 1, 0, false, false)]
+    public void CanFund_PackOrBankButARedOnlyFromItsPack(int pack, int bank, bool red, bool funds) =>
+        Assert.Equal(funds, MountBuyRules.CanFund(pack, bank, red));
 }

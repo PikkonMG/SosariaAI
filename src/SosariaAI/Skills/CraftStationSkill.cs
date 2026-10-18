@@ -111,6 +111,7 @@ public abstract class CraftStationSkill : Skill
     private bool _sellTripDone;
     private bool _dried;
     private bool _spareBatch;
+    private bool _stocked;
     private string _shortOf;
     private StationStall _stationStall;
 
@@ -244,6 +245,7 @@ public abstract class CraftStationSkill : Skill
         _dried = false;
         _spareBatch = false;
         _shortOf = null;
+        _stocked = false;
         ResetBatch();
     }
 
@@ -415,6 +417,12 @@ public abstract class CraftStationSkill : Skill
         if (_product == null && CraftMarket.BuyFromGatherers(_character, _trade) > 0)
         {
             _product = ChooseProduct(system, vendors, atStation: true);
+        }
+
+        if (_product == null && _stocked)
+        {
+            WorldPlay.Log($"{_character.Name} holds enough unsold {_trade.Kind} goods and goes to sell");
+            return FinishSession();
         }
 
         if (_product == null)
@@ -1151,14 +1159,20 @@ public abstract class CraftStationSkill : Skill
                     chance,
                     MaterialsReachable(item, vendors, gold),
                     CraftTradeRules.ExpectedProfit(chance, worth, MaterialCost(item, buyers)),
-                    worth > 0
+                    worth > 0,
+                    Held(item.ItemType)
                 )
             );
         }
 
         var pick = CraftTradeRules.Pick(options, Utility.Random(int.MaxValue));
+        _stocked = pick == CraftTradeRules.NoPick && CraftTradeRules.AllStocked(options);
         return pick == CraftTradeRules.NoPick ? null : candidates[pick];
     }
+
+    // Pieces of the type the crafter holds unsold, in its pack and its bank box.
+    private int Held(Type type) =>
+        (_character.Backpack?.GetAmount(type) ?? 0) + (_character.BankBox?.GetAmount(type) ?? 0);
 
     // What shop stock adds to a try of the item: its exceptional chance of the piece's value.
     private int ShopWorth(CraftSystem system, CraftItem item, double chance) =>

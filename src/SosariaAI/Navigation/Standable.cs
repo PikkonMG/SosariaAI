@@ -164,8 +164,13 @@ public static class Standable
     /// </summary>
     public static TileWalker Walker(Map map)
     {
-        bool Step(int fromX, int fromY, int fromZ, int toX, int toY, out int toZ) =>
-            TryEngineStep(map, fromX, fromY, fromZ, toX, toY, out toZ);
+        // A step that keeps stalling walkers is closed a while (StallTally), so routes go round it.
+        bool Step(int fromX, int fromY, int fromZ, int toX, int toY, out int toZ)
+        {
+            toZ = fromZ;
+            return !StallTally.Blocks(map, fromX, fromY, toX, toY, Core.Now) &&
+                   TryEngineStep(map, fromX, fromY, fromZ, toX, toY, out toZ);
+        }
 
         int? FloorNear(int x, int y, int z)
         {

@@ -150,7 +150,8 @@ public class SpeechFactsTests
         Assert.True(SpeechFacts.Contradicts("i died again, lost my stuff", facts));
         Assert.True(SpeechFacts.Contradicts("lost my armor, need a rez", facts));
         Assert.True(SpeechFacts.Contradicts("im a ghost, someone rez me", facts));
-        Assert.False(SpeechFacts.Contradicts("thx for the rez earlier", facts));
+        Assert.True(SpeechFacts.Contradicts("thx for the rez earlier", facts));
+        Assert.False(SpeechFacts.Contradicts("thx for the rez earlier", new SpeechFacts.Snapshot { IsAlive = true, RaisedByPerson = true }));
         Assert.False(SpeechFacts.Contradicts("rezzed three people today", facts));
     }
 
@@ -200,4 +201,11 @@ public class SpeechFactsTests
     [InlineData("nice red dye")]
     public void AsksAfterReds_OnlyAWatchForReds(string say) =>
         Assert.False(SpeechFacts.AsksAfterReds(say));
+
+    [Theory]
+    [InlineData("ty for the rez, owe you one", false, true)]
+    [InlineData("ty for the rez, owe you one", true, false)]
+    [InlineData("back, lost my best bow to a pk", false, false)]
+    public void Contradicts_ThanksForARezOnlyAfterSomeoneRaisedIt(string say, bool raisedByPerson, bool contradicts) =>
+        Assert.Equal(contradicts, SpeechFacts.Contradicts(say, new SpeechFacts.Snapshot { IsAlive = true, RaisedByPerson = raisedByPerson }));
 }
