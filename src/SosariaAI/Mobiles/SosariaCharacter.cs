@@ -1628,6 +1628,14 @@ public partial class SosariaCharacter : PlayerMobile
         return false;
     }
 
+    /// <summary>
+    /// True when <paramref name="foe"/> hurt this person inside the under-attack window
+    /// (<see cref="DefendRules.FreshBlow"/>): a blow that landed, not a foe that only holds it
+    /// as its target.
+    /// </summary>
+    public bool HurtLatelyBy(Mobile foe) =>
+        foe != null && FindDamageEntryFor(foe) is { } entry && DefendRules.FreshBlow(entry.LastDamage, Core.Now);
+
     /// <summary>True inside the grace for the person this character last ran from.</summary>
     public bool RanFromLately(Mobile foe) =>
         foe != null && foe.Serial == LastRanFrom && GuardLineRules.InStandDownGrace(LastRanFromAt, Core.Now);

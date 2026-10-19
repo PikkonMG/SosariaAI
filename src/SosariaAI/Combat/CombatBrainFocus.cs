@@ -325,8 +325,9 @@ public static partial class CombatBrain
          (master == character || IsFriend(character, master)));
 
     /// <summary>
-    /// A foe this character leaves be unless it comes at it: the person it broke off from inside
-    /// the stand-down grace, the side it ran from lately, and a creature a bard's song calmed.
+    /// A foe this character leaves be until a blow of it lands (<see cref="FocusRules.PassesOver"/>):
+    /// the one it gave up or broke off from inside the stand-down grace, the side it ran from
+    /// lately, and a creature a bard's song calmed.
     /// </summary>
     private static bool LeftAlone(SosariaCharacter character, Mobile mobile) =>
         mobile is BaseCreature { BardPacified: true } || WorldPlay.LeavesBeSide(character, mobile);
@@ -456,7 +457,7 @@ public static partial class CombatBrain
                         NavMetric.Chebyshev(mobile.Location, memory.AvoidAt),
                         attacksSelf || attacksFriend
                     ) &&
-                    (attacksSelf || !LeftAlone(character, mobile));
+                    !FocusRules.PassesOver(LeftAlone(character, mobile), character.HurtLatelyBy(mobile));
 
         return new Sighting
         {

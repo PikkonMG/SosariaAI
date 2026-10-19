@@ -80,7 +80,10 @@ public static class RoutineDriver
             character.SetRunPace();
         }
 
-        if (IsHunting(character) || character.Routine?.CurrentSkill is FleeSkill)
+        // Only a hunt that runs keeps its stance here. The stance a hunt could not drop at its
+        // end (a live foe stood there) is dropped at the next fight's end: kept, it held an
+        // archer on one skeleton for seven hours with its day never chosen again.
+        if (HuntRuns(character) || character.Routine?.CurrentSkill is FleeSkill)
         {
             return;
         }
@@ -436,6 +439,9 @@ public static class RoutineDriver
         character.Pulse.WakeNow();
     }
 
-    public static bool IsHunting(SosariaCharacter character) =>
-        character?.IsHunting == true || character?.Routine?.CurrentSkill is IHuntingSkill { IsHunting: true };
+    public static bool IsHunting(SosariaCharacter character) => character?.IsHunting == true || HuntRuns(character);
+
+    /// <summary>True while the routine's current skill hunts, whatever stance the body still holds.</summary>
+    private static bool HuntRuns(SosariaCharacter character) =>
+        character?.Routine?.CurrentSkill is IHuntingSkill { IsHunting: true };
 }

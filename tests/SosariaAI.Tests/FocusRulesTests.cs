@@ -163,4 +163,14 @@ public class FocusRulesTests
         Assert.False(FocusRules.TakesCalledFoe(isFallen: false, FocusRules.CalledFoeReachTiles + 1));
         Assert.False(FocusRules.TakesCalledFoe(isFallen: true, Near));
     }
+
+    [Fact]
+    public void PassesOver_ALeftAloneFoeComesBackOnlyWithABlowThatLanded()
+    {
+        // A skeleton that could not reach the archer kept it as its target all night: the
+        // target alone took the fight back a second after each give-up, 446 times.
+        Assert.True(FocusRules.PassesOver(leftAlone: true, hurtByItLately: false));
+        Assert.False(FocusRules.PassesOver(leftAlone: true, hurtByItLately: true));
+        Assert.False(FocusRules.PassesOver(leftAlone: false, hurtByItLately: false));
+    }
 }

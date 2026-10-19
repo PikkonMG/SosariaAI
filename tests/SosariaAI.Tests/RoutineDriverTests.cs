@@ -1,5 +1,6 @@
 using System;
 using Server;
+using Server.Mobiles;
 using SosariaAI.Mobiles;
 using Xunit;
 
@@ -57,6 +58,35 @@ public class RoutineDriverTests
 
         Assert.True(victim.CheckFlee());
         Assert.Same(aggressor, victim.Combatant);
+    }
+
+    [Fact]
+    public void FightEnd_WithNoHuntRunning_RestoresTheTownStance()
+    {
+        // A hunt that ended mid-fight could not drop its stance (a live foe stood there). The
+        // flag outlived the hunt, every later fight end kept it, and the archer re-took the
+        // same skeleton for seven hours with its day never chosen again.
+        var archer = Worker((Serial)0x7531);
+        archer.EnterHuntStance();
+
+        archer.Motor.Action = CharacterAction.Combat;
+        archer.Motor.Action = CharacterAction.Wander;
+
+        Assert.False(archer.IsHunting);
+        Assert.Equal(FightMode.None, archer.FightMode);
+    }
+
+    [Fact]
+    public void HurtLatelyBy_OnlyAFoeWhoseBlowLanded()
+    {
+        var victim = Worker((Serial)0x7541);
+        var striker = StrongAttacker((Serial)0x7542);
+        var bystander = StrongAttacker((Serial)0x7543);
+
+        victim.RegisterDamage(1, striker);
+
+        Assert.True(victim.HurtLatelyBy(striker));
+        Assert.False(victim.HurtLatelyBy(bystander));
     }
 
     /// <summary>A fresh character carries the worker build, armed.</summary>

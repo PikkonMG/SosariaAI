@@ -63,6 +63,15 @@ public static class FocusRules
         declinedAt != 0 && now - declinedAt < DeclineHoldMs && tilesFromDeclined <= FightPullRules.IsolateRange;
 
     /// <summary>
+    /// True when a foe this character leaves be (a fight it gave up or stood down from, a side
+    /// it ran from, a calmed creature) stays passed over: it comes back into the fight only
+    /// with a blow that landed lately. Holding the character as its target is not coming at
+    /// it: a skeleton that could not reach an archer kept it as its target all night, and the
+    /// archer took the fight back a second after each give-up, 446 times.
+    /// </summary>
+    public static bool PassesOver(bool leftAlone, bool hurtByItLately) => leftAlone && !hurtByItLately;
+
+    /// <summary>
     /// After a kill the side's called foe the last scan saw as a foe is taken over the nearest
     /// attacker when it is not the one that just fell and it stands within
     /// <see cref="CalledFoeReachTiles"/>: 1999 groups switched at once to the next called
