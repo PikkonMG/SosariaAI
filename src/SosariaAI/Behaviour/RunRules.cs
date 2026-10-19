@@ -18,6 +18,23 @@ public static class RunRules
             ? mounted ? Moves.RunMountDelay : Moves.RunFootDelay
             : mounted ? Moves.WalkMountDelay : Moves.WalkFootDelay;
 
+    /// <summary>Step delays and thinks a walk window spans (<see cref="OnItsWay"/>).</summary>
+    public const int WalkWindowCount = 2;
+
+    /// <summary>
+    /// How long a walk goal lives once renewed, and how long after its last step a walker is
+    /// still on its way: two step delays and two thinks. A walker with no player near thinks
+    /// every two seconds, so a window of step delays alone read every walker as standing at
+    /// each think: beside a Covetous fire trap it stepped off, the walk stepped back, and 155
+    /// trips stalled at the traps in one night.
+    /// </summary>
+    public static long WalkWindowMs(int stepDelayMs, double thinkDelayMs) =>
+        (long)stepDelayMs * WalkWindowCount + (long)(thinkDelayMs * WalkWindowCount);
+
+    /// <summary>True when the last step left the walker inside its walk window (<see cref="WalkWindowMs"/>).</summary>
+    public static bool OnItsWay(long msSinceStep, int stepDelayMs, double thinkDelayMs) =>
+        msSinceStep < WalkWindowMs(stepDelayMs, thinkDelayMs);
+
     /// <summary>
     /// A run the engine refused where a walk the same way went through: the mount is spent,
     /// the way a rider hears "Your mount is too fatigued to move". The engine gives a mount one

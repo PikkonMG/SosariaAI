@@ -33,9 +33,6 @@ public sealed class CharacterMotor
     /// <summary>A back-off asked for again after this long is a new one, measured from where it starts.</summary>
     public const int AwayRestartMs = 1500;
 
-    /// <summary>A character that stepped within this many step delays is on its way, not standing.</summary>
-    public const int WalkingStepDelays = 2;
-
     private readonly SosariaCharacter _character;
     private PathFollower _path;
 
@@ -771,8 +768,9 @@ public sealed class CharacterMotor
         return choice != DoorTiles.NoStep && DoMove((Direction)choice);
     }
 
-    /// <summary>True while a walk goal is live or the character stepped within the last few step delays.</summary>
-    private bool IsWalking => HasMoveIntent || Core.TickCount - _nextMoveAt < (long)StepDelayMs * WalkingStepDelays;
+    /// <summary>True while a walk goal is live or the last step is inside the walk window (<see cref="RunRules.OnItsWay"/>).</summary>
+    private bool IsWalking =>
+        HasMoveIntent || RunRules.OnItsWay(Core.TickCount - _nextMoveAt, StepDelayMs, _character.ThinkDelay.TotalMilliseconds);
 
     private void RenewIntent(Mobile target, IPoint3D point, int range)
     {
@@ -780,7 +778,7 @@ public sealed class CharacterMotor
         _intentPoint = point;
         _intentRange = range;
         _awaySteps = 0;
-        _intentExpiresAt = Core.TickCount + StepDelayMs * 2 + (long)(_character.ThinkDelay.TotalMilliseconds * 2);
+        _intentExpiresAt = Core.TickCount + RunRules.WalkWindowMs(StepDelayMs, _character.ThinkDelay.TotalMilliseconds);
     }
 
     /// <summary>

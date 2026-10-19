@@ -17,6 +17,20 @@ public class RunRulesTests
         Assert.Equal(Moves.WalkMountDelay, RunRules.StepDelay(mounted: true, running: false));
     }
 
+    [Fact]
+    public void OnItsWay_AWalkerOneThinkAfterItsStepIsStillWalking()
+    {
+        const int footStepMs = 400;
+        const double farThinkMs = 2000;
+        const long oneThinkLater = 1500;
+        const long longIdle = 10_000;
+
+        // A step window of delays alone (800 ms) read a walker thinking every two seconds as
+        // standing, and the trap step-off undid its walk beside a Covetous fire column.
+        Assert.True(RunRules.OnItsWay(oneThinkLater, footStepMs, farThinkMs));
+        Assert.False(RunRules.OnItsWay(longIdle, footStepMs, farThinkMs));
+    }
+
     [Theory]
     [InlineData(SkillKinds.GoTo)]
     [InlineData(SkillKinds.GoHome)]
