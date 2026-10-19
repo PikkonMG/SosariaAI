@@ -88,6 +88,16 @@ public class EscapeRulesTests
     );
 
     [Fact]
+    public void HoldsAtGuardLine_NotOnARoadPlannedAcrossTheGuards()
+    {
+        // Two reds planned their last way home across Britain and were held at the line on
+        // every try: the planner allowed the road, the feet refused it, all night long.
+        Assert.True(EscapeRules.HoldsAtGuardLine(keepsOffGuards: true, roadCrossesGuards: false));
+        Assert.False(EscapeRules.HoldsAtGuardLine(keepsOffGuards: true, roadCrossesGuards: true));
+        Assert.False(EscapeRules.HoldsAtGuardLine(keepsOffGuards: false, roadCrossesGuards: false));
+    }
+
+    [Fact]
     public void WayOutOfGuards_TheNearestOpenGroundByAStraightWalk()
     {
         // The guards cover x 0 to 12; open ground starts three steps east.

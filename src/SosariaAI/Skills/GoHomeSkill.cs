@@ -362,6 +362,11 @@ public sealed class GoHomeSkill : Skill
     private static bool AtHomeGate(SosariaCharacter character) =>
         WorkSites.AtNearestGate(character.HomeFacet, character.Location, gate => TravelSkill.MayWalkInto(character, gate));
 
+    /// <summary>
+    /// A walk to the home corner or the home gate: a way home, so a red with no road clear of
+    /// the guards and no recall crosses them (<see cref="TravelSkill"/>, lastWayHome). Without
+    /// it the moongate walk found no road from beside Britain and three reds stood there all night.
+    /// </summary>
     private bool StartWalk(Point3D dest)
     {
         if (_character == null || dest == Point3D.Zero)
@@ -370,7 +375,7 @@ public sealed class GoHomeSkill : Skill
         }
 
         _walk?.Abort();
-        _walk = new TravelSkill(dest, CharactersFile.DefaultGoToRange);
+        _walk = new TravelSkill(dest, CharactersFile.DefaultGoToRange, lastWayHome: true);
         return _walk.Begin(_character);
     }
 }

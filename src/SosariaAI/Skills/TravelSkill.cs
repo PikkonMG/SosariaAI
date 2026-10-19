@@ -110,6 +110,9 @@ public sealed class TravelSkill : Skill
     /// <summary>True while the road walked is a red's road planned from open ground to keep clear of the guards.</summary>
     private bool _roadClearOfGuards;
 
+    /// <summary>True while the road walked is a red's road planned across the guards (<see cref="WayPastTheGuards"/>).</summary>
+    private bool _roadCrossesGuards;
+
     /// <summary>True for a trip that never starts by magic (see the point-trip constructor).</summary>
     private readonly bool _onFoot;
 
@@ -221,6 +224,7 @@ public sealed class TravelSkill : Skill
         _nextRoadPause = default;
         _roadPauseEnds = default;
         _roadClearOfGuards = false;
+        _roadCrossesGuards = false;
         _carriedOff = false;
         _dangerWaitEnds = default;
         _dangerRoad = null;
@@ -436,6 +440,26 @@ public sealed class TravelSkill : Skill
         return status == SkillStatus.Done ? Arrived() : status;
     }
 
+    /// <summary>
+    /// One tick of the walk. On a road planned across the guards its own steps may cross the
+    /// line (<see cref="CharacterMotor.RoadCrossesGuards"/>), and only its own: a fight or chase
+    /// between ticks still stops there.
+    /// </summary>
+    private SkillStatus TickWalkOnRoad()
+    {
+        var motor = _character.Motor;
+        motor.RoadCrossesGuards = _roadCrossesGuards;
+
+        try
+        {
+            return _walk?.Tick() ?? SkillStatus.Failed;
+        }
+        finally
+        {
+            motor.RoadCrossesGuards = false;
+        }
+    }
+
     /// <summary>Why a trip stopped, read from where it stood in the trip: every failure names its cause.</summary>
     private string StoppedWhy() =>
         _character == null ? LeftWorldReason
@@ -492,7 +516,7 @@ public sealed class TravelSkill : Skill
 
         if (_tileRouteMode)
         {
-            var tileStatus = _walk?.Tick() ?? SkillStatus.Failed;
+            var tileStatus = TickWalkOnRoad();
 
             if (tileStatus != SkillStatus.Failed)
             {
@@ -518,7 +542,7 @@ public sealed class TravelSkill : Skill
             return SkillStatus.Running;
         }
 
-        var status = _walk.Tick();
+        var status = TickWalkOnRoad();
 
         if (status == SkillStatus.Running)
         {
@@ -768,6 +792,7 @@ public sealed class TravelSkill : Skill
     {
         NoteSeen();
         _roadClearOfGuards = bars is { KeepsOffGuards: true, OpenAroundStart: false, CrossesGuards: false };
+        _roadCrossesGuards = bars?.CrossesGuards == true;
         var names = Traveler.FinishPlan(
             graph,
             _character.Location,

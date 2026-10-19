@@ -153,6 +153,13 @@ public sealed class CharacterMotor
     /// </summary>
     public bool HeldAtGuardLine { get; private set; }
 
+    /// <summary>
+    /// True only while a travel walk takes the steps of a road planned across the guards: a
+    /// red's last way home with no clear road and no recall (TravelSkill sets it around its
+    /// walk's own tick). No chase or other step in between may cross the line.
+    /// </summary>
+    public bool RoadCrossesGuards { get; set; }
+
     /// <summary>Drops the engine path, so the next step plans again from where the character stands.</summary>
     public void RestartPath()
     {
@@ -665,11 +672,12 @@ public sealed class CharacterMotor
     /// True when a step that way takes a living red from open ground onto ground the guards
     /// cover (<see cref="KeepsOffGuards"/>). The engine sends a guard the moment a red steps in
     /// near a townsperson, so no walk of a red crosses the line: not a chase after a victim
-    /// that ran into town, not an errand whose path cuts a town's corner.
+    /// that ran into town, not an errand whose path cuts a town's corner. The one exception is
+    /// a step of a road planned across the guards (<see cref="RoadCrossesGuards"/>).
     /// </summary>
     private bool EntersGuards(Direction direction)
     {
-        if (!KeepsOffGuards)
+        if (!EscapeRules.HoldsAtGuardLine(KeepsOffGuards, RoadCrossesGuards))
         {
             return false;
         }

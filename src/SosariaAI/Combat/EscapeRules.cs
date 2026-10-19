@@ -92,6 +92,15 @@ public static class EscapeRules
     public static bool KeepsOffGuards(bool murderer, bool ghost, bool underGuards) =>
         murderer && !ghost && !underGuards;
 
+    /// <summary>
+    /// True when a step onto guarded ground is refused: a red that keeps off the guards
+    /// (<see cref="KeepsOffGuards"/>), unless the road it walks was planned across them, its
+    /// last way home with no clear road and no recall (<see cref="Navigation.PathSearchBars.MayCrossGuardsOn"/>).
+    /// Two reds held at Britain's line on such a road stood there all night.
+    /// </summary>
+    public static bool HoldsAtGuardLine(bool keepsOffGuards, bool roadCrossesGuards) =>
+        keepsOffGuards && !roadCrossesGuards;
+
     // Direction order of the engine: North, Right (north-east), East, Down (south-east),
     // South, Left (south-west), West, Up (north-west).
     private static readonly int[] StepX = [0, 1, 1, 1, 0, -1, -1, -1];
