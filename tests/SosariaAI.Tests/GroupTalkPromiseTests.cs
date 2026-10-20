@@ -42,7 +42,9 @@ public class GroupTalkPromiseTests
         TalkCategory.OrderStuck,
         TalkCategory.OrderUnknownPlace,
         TalkCategory.OrderNoTarget,
-        TalkCategory.OrderNoHeal
+        TalkCategory.OrderNoHeal,
+        TalkCategory.OrderNeedBackup,
+        TalkCategory.OrderWhereAmI
     ];
 
     [Fact]

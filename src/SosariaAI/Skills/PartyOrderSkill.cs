@@ -9,10 +9,11 @@ namespace SosariaAI.Skills;
 
 /// <summary>
 /// Runs the party order that stands for a member (<see cref="PartyOrders.Current"/>), and
-/// switches when a new one replaces it. Follow, Regroup and Back walk behind the leader; Hold
-/// stands and faces it; Go to walks to the place by the roads, pausing while the leader is
-/// far behind, and holds there until the leader arrives; Attack takes the target and leaves
-/// the blows to the combat brain. Done only when no order stands any more.
+/// switches when a new one replaces it. Follow and Back walk behind the leader; Regroup walks
+/// to whoever gave it, the leader or a member that called "come to me", and settles beside
+/// it; Hold stands and faces the leader; Go to walks to the place by the roads, pausing while
+/// the leader is far behind, and holds there until the leader arrives; Attack takes the target
+/// and leaves the blows to the combat brain. Done only when no order stands any more.
 /// </summary>
 public sealed class PartyOrderSkill : Skill
 {
@@ -115,6 +116,11 @@ public sealed class PartyOrderSkill : Skill
                 BeginFollow(holdsFire: true);
                 return;
             }
+            case PartyOrderKind.Regroup:
+            {
+                BeginFollow(holdsFire: false, walksTo: order.From);
+                return;
+            }
             default:
             {
                 BeginFollow(holdsFire: false);
@@ -123,9 +129,9 @@ public sealed class PartyOrderSkill : Skill
         }
     }
 
-    private void BeginFollow(bool holdsFire)
+    private void BeginFollow(bool holdsFire, Serial walksTo = default)
     {
-        var follow = new FollowSkill(null, PartyOrderRules.CloseRange, holdsFire);
+        var follow = new FollowSkill(null, PartyOrderRules.CloseRange, holdsFire, walksTo);
 
         if (follow.Begin(_character))
         {
@@ -226,6 +232,12 @@ public sealed class PartyOrderSkill : Skill
 
         if (status == SkillStatus.Running)
         {
+            if (_running.Kind == PartyOrderKind.Regroup && World.FindMobile(_running.From) is { Deleted: false } caller &&
+                PartyOrderRules.RegroupDone(caller.Map == _character.Map, (int)_character.GetDistanceToSqrt(caller)))
+            {
+                PartyOrders.Settle(_character);
+            }
+
             return status;
         }
 

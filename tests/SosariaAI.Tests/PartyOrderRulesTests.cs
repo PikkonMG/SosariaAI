@@ -26,6 +26,10 @@ public class PartyOrderRulesTests
     [InlineData("retreat!", PartyOrderKind.Back, null)]
     [InlineData("regroup", PartyOrderKind.Regroup, null)]
     [InlineData("to me", PartyOrderKind.Regroup, null)]
+    [InlineData("come to me", PartyOrderKind.Regroup, null)]
+    [InlineData("everyone to me!", PartyOrderKind.Regroup, null)]
+    [InlineData("get over here", PartyOrderKind.Regroup, null)]
+    [InlineData("come to the bank", PartyOrderKind.GoTo, "the bank")]
     public void ReadOrder_PlacesTheLeadersWords(string text, PartyOrderKind kind, string remainder)
     {
         Assert.Equal(kind, PartyOrderRules.ReadOrder(text, out var rest));
@@ -54,12 +58,74 @@ public class PartyOrderRulesTests
     [InlineData("im stuck", PartyHelpKind.Stuck)]
     [InlineData("stuck", PartyHelpKind.Stuck)]
     [InlineData("cant get there", PartyHelpKind.Stuck)]
+    [InlineData("help", PartyHelpKind.Backup)]
+    [InlineData("need backup!", PartyHelpKind.Backup)]
+    [InlineData("help me pls", PartyHelpKind.Backup)]
+    [InlineData("help im stuck", PartyHelpKind.Stuck)]
+    [InlineData("help, heal me", PartyHelpKind.HealMe)]
+    [InlineData("where are you?", PartyHelpKind.Where)]
+    [InlineData("bran where r u", PartyHelpKind.Where)]
+    [InlineData("where is everyone", PartyHelpKind.Where)]
+    [InlineData("wya", PartyHelpKind.Where)]
+    [InlineData("where is the bank", PartyHelpKind.None)]
     [InlineData("heal", PartyHelpKind.None)]
     [InlineData("follow me", PartyHelpKind.None)]
     [InlineData("wait here", PartyHelpKind.None)]
     [InlineData("", PartyHelpKind.None)]
     public void ReadHelp_PlacesAMembersCall(string text, PartyHelpKind kind) =>
         Assert.Equal(kind, PartyOrderRules.ReadHelp(text));
+
+    [Fact]
+    public void MayOrder_TheLeaderOrdersAnything_AMemberOnlyARegroupOnItself()
+    {
+        Assert.True(PartyOrderRules.MayOrder(PartyOrderKind.Follow, speakerLeads: true, speakerIsHuman: true));
+        Assert.True(PartyOrderRules.MayOrder(PartyOrderKind.Regroup, speakerLeads: false, speakerIsHuman: true));
+        Assert.False(PartyOrderRules.MayOrder(PartyOrderKind.Follow, speakerLeads: false, speakerIsHuman: true));
+        Assert.False(PartyOrderRules.MayOrder(PartyOrderKind.Regroup, speakerLeads: true, speakerIsHuman: false));
+        Assert.False(PartyOrderRules.MayOrder(PartyOrderKind.Follow, speakerLeads: true, speakerIsHuman: false));
+    }
+
+    [Theory]
+    [InlineData(true, 0.45, 1, true)]
+    [InlineData(true, 0.90, 2, true)]
+    [InlineData(true, 0.90, 1, false)]
+    [InlineData(true, 0.50, 1, false)]
+    [InlineData(false, 0.10, 3, false)]
+    public void CallsBackup_HurtOrOutnumberedInAFight(bool inFight, double hits, int attackers, bool calls) =>
+        Assert.Equal(calls, PartyOrderRules.CallsBackup(inFight, hits, attackers));
+
+    [Fact]
+    public void TakesBackup_NotWhenSentBackOrRunning()
+    {
+        Assert.True(PartyOrderRules.TakesBackup(PartyOrderKind.Follow, fleeing: false));
+        Assert.True(PartyOrderRules.TakesBackup(PartyOrderKind.None, fleeing: false));
+        Assert.False(PartyOrderRules.TakesBackup(PartyOrderKind.Back, fleeing: false));
+        Assert.False(PartyOrderRules.TakesBackup(PartyOrderKind.Follow, fleeing: true));
+    }
+
+    [Fact]
+    public void AnswersWhere_NamedOrNobodyNamed()
+    {
+        Assert.True(PartyOrderRules.AnswersWhere(namesListener: true, namesAnother: true));
+        Assert.True(PartyOrderRules.AnswersWhere(namesListener: false, namesAnother: false));
+        Assert.False(PartyOrderRules.AnswersWhere(namesListener: false, namesAnother: true));
+    }
+
+    [Fact]
+    public void Bearing_BesideByCompassOrAnotherMap()
+    {
+        Assert.Equal("right next to u", PartyOrderRules.Bearing(sameMap: true, PartyOrderRules.BesideTiles, "north"));
+        Assert.Equal("12 tiles north of u", PartyOrderRules.Bearing(sameMap: true, 12, "north"));
+        Assert.Equal("not on ur map", PartyOrderRules.Bearing(sameMap: false, 3, "north"));
+    }
+
+    [Fact]
+    public void RegroupDone_BesideTheCallerOnTheSameMap()
+    {
+        Assert.True(PartyOrderRules.RegroupDone(sameMap: true, PartyOrderRules.BesideTiles));
+        Assert.False(PartyOrderRules.RegroupDone(sameMap: true, PartyOrderRules.BesideTiles + 1));
+        Assert.False(PartyOrderRules.RegroupDone(sameMap: false, 0));
+    }
 
     [Fact]
     public void PlaceTokens_TriesTheWholeThenEachWord()
@@ -150,11 +216,8 @@ public class PartyOrderRulesTests
     }
 
     [Fact]
-    public void OnlyAPersonLeadingOrders_AnyPersonInThePartyCallsForHelp()
+    public void AnyPersonInThePartyCallsForHelp()
     {
-        Assert.True(PartyOrderRules.MayOrder(speakerLeads: true, speakerIsHuman: true));
-        Assert.False(PartyOrderRules.MayOrder(speakerLeads: true, speakerIsHuman: false));
-        Assert.False(PartyOrderRules.MayOrder(speakerLeads: false, speakerIsHuman: true));
         Assert.True(PartyOrderRules.MayCallHelp(speakerIsHuman: true));
         Assert.False(PartyOrderRules.MayCallHelp(speakerIsHuman: false));
     }

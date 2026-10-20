@@ -51,6 +51,9 @@ public static class SpeechResponder
     /// <summary>The same words from the same speaker inside this window are one room line.</summary>
     public static readonly TimeSpan RoomLineWindow = TimeSpan.FromSeconds(10);
 
+    /// <summary>A party mate's line is always for the group, up to the room limit of answers.</summary>
+    public const int MateReplyPercent = 100;
+
     /// <summary>A friend or guildmate is greeted by name on arrival once in this time.</summary>
     public static readonly TimeSpan ArrivalGreetRest = TimeSpan.FromMinutes(20);
 
@@ -72,7 +75,14 @@ public static class SpeechResponder
         }
 
         var intent = SpeechIntent.Classify(text, character.Name);
-        var named = AttentionGate.MentionsName(text, character.Name);
+
+        // A party mate's line is aimed at the group, name or no name, as it is in party chat;
+        // at most RoomReplyLimit mates answer it, so four bots do not all say "hi" back.
+        var named = Addressed(
+            AttentionGate.MentionsName(text, character.Name),
+            GameParty.Together(character, speaker),
+            () => TakeRoomTurn(speaker, text, Core.Now, roll100: 0, MateReplyPercent)
+        );
 
         // Trade talk has its own handler too. The way to a place is told from the map, never by
         // the model (AsksTheWay).
@@ -93,6 +103,14 @@ public static class SpeechResponder
     /// </summary>
     public static bool AsksTheWay(SpeechIntentKind intent, string text) =>
         intent == SpeechIntentKind.Question && SpeechIntent.AskedPlace(text) != null;
+
+    /// <summary>
+    /// True when the line is for this character: its name was said, or a party mate said it
+    /// and a room turn is still free. The turn is taken only for a mate's unnamed line, so a
+    /// name keeps its answer whatever the room did.
+    /// </summary>
+    public static bool Addressed(bool named, bool partyMate, Func<bool> takeRoomTurn) =>
+        named || partyMate && takeRoomTurn();
 
     /// <summary>
     /// True when a trade line is the trade handler's alone: one said to the room. A trade line

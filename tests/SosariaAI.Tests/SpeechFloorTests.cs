@@ -35,6 +35,21 @@ public class SpeechFloorTests
     }
 
     [Fact]
+    public void Addressed_ANameAlwaysIs_AMateWhileARoomTurnIsFree()
+    {
+        var turns = 0;
+        bool TakeTurn() => ++turns > 0;
+
+        Assert.True(SpeechResponder.Addressed(named: true, partyMate: false, TakeTurn));
+        Assert.Equal(0, turns);
+        Assert.True(SpeechResponder.Addressed(named: false, partyMate: true, TakeTurn));
+        Assert.Equal(1, turns);
+        Assert.False(SpeechResponder.Addressed(named: false, partyMate: true, () => false));
+        Assert.False(SpeechResponder.Addressed(named: false, partyMate: false, TakeTurn));
+        Assert.Equal(1, turns);
+    }
+
+    [Fact]
     public void IsJoin_LongLineWithMeIsNotAJoin()
     {
         Assert.True(SpeechIntent.IsJoin("me pls"));

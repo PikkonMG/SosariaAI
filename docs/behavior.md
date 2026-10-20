@@ -369,10 +369,14 @@ the leader gathers the crew again.
 
 A party has one order layer. The leader gives orders, and the bot members act on
 them. The leader can be a bot or a player. Any player in the party can call for
-help. A word list reads a player's line, in party chat or out loud within
-earshot. No model is called. A bot's own party line is never read as an order,
-so bots cannot order each other by accident. Each member holds one order at a
-time, and a new order replaces the old one. Every order settles back to Follow.
+help, call for backup, call the bots to itself, or ask where everyone is. A
+word list reads a player's line, in party chat or out loud within earshot. No
+name is needed: a party mate's line is for the group, as it is in any party.
+Out loud, a mate's other talk (a greeting, a question) gets up to 2 answers
+from the party's bots, the same as a line said to the room. No model is called
+for an order. A bot's own party line is never read as an order, so bots cannot
+order each other by accident. Each member holds one order at a time, and a new
+order replaces the old one. Every order settles back to Follow.
 
 | Order | A player says | A member does |
 |---|---|---|
@@ -381,13 +385,22 @@ time, and a new order replaces the old one. Every order settles back to Follow.
 | Go to place | go to X, lets go to X, head to X, take me to X, lead the way to X | Walks to X by the roads, on foot. Pauses while the leader is more than 12 tiles behind. Holds at X until the leader gets there, then Follows. X is a place in the destination catalog: a town, a dungeon, a bank, a moongate. An unknown place gets "where is that?" and no order. |
 | Attack | attack, kill it, get it, attack NAME | Fights the leader's target; else the named creature in sight; else the nearest one. A blow that would be a crime is refused. Follows again when the foe dies. |
 | Back | fall back, back off, retreat | Stands down from its fight and keeps close to the leader for 30 seconds without taking the leader's foe, then Follows. |
-| Regroup | regroup, to me, gather | Drops what it does and walks to the leader at once, then Follows. |
+| Regroup | regroup, to me, come to me, come here, gather | Drops what it does and walks to whoever said it, then Follows once beside them. Any player in the party may say it, not only the leader. |
+
+A member answers a leader's order out loud 40% of the time ("k", "on it").
+A member that sets off to a caller always says so ("omw", "coming").
 
 | Help call | A player says | Who acts |
 |---|---|---|
-| Heal me | heal me, need heal, healz | The nearest free member with bandages or Magery walks over and heals the caller, then takes its order up again. With nobody able, the nearest member says so. |
+| Heal me | heal me, need heal, healz | The nearest free member with bandages or Magery says "omw", walks over and heals the caller, then takes its order up again. With nobody able, the nearest member says so. |
+| Backup | help, help me, need backup, back me up | Every free bot member on the caller's map says "omw" and takes the caller's foe, or walks to the caller when it has none. A member sent back hurt, or running, stays out. A bot leader takes the foe in sight, or walks back to the caller with its followers behind it. |
 | Wait for me | wait for me, wait up, hold on | A bot leader stops its trip until the caller is within 6 tiles, up to 2 minutes. After a wait that ran out, the leader does not wait for the same member again for 2 minutes. |
 | Stuck | stuck, im stuck, cant get there | A bot leader stops and walks back toward the caller, then goes on. |
+| Where are you | where are you, where r u, where is everyone, wya | Each bot answers in party chat with its spot and the way there from the asker: "despise, 12 tiles north of u", "britain bank, right next to u", "not on ur map". A line that names one bot ("bran where r u") gets that bot's answer alone. |
+
+A bot in a hard fight calls for backup itself, in party chat, once per 45
+seconds: below half its hits, or with 2 foes on it. The free members answer it
+the same way they answer a player's call.
 
 A bot leader gives the same orders from code, and says the line in party chat
 only as the order goes out, once per 20 seconds for the same matter:

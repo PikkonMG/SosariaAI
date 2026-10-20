@@ -21,7 +21,13 @@ public enum PartyHelpKind
     None,
     HealMe,
     WaitForMe,
-    Stuck
+    Stuck,
+
+    /// <summary>Come fight beside me: the free members take my foe, or walk to me.</summary>
+    Backup,
+
+    /// <summary>Tell me where you stand.</summary>
+    Where
 }
 
 /// <summary>

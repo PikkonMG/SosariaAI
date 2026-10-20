@@ -1894,7 +1894,9 @@ public static partial class Brain
             return false;
         }
 
-        return _attention.ShouldListen(evt.CharacterSerial, evt.CharacterName, evt.SpeakerSerial, evt.Text, now, AttentionWindow);
+        // A party mate needs no name, as in party chat: the group is who it talks to.
+        return _attention.ShouldListen(evt.CharacterSerial, evt.CharacterName, evt.SpeakerSerial, evt.Text, now, AttentionWindow) ||
+               GameParty.Together(World.FindMobile(evt.CharacterSerial), World.FindMobile(evt.SpeakerSerial));
     }
 
     private static void FaceSpeaker(Serial characterSerial, Serial speakerSerial)

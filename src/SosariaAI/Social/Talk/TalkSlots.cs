@@ -49,6 +49,9 @@ public enum TalkSlot
     /// <summary>A shared deed, as people say it: "that dungeon run", "that red we dropped".</summary>
     Deed = 1 << 12,
 
+    /// <summary>Where the speaker stands from the listener: "12 tiles north of u".</summary>
+    Bearing = 1 << 13,
+
     /// <summary>A token no caller fills, such as a typo in a talk file. The line is never said.</summary>
     Unknown = 1 << 30
 }
@@ -84,6 +87,8 @@ public readonly record struct TalkSlots
     public string Friend { get; init; }
 
     public string Deed { get; init; }
+
+    public string Bearing { get; init; }
 
     public const char TokenOpen = '{';
     public const char TokenClose = '}';
@@ -193,6 +198,7 @@ public readonly record struct TalkSlots
             TalkSlot.Doing => Doing,
             TalkSlot.Friend => Friend,
             TalkSlot.Deed => Deed,
+            TalkSlot.Bearing => Bearing,
             _ => null
         };
 }

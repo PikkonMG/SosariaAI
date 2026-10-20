@@ -46,6 +46,61 @@ public class PartyOrdersTests
     }
 
     [Fact]
+    public void Hear_AMembersComeToMeRegroupsOnThatMember()
+    {
+        var leader = Player(0x7C16, "Dorian");
+        var bot = Bot(0x7C17, "Bran");
+        var member = Player(0x7C18, "Tam");
+        LeadWith(leader, bot);
+        Join(leader, member);
+
+        Assert.True(PartyOrders.Hear(bot, member, "come to me"));
+
+        var order = PartyOrders.Current(bot);
+        Assert.Equal(PartyOrderKind.Regroup, order.Kind);
+        Assert.Equal(member.Serial, order.From);
+    }
+
+    [Fact]
+    public void Hear_AMembersBackupCallWithNoFoeBringsTheBotToIt()
+    {
+        var leader = Player(0x7C19, "Dorian");
+        var bot = Bot(0x7C1A, "Bran");
+        var member = Player(0x7C1B, "Tam");
+        LeadWith(leader, bot);
+        Join(leader, member);
+
+        Assert.True(PartyOrders.Hear(bot, member, "help"));
+
+        var order = PartyOrders.Current(bot);
+        Assert.Equal(PartyOrderKind.Regroup, order.Kind);
+        Assert.Equal(member.Serial, order.From);
+    }
+
+    [Fact]
+    public void Hear_AMemberSentBackIgnoresABackupCall()
+    {
+        var leader = Player(0x7C1C, "Dorian");
+        var bot = Bot(0x7C1D, "Bran");
+        LeadWith(leader, bot);
+        PartyOrders.Give(bot, new PartyOrder(PartyOrderKind.Back, leader.Serial, Core.Now));
+
+        Assert.True(PartyOrders.Hear(bot, leader, "need backup"));
+        Assert.Equal(PartyOrderKind.Back, PartyOrders.Current(bot).Kind);
+    }
+
+    [Fact]
+    public void Hear_WhereAreYouIsAnsweredNotTakenAsAnOrder()
+    {
+        var player = Player(0x7C1E, "Dorian");
+        var bot = Bot(0x7C1F, "Bran");
+        LeadWith(player, bot);
+
+        Assert.True(PartyOrders.Hear(bot, player, "where are you?"));
+        Assert.Null(PartyOrders.Current(bot));
+    }
+
+    [Fact]
     public void Hear_AnOutsiderGivesNothing()
     {
         var leader = Player(0x7C06, "Dorian");

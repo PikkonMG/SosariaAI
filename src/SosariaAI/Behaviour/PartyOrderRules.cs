@@ -48,6 +48,23 @@ public static class PartyOrderRules
     /// <summary>How often a member answers an order out loud in party chat.</summary>
     public const int AckPercent = 40;
 
+    /// <summary>A member in a fight below this share of its hits calls the group for backup.</summary>
+    public const double BackupBelowHitsFraction = 0.50;
+
+    /// <summary>A member with this many foes on it at once calls the group for backup.</summary>
+    public const int BackupAttackers = 2;
+
+    /// <summary>A member calls for backup once in this gap, however long the fight runs.</summary>
+    public static readonly TimeSpan BackupQuiet = TimeSpan.FromSeconds(45);
+
+    /// <summary>A member that is this close to the one that called it is beside it.</summary>
+    public const int BesideTiles = CloseRange;
+
+    private const string BesideWords = "right next to u";
+    private const string OtherMapWords = "not on ur map";
+    private const string TilesWord = "tiles";
+    private const string OfYouWords = "of u";
+
     private static readonly string[] GoToLeads =
     [
         "lets go to", "let's go to", "go to", "head to", "take me to", "lead the way to", "lead me to", "come to", "goto"
@@ -61,9 +78,25 @@ public static class PartyOrderRules
 
     private static readonly string[] BackWords = ["fall back", "back off", "retreat", "pull back", "back up", "run away", "get back"];
 
-    private static readonly string[] RegroupWords = ["regroup", "to me", "gather", "gather up", "form up"];
+    private static readonly string[] RegroupWords =
+    [
+        "regroup", "to me", "gather", "gather up", "form up", "come to me", "come here", "get over here", "everyone to me", "all to me"
+    ];
 
     private static readonly string[] HealWords = ["heal me", "need heal", "need a heal", "healz", "heals", "heal pls", "heal plz"];
+
+    private static readonly string[] BackupWords =
+    [
+        "help", "help me", "need help", "backup", "need backup", "back me up", "assist", "help pls", "help plz", "halp",
+        "come help", "little help", "need a hand", "sos"
+    ];
+
+    private static readonly string[] WhereWords =
+    [
+        "where are you", "where are u", "where r u", "where r you", "where ru", "where u at", "where you at", "where are ya",
+        "where is everyone", "where's everyone", "wheres everyone", "where is everybody", "wheres everybody", "wya", "loc",
+        "location", "where did you go", "where did u go", "where u go", "where are you guys", "where r u guys"
+    ];
 
     private static readonly string[] WaitForMeWords = ["wait for me", "wait up", "hold on", "wait for me pls"];
 
@@ -81,8 +114,9 @@ public static class PartyOrderRules
     private const int MinPlaceWordLength = 3;
 
     /// <summary>
-    /// The order a line gives, and for a place or a target the words after the order. A go-to
-    /// is read first: "lets go to despise" is a trip, not a follow.
+    /// The order a line gives, and for a place or a target the words after the order. A regroup
+    /// is read first: "come to me" is a regroup, not a trip to a place called me. Then a go-to:
+    /// "lets go to despise" is a trip, not a follow.
     /// </summary>
     public static PartyOrderKind ReadOrder(string text, out string remainder)
     {
@@ -93,15 +127,15 @@ public static class PartyOrderRules
             return PartyOrderKind.None;
         }
 
+        if (SpeechIntent.ContainsPhrase(text, RegroupWords))
+        {
+            return PartyOrderKind.Regroup;
+        }
+
         if (SpeechIntent.After(text, GoToLeads) is { } place)
         {
             remainder = place;
             return PartyOrderKind.GoTo;
-        }
-
-        if (SpeechIntent.ContainsPhrase(text, RegroupWords))
-        {
-            return PartyOrderKind.Regroup;
         }
 
         if (SpeechIntent.ContainsPhrase(text, BackWords))
@@ -123,7 +157,10 @@ public static class PartyOrderRules
         return SpeechIntent.ContainsPhrase(text, HoldWords) ? PartyOrderKind.Hold : PartyOrderKind.None;
     }
 
-    /// <summary>The help a line asks for. Read before the orders: "wait for me" is a call, "wait" an order.</summary>
+    /// <summary>
+    /// The help a line asks for. Read before the orders: "wait for me" is a call, "wait" an
+    /// order. The precise call wins over the broad one: "help im stuck" is stuck, not backup.
+    /// </summary>
     public static PartyHelpKind ReadHelp(string text)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -141,7 +178,17 @@ public static class PartyOrderRules
             return PartyHelpKind.Stuck;
         }
 
-        return SpeechIntent.ContainsPhrase(text, WaitForMeWords) ? PartyHelpKind.WaitForMe : PartyHelpKind.None;
+        if (SpeechIntent.ContainsPhrase(text, WaitForMeWords))
+        {
+            return PartyHelpKind.WaitForMe;
+        }
+
+        if (SpeechIntent.ContainsPhrase(text, BackupWords))
+        {
+            return PartyHelpKind.Backup;
+        }
+
+        return SpeechIntent.ContainsPhrase(text, WhereWords) ? PartyHelpKind.Where : PartyHelpKind.None;
     }
 
     /// <summary>
@@ -193,11 +240,52 @@ public static class PartyOrderRules
         return token.Length == 0 ? null : token;
     }
 
-    /// <summary>Only the party leader gives orders, and only a person: a bot leader orders in code.</summary>
-    public static bool MayOrder(bool speakerLeads, bool speakerIsHuman) => speakerLeads && speakerIsHuman;
+    /// <summary>
+    /// Only the party leader gives orders, and only a person: a bot leader orders in code. The
+    /// one order any person may give is a regroup on itself: "come to me" from a member brings
+    /// the bots to that member.
+    /// </summary>
+    public static bool MayOrder(PartyOrderKind kind, bool speakerLeads, bool speakerIsHuman) =>
+        speakerIsHuman && (speakerLeads || kind == PartyOrderKind.Regroup);
 
     /// <summary>Any person in the party may call for help.</summary>
     public static bool MayCallHelp(bool speakerIsHuman) => speakerIsHuman;
+
+    /// <summary>
+    /// A member hurt below half or with two foes on it calls the group for backup. The call is
+    /// made in a fight only: a hurt member standing in peace needs a heal, which the leader sends.
+    /// </summary>
+    public static bool CallsBackup(bool inFight, double hitsFraction, int attackers) =>
+        inFight && (hitsFraction < BackupBelowHitsFraction || attackers >= BackupAttackers);
+
+    /// <summary>
+    /// A member answers a backup call unless it was sent back hurt or is running: those two
+    /// would die beside the caller.
+    /// </summary>
+    public static bool TakesBackup(PartyOrderKind standing, bool fleeing) => !fleeing && standing != PartyOrderKind.Back;
+
+    /// <summary>
+    /// A member answers "where are you" when the line names it, or names nobody in the party:
+    /// "bran where r u" gets one answer, "where is everyone" gets one from each.
+    /// </summary>
+    public static bool AnswersWhere(bool namesListener, bool namesAnother) => namesListener || !namesAnother;
+
+    /// <summary>
+    /// Where the speaker stands from the asker, as a mate says it over party chat: beside,
+    /// so many tiles by the compass, or on another map altogether.
+    /// </summary>
+    public static string Bearing(bool sameMap, int distance, string compass)
+    {
+        if (!sameMap)
+        {
+            return OtherMapWords;
+        }
+
+        return distance <= BesideTiles ? BesideWords : $"{distance} {TilesWord} {compass} {OfYouWords}";
+    }
+
+    /// <summary>A member that regrouped on its caller stands beside it: the order is done.</summary>
+    public static bool RegroupDone(bool sameMap, int distance) => sameMap && distance <= BesideTiles;
 
     /// <summary>A hold or a step back runs out; every other order ends on its own terms.</summary>
     public static bool Expired(PartyOrderKind kind, DateTime at, DateTime now) =>

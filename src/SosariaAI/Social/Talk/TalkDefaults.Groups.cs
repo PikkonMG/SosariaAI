@@ -371,6 +371,31 @@ public static partial class TalkDefaults
             ["k", "ok", "on it", "got it", "kk", "aye", "sure", "ok ok", "yep", "k boss"]
         ),
         new(
+            TalkCategory.OrderOnMyWay,
+            "a group member sets off to a mate that called for it, in party chat.",
+            [
+                "omw", "on my way", "coming", "k coming", "omw!", "hang on, coming", "be right there", "coming to u",
+                "on it, coming", "hold on im coming"
+            ]
+        ),
+        new(
+            TalkCategory.OrderNeedBackup,
+            "a group member in a hard fight calls the group to it, in party chat. {foe} is the foe, with its article.",
+            [
+                "need backup", "help", "little help here", "need help here", "help me", "backup pls", "2 on me, help",
+                "{foe} on me, help", "help, {foe} is on me", "im in trouble, help", "need a hand here", "backup!"
+            ]
+        ),
+        new(
+            TalkCategory.OrderWhereAmI,
+            "a group member says where it stands when asked, in party chat. {place} is the spot, {bearing} where that is from the asker.",
+            [
+                "{place}, {bearing}", "im at {place}, {bearing}", "{place} here, {bearing}", "at {place}. {bearing}",
+                "{bearing}, at {place}", "here at {place}, {bearing}", "{place}, im {bearing}", "{bearing}. {place}",
+                "at {place}, {bearing}", "{place}. im {bearing}"
+            ]
+        ),
+        new(
             TalkCategory.OrderStuck,
             "a group member far behind its leader cannot get on, in party chat.",
             [

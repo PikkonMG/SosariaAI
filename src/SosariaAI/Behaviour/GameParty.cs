@@ -37,6 +37,10 @@ public static class GameParty
 
     public static bool InParty(Mobile mobile) => Of(mobile) != null && Of(mobile).Count > 1;
 
+    /// <summary>True when both stand in the same party: a mate's line needs no name.</summary>
+    public static bool Together(Mobile one, Mobile other) =>
+        one != null && other != null && one != other && Of(one) is { } party && party.Contains(other);
+
     public static bool TryForm(Mobile leader, Mobile member)
     {
         if (leader == null || member == null || leader == member)

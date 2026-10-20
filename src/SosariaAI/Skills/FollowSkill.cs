@@ -34,6 +34,7 @@ public sealed class FollowSkill : Skill
     private readonly string _partyId;
     private readonly int _range;
     private readonly bool _holdsFire;
+    private readonly Serial _walksTo;
     private readonly CorpseLoot _loot = new();
     private Mobile _lastFoe;
     private Point3D _lastFoeAt;
@@ -48,12 +49,18 @@ public sealed class FollowSkill : Skill
     private DateTime _waitStarted;
     private DateTime _started;
 
-    /// <summary>With <paramref name="holdsFire"/> the follower leaves the leader's foe alone: a member sent back from a fight.</summary>
-    public FollowSkill(string partyId, int range, bool holdsFire = false)
+    /// <summary>
+    /// With <paramref name="holdsFire"/> the follower leaves the leader's foe alone: a member
+    /// sent back from a fight. With <paramref name="walksTo"/> a real party's follower walks
+    /// behind that member while it stands in the party, not the leader: a regroup on the one
+    /// that called "come to me".
+    /// </summary>
+    public FollowSkill(string partyId, int range, bool holdsFire = false, Serial walksTo = default)
     {
         _partyId = partyId;
         _range = range;
         _holdsFire = holdsFire;
+        _walksTo = walksTo;
     }
 
     public override string Name => SkillKinds.Follow;
@@ -160,10 +167,10 @@ public sealed class FollowSkill : Skill
         ClearWalk();
     }
 
-    /// <summary>A real party with no authored crew behind it: follow whoever leads it now.</summary>
+    /// <summary>A real party with no authored crew behind it: follow the mate walked to, else whoever leads it now.</summary>
     private SkillStatus TickRealParty()
     {
-        var leader = GameParty.LeaderToFollow(_character);
+        var leader = Anchor() ?? GameParty.LeaderToFollow(_character);
 
         if (leader == null)
         {
@@ -189,6 +196,12 @@ public sealed class FollowSkill : Skill
 
         return KeepUp(leader);
     }
+
+    /// <summary>The living party mate this follow walks behind, or null to walk behind the leader.</summary>
+    private Mobile Anchor() =>
+        _walksTo != Serial.Zero && World.FindMobile(_walksTo) is { Deleted: false, Alive: true } mate && GameParty.Together(_character, mate)
+            ? mate
+            : null;
 
     /// <summary>A foe this member fought that is now dead leaves a corpse worth a look.</summary>
     private void NoteFallenFoe()

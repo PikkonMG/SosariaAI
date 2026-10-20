@@ -19,9 +19,11 @@ namespace SosariaAI.Behaviour;
 
 /// <summary>
 /// One order layer for real parties. The leader, a bot or a person, gives orders that the bot
-/// members act on; any person in the party may call for help. A person's line is read by word
-/// list, in party chat or out loud; a bot leader gives the same orders from code at set moments
-/// and says the matching line in party chat, so the words always match the action. Bot chat is
+/// members act on; any person in the party may call for help, for backup, for a regroup on
+/// itself, or ask where everyone is. A person's line is read by word list, in party chat or
+/// out loud; a bot leader gives the same orders from code at set moments and says the matching
+/// line in party chat, so the words always match the action. A member that sets off to a
+/// caller says so. A bot in a hard fight calls for backup from code the same way. Bot chat is
 /// never read as an order, so bots cannot order each other by accident. With
 /// <see cref="BrainConfiguration.PartyOrdersDirect"/> an order replaces the member's job at
 /// once; with <see cref="BrainConfiguration.PartyOrdersPlanner"/> it raises a plan trigger and
@@ -38,6 +40,7 @@ public static class PartyOrders
     private const string RegroupTag = "regroup";
     private const string GoToTag = "goto";
     private const string StuckTag = "stuck";
+    private const string OnMyWayTag = "omw";
 
     private static readonly Dictionary<Serial, PartyOrder> Orders = new();
 
@@ -57,6 +60,9 @@ public static class PartyOrders
     private static readonly Dictionary<Serial, Skill> LastTrip = new();
 
     private static readonly LogGate<(Serial Leader, string Tag, Serial About)> LeaderGate = new(PartyOrderRules.LeaderQuiet);
+
+    /// <summary>One backup call per member in <see cref="PartyOrderRules.BackupQuiet"/>: a long fight is one call, not a scream a scan.</summary>
+    private static readonly LogGate<Serial> BackupGate = new(PartyOrderRules.BackupQuiet);
 
     private sealed record HelpCall(PartyHelpKind Kind, Serial Caller, DateTime Since);
 
@@ -98,12 +104,12 @@ public static class PartyOrders
 
         if (help != PartyHelpKind.None)
         {
-            return PartyOrderRules.MayCallHelp(human) && TakeHelp(listener, speaker, party, help);
+            return PartyOrderRules.MayCallHelp(human) && TakeHelp(listener, speaker, party, help, text);
         }
 
         var kind = PartyOrderRules.ReadOrder(text, out var remainder);
 
-        if (kind == PartyOrderKind.None || !PartyOrderRules.MayOrder(party.Leader == speaker, human))
+        if (kind == PartyOrderKind.None || !PartyOrderRules.MayOrder(kind, party.Leader == speaker, human))
         {
             return false;
         }
@@ -133,6 +139,7 @@ public static class PartyOrders
         }
 
         TickOrder(character, party, now);
+        CallBackup(character, party, now);
 
         if (party.Leader == character)
         {
@@ -141,6 +148,99 @@ public static class PartyOrders
         else
         {
             TickStuck(character, now);
+        }
+    }
+
+    /// <summary>
+    /// A bot in a hard fight, hurt below half or with two foes on it, calls the group for backup
+    /// as a person would, once per <see cref="PartyOrderRules.BackupQuiet"/>: the line goes out
+    /// and the free members set off, the same as on a person's call.
+    /// </summary>
+    private static void CallBackup(SosariaCharacter caller, EngineParty party, DateTime now)
+    {
+        var foe = caller.Combatant;
+
+        if (foe is not { Deleted: false, Alive: true } || party.Contains(foe) ||
+            !PartyOrderRules.CallsBackup(inFight: true, Vitals.HitsFraction(caller), Attackers(caller)) ||
+            !BackupGate.Opens(caller.Serial, now))
+        {
+            return;
+        }
+
+        Chat(caller, TalkCategory.OrderNeedBackup, new TalkSlots { Foe = FoeWord(foe) });
+        Log(() => $"{caller.Name} calls for backup against {foe.Name}");
+
+        for (var i = 0; i < party.Members.Count; i++)
+        {
+            if (party.Members[i].Mobile is SosariaCharacter mate && mate != caller)
+            {
+                AnswerBackup(mate, caller, party, now);
+            }
+        }
+    }
+
+    /// <summary>The living foes on this character now, in sight: the engine's aggressor list, the expired ones left out.</summary>
+    private static int Attackers(SosariaCharacter character)
+    {
+        var count = 0;
+
+        for (var i = 0; i < character.Aggressors.Count; i++)
+        {
+            var info = character.Aggressors[i];
+
+            if (!info.Expired && info.Attacker is { Deleted: false, Alive: true } attacker && attacker.Map == character.Map &&
+                character.InRange(attacker, character.RangePerception))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// One member answers a backup call: it takes the caller's foe when it may, else it walks
+    /// to the caller. A bot leader keeps its own run: it takes the foe in sight, or walks back
+    /// to the caller as it does for a stuck member, and its followers come with it. The member
+    /// that sets off says so in party chat.
+    /// </summary>
+    private static void AnswerBackup(SosariaCharacter member, Mobile caller, EngineParty party, DateTime now)
+    {
+        if (member.Map != caller.Map || !member.Alive || !PartyOrderRules.TakesBackup(Current(member)?.Kind ?? PartyOrderKind.None, member.Motor.Action == CharacterAction.Flee))
+        {
+            return;
+        }
+
+        var foe = caller.Combatant is { Deleted: false, Alive: true } fought && !party.Contains(fought) && FollowSkill.TakesLeadersFoe(member, fought)
+            ? fought
+            : null;
+        bool setOff;
+
+        if (party.Leader == member)
+        {
+            if (foe != null && member.InRange(foe, member.RangePerception))
+            {
+                setOff = member.Combatant != foe;
+                member.Combatant = foe;
+            }
+            else
+            {
+                setOff = OpenWait(member, PartyHelpKind.Backup, caller, now);
+            }
+        }
+        else
+        {
+            setOff = Give(
+                member,
+                foe != null
+                    ? new PartyOrder(PartyOrderKind.Attack, caller.Serial, now, Target: foe.Serial)
+                    : new PartyOrder(PartyOrderKind.Regroup, caller.Serial, now)
+            );
+        }
+
+        if (setOff)
+        {
+            Say(member, OnMyWayTag, caller.Serial, TalkCategory.OrderOnMyWay, default, now);
         }
     }
 
@@ -283,35 +383,48 @@ public static class PartyOrders
         }
     }
 
-    private static bool TakeHelp(SosariaCharacter listener, Mobile caller, EngineParty party, PartyHelpKind kind)
+    private static bool TakeHelp(SosariaCharacter listener, Mobile caller, EngineParty party, PartyHelpKind kind, string text)
     {
         var now = Core.Now;
 
-        if (kind == PartyHelpKind.HealMe)
+        switch (kind)
         {
-            if (HealerOnTheWay(party, caller))
+            case PartyHelpKind.HealMe:
             {
-                return true;
-            }
-
-            var healer = BestHealer(party, caller);
-
-            if (healer == null)
-            {
-                if (Nearest(party, caller) == listener)
+                if (HealerOnTheWay(party, caller))
                 {
-                    Chat(listener, TalkCategory.OrderNoHeal);
+                    return true;
+                }
+
+                var healer = BestHealer(party, caller);
+
+                if (healer == null)
+                {
+                    if (Nearest(party, caller) == listener)
+                    {
+                        Chat(listener, TalkCategory.OrderNoHeal);
+                    }
+
+                    return true;
+                }
+
+                if (healer == listener && StartHeal(listener, caller))
+                {
+                    Say(listener, OnMyWayTag, caller.Serial, TalkCategory.OrderOnMyWay, default, now);
                 }
 
                 return true;
             }
-
-            if (healer == listener)
+            case PartyHelpKind.Backup:
             {
-                StartHeal(listener, caller);
+                AnswerBackup(listener, caller, party, now);
+                return true;
             }
-
-            return true;
+            case PartyHelpKind.Where:
+            {
+                AnswerWhere(listener, caller, party, text);
+                return true;
+            }
         }
 
         // Only a bot leader can stand for a member; a member hearing the call has nothing to do.
@@ -323,6 +436,44 @@ public static class PartyOrders
         var category = kind == PartyHelpKind.Stuck ? TalkCategory.OrderComingBack : TalkCategory.OrderHold;
         Say(listener, HoldTag, caller.Serial, category, new TalkSlots { Name = caller.Name }, now);
         return true;
+    }
+
+    /// <summary>
+    /// "Where are you" is answered in party chat, which carries any distance: the spot as
+    /// people name it, and the way there from the asker. A line that names one member gets
+    /// that member's answer alone.
+    /// </summary>
+    private static void AnswerWhere(SosariaCharacter listener, Mobile caller, EngineParty party, string text)
+    {
+        if (!PartyOrderRules.AnswersWhere(AttentionGate.MentionsName(text, listener.Name), NamesAnother(party, listener, text)))
+        {
+            return;
+        }
+
+        var sameMap = listener.Map == caller.Map;
+        var bearing = PartyOrderRules.Bearing(
+            sameMap,
+            sameMap ? (int)listener.GetDistanceToSqrt(caller) : int.MaxValue,
+            DirectionRules.Compass(caller.Location, listener.Location)
+        );
+
+        Chat(listener, TalkCategory.OrderWhereAmI, new TalkSlots { Place = GossipLines.PlaceWord(PlaceNames.Of(listener)), Bearing = bearing });
+    }
+
+    /// <summary>True when the line names a party member other than this one.</summary>
+    private static bool NamesAnother(EngineParty party, SosariaCharacter listener, string text)
+    {
+        for (var i = 0; i < party.Members.Count; i++)
+        {
+            var member = party.Members[i].Mobile;
+
+            if (member != null && member != listener && AttentionGate.MentionsName(text, member.Name))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void Start(SosariaCharacter member)
@@ -400,7 +551,7 @@ public static class PartyOrders
             return;
         }
 
-        if (call.Kind == PartyHelpKind.Stuck && sameMap)
+        if (call.Kind is PartyHelpKind.Stuck or PartyHelpKind.Backup && sameMap)
         {
             leader.Motor.MoveTo(caller, PartyOrderRules.WalkBackRange);
         }
@@ -777,11 +928,12 @@ public static class PartyOrders
         return best;
     }
 
-    private static void Say(SosariaCharacter leader, string tag, Serial about, string category, in TalkSlots slots, DateTime now)
+    /// <summary>A line about one matter, once per <see cref="PartyOrderRules.LeaderQuiet"/> from this speaker.</summary>
+    private static void Say(SosariaCharacter speaker, string tag, Serial about, string category, in TalkSlots slots, DateTime now)
     {
-        if (LeaderGate.Opens((leader.Serial, tag, about), now))
+        if (LeaderGate.Opens((speaker.Serial, tag, about), now))
         {
-            Chat(leader, category, slots);
+            Chat(speaker, category, slots);
         }
     }
 

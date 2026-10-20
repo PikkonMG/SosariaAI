@@ -72,6 +72,9 @@ public static class TalkCategory
     public const string OrderUnknownPlace = "order_unknown_place";
     public const string OrderNoTarget = "order_no_target";
     public const string OrderNoHeal = "order_no_heal";
+    public const string OrderOnMyWay = "order_omw";
+    public const string OrderNeedBackup = "order_backup";
+    public const string OrderWhereAmI = "order_where";
 
     // Guilds.
     public const string GuildChatter = "guild_chatter";
