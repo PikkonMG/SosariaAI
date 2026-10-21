@@ -48,6 +48,9 @@ public static class ActionScorer
 
     /// <summary>The reason an authored crew's follow step waits while that crew is broken up.</summary>
     public const string CrewDisbandedWhy = "the crew has broken up";
+
+    /// <summary>The reason a hunt or a delve waits while the bow has nothing to shoot (<see cref="Situation.ShootsDry"/>).</summary>
+    public const string ShootsDryWhy = "its bow has nothing to shoot";
     public const int RecentSkillLimit = 2;
 
     public static ScoreResult Rank(
@@ -505,6 +508,13 @@ public static class ActionScorer
         if (candidate.SkillKind == SkillKinds.Meditate && !IsLowOnMana(situation))
         {
             return "mana is fine";
+        }
+
+        // An empty bow fires nothing, and the engine says nothing: the archer stood on the
+        // ground giving up on foe after foe at full hits until the hunt's time ran out.
+        if (situation?.ShootsDry == true && FamilyOf(candidate) is RoutineFamily.Hunt or RoutineFamily.Dungeon)
+        {
+            return ShootsDryWhy;
         }
 
         // A worker runs from any real monster, so a delve ends at the first one on the road.

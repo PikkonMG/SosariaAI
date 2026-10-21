@@ -473,7 +473,7 @@ public sealed class HuntSkill : Skill, IHuntingSkill
                 _lowHitsCount,
                 _lastPreyAt,
                 _emptyLimit,
-                HuntEndDecision.RanLowOnRun(_suppliesLowAtStart, SupplyCheck.IsLow(_character))
+                HuntEndDecision.SendsHome(_suppliesLowAtStart, SupplyCheck.IsLow(_character), GearEquip.ShootsDry(_character))
             ),
             Math.Max(0, _character.Memory.Danger.RecentRuns(Core.Now) - _runsAtStart),
             HuntEndDecision.RunsOffLimit

@@ -54,9 +54,15 @@ public static class HuntEndDecision
     public static bool RanLowOnRun(bool lowAtStart, bool lowNow) => lowNow && !lowAtStart;
 
     /// <summary>
+    /// True when the supplies send the hunter home: they ran low on this run
+    /// (<see cref="RanLowOnRun"/>), or its bow shoots dry (<see cref="SosariaAI.Skills.GearEquip.ShootsDry"/>).
+    /// A run begun low fights on with what it has; an empty bow has nothing.
+    /// </summary>
+    public static bool SendsHome(bool lowAtStart, bool lowNow, bool shootsDry) => shootsDry || RanLowOnRun(lowAtStart, lowNow);
+
+    /// <summary>
     /// Why the hunt ends now, or <see cref="HuntEndReason.None"/>. <paramref name="suppliesLow"/>
-    /// is supplies that send the hunter home: a hunt passes those that ran low during it
-    /// (<see cref="RanLowOnRun"/>).
+    /// is supplies that send the hunter home (<see cref="SendsHome"/>).
     /// </summary>
     public static HuntEndReason Reason(
         DateTime now,

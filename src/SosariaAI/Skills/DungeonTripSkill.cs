@@ -1294,7 +1294,7 @@ public sealed class DungeonTripSkill : Skill, IHuntingSkill
             Core.Now - _crawlStarted,
             _runLength,
             Vitals.HitsFraction(_character),
-            HuntEndDecision.RanLowOnRun(_suppliesLowAtCrawl, SupplyCheck.IsLow(_character)),
+            HuntEndDecision.SendsHome(_suppliesLowAtCrawl, SupplyCheck.IsLow(_character), GearEquip.ShootsDry(_character)),
             packFull,
             _roomFailures
         );

@@ -1621,6 +1621,20 @@ public class ActionScorerTests
         );
 
     [Fact]
+    public void Unavailable_ADryBow_GoesToNoHuntOrDungeon()
+    {
+        // An archer too poor for arrows walked into Britain Sewer and stood there with an empty bow.
+        var dry = OutOfTownNearHome(DispositionKind.Lawful) with { ShootsDry = true };
+
+        Assert.Equal(ActionScorer.ShootsDryWhy, ActionScorer.Unavailable(Candidate(SkillKinds.Dungeon), dry, null, PkSeek));
+        Assert.Equal(ActionScorer.ShootsDryWhy, ActionScorer.Unavailable(Candidate(SkillKinds.Hunt), dry, null, PkSeek));
+        Assert.NotEqual(
+            ActionScorer.ShootsDryWhy,
+            ActionScorer.Unavailable(Candidate(SkillKinds.Dungeon), OutOfTownNearHome(DispositionKind.Lawful), null, PkSeek)
+        );
+    }
+
+    [Fact]
     public void Unavailable_UnderAttack_NoVisitOrTavern_ButFleeAndHome()
     {
         // A Chaos fighter hunted through Britain by an Order mage set off to visit a player and

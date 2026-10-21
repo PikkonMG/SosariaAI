@@ -489,21 +489,34 @@ public static partial class CombatBrain
     }
 
     /// <summary>
-    /// A mage with no attack it can cast (<see cref="MageTacticsRules.HasAnyAttack"/>) leaves the
-    /// fight: its picks failed at the reagent check with no word said, and it stood in Despise
-    /// saying "In Mani" while a lizardman beat on it. True when it ran.
+    /// A mage with no attack it can cast (<see cref="MageTacticsRules.HasAnyAttack"/>) or an
+    /// archer whose bow shoots dry (<see cref="GearEquip.ShootsDry"/>) leaves the fight. The mage's
+    /// picks failed at the reagent check with no word said, and it stood in Despise saying
+    /// "In Mani" while a lizardman beat on it; the archer's bow fired nothing, and it gave up on
+    /// rat after rat at full hits. True when it ran.
     /// </summary>
     private static bool LeavesWithNoAttack(SosariaCharacter character, Memory memory, Mobile foe)
     {
-        if (!IsSpellFighter(character) || MageTacticsRules.HasAnyAttack(character.Skills.Magery.Value, memory.Kit.Stock) ||
-            !TryRetreat(character, memory, foe, ordered: true))
+        var noSpell = IsSpellFighter(character) && !MageTacticsRules.HasAnyAttack(character.Skills.Magery.Value, memory.Kit.Stock);
+        var dryBow = !noSpell && GearEquip.ShootsDry(character);
+
+        if (!noSpell && !dryBow || !TryRetreat(character, memory, foe, ordered: true))
         {
             return false;
         }
 
-        if (LogsOnce(character, NoAttackLine, foe))
+        if (!LogsOnce(character, NoAttackLine, foe))
+        {
+            return true;
+        }
+
+        if (noSpell)
         {
             logger.Information("{Name} has no reagents for any attack spell and leaves {Foe}", character.Name, foe.Name);
+        }
+        else
+        {
+            logger.Information("{Name} has nothing to shoot from its bow and leaves {Foe}", character.Name, foe.Name);
         }
 
         return true;

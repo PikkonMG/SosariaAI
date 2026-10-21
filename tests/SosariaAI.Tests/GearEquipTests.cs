@@ -17,7 +17,11 @@ public class GearEquipTests
 
     static GearEquipTests() => Timer.Init(0);
 
-    public GearEquipTests() => TestMap.EnsureInternal();
+    public GearEquipTests()
+    {
+        TestMap.EnsureInternal();
+        TestMap.EnsureRunningWorld();
+    }
 
     [Fact]
     public void ConflictingLayers_HandLayers_CoverBothHands()
@@ -173,6 +177,40 @@ public class GearEquipTests
         Wear(character, new Katana((Serial)0x741A) { Layer = Layer.OneHanded });
 
         Assert.False(GearEquip.BowWithoutAmmo(character));
+    }
+
+    [Fact]
+    public void ShootsDry_APureArcherWithADryBow_HasNothingToFightWith()
+    {
+        // Alwen stood in Britain Sewer with an empty bow and gave up on rat after rat. A sword
+        // her build does not train is goods, not a weapon.
+        var character = Character((Serial)0x7330);
+        character.Build = Trains(CombatStyle.Archer, SkillName.Archery);
+        Wear(character, new Bow((Serial)0x7430) { Layer = Layer.TwoHanded });
+        character.Backpack.AddItem(new Katana());
+
+        Assert.True(GearEquip.ShootsDry(character));
+    }
+
+    [Fact]
+    public void ShootsDry_APackSwordItsBuildTrains_StillFights()
+    {
+        var character = Character((Serial)0x7332);
+        character.Build = Trains(CombatStyle.Archer, SkillName.Archery, SkillName.Swords);
+        Wear(character, new Bow((Serial)0x7432) { Layer = Layer.TwoHanded });
+        character.Backpack.AddItem(new Katana());
+
+        Assert.False(GearEquip.ShootsDry(character));
+    }
+
+    [Fact]
+    public void ShootsDry_ArrowsInThePack_StillShoots()
+    {
+        var character = Character((Serial)0x7334);
+        Wear(character, new Bow((Serial)0x7434) { Layer = Layer.TwoHanded });
+        character.Backpack.AddItem(new Arrow((Serial)0x7435) { Amount = OneArrow });
+
+        Assert.False(GearEquip.ShootsDry(character));
     }
 
     [Fact]

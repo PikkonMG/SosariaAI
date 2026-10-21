@@ -207,6 +207,15 @@ public static class GearEquip
 
     private static ResolvedBuild BuildOf(Mobile mobile) => (mobile as SosariaCharacter)?.Build;
 
+    /// <summary>
+    /// True when the wielded bow or crossbow has no ammunition (<see cref="BowWithoutAmmo"/>) and
+    /// the pack holds no other weapon the person may wield (<see cref="EquipReadyWeapon"/> draws
+    /// that one): nothing to fight with. A pure archer trains no melee skill and kept its empty
+    /// bow; the engine fires nothing without an arrow and says nothing, so Alwen stood in
+    /// Britain Sewer and gave up on rat after rat at full hits, 2338 times across one night's fleet.
+    /// </summary>
+    public static bool ShootsDry(Mobile mobile) => BowWithoutAmmo(mobile) && BestPackWeapon(mobile, allowRanged: false) == null;
+
     /// <summary>True when the wielded weapon is a bow or crossbow and the pack holds none of its ammunition.</summary>
     public static bool BowWithoutAmmo(Mobile mobile)
     {

@@ -49,6 +49,25 @@ public class HuntEndDecisionTests
     }
 
     [Fact]
+    public void SendsHome_SuppliesThatRanLowOnTheRun()
+    {
+        Assert.True(HuntEndDecision.SendsHome(lowAtStart: false, lowNow: true, shootsDry: false));
+        Assert.False(HuntEndDecision.SendsHome(lowAtStart: true, lowNow: true, shootsDry: false));
+        Assert.False(HuntEndDecision.SendsHome(lowAtStart: false, lowNow: false, shootsDry: false));
+    }
+
+    [Fact]
+    public void SendsHome_ADryBow_EvenOnARunBegunLow()
+    {
+        // A run begun low fights on with what it has; a bow with no arrows has nothing.
+        Assert.True(HuntEndDecision.SendsHome(lowAtStart: true, lowNow: true, shootsDry: true));
+        Assert.Equal(
+            HuntEndReason.SuppliesLow,
+            Reason(Start.AddMinutes(1), lastPreyAt: Start, suppliesLow: HuntEndDecision.SendsHome(true, true, shootsDry: true))
+        );
+    }
+
+    [Fact]
     public void Reason_AHuntBegunLow_FightsOnWithWhatItHas() =>
         Assert.Equal(
             HuntEndReason.None,

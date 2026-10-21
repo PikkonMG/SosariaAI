@@ -652,8 +652,8 @@ public static partial class CombatBrain
         var melee = StyleOf(character, caster) == CombatStyle.Melee;
         var choice = NerveRules.Decide(facts);
 
-        // A mage with nothing to cast starts no fight (see LeavesWithNoAttack); the kit is read
-        // here, for the stock of a fight that ended is gone with it.
+        // A mage with nothing to cast or an archer with nothing to shoot starts no fight (see
+        // LeavesWithNoAttack); the kit is read here, for the stock of a fight that ended is gone with it.
         if (caster && !facts.AlreadyAttacked)
         {
             ReadKit(character, memory);
@@ -662,6 +662,10 @@ public static partial class CombatBrain
             {
                 choice = EngageChoice.Decline;
             }
+        }
+        else if (!facts.AlreadyAttacked && GearEquip.ShootsDry(character))
+        {
+            choice = EngageChoice.Decline;
         }
 
         if (choice == EngageChoice.PullStraggler && FightPullRules.ShootsIntoPack(melee, foes[pull].Packmates))

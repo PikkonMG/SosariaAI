@@ -2179,6 +2179,7 @@ public partial class SosariaCharacter : PlayerMobile
             PlaceDanger = DangerMap.Shared.VisitFactor(HomeFacet, HuntHomeNow()?.Ground?.Arrival ?? HomeSpot, Core.Now),
             BankCrowdOpen = BankCrowd.Wants(this),
             SuppliesLow = SupplyCheck.WantsShopping(this) && VendorBuySkill.HasSupplyErrand(this),
+            ShootsDry = GearEquip.ShootsDry(this),
             MustReArm = SpareKit.MustReArm(this),
             MustRestock = Disposition == DispositionKind.Outlaw && ConflictSkill.WhyNotSetOut(this) != HuntEndReason.None,
             LeavesDen = LawfulRules.LeavesDen(

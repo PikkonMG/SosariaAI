@@ -162,6 +162,12 @@ public sealed record Situation
     /// </summary>
     public bool SuppliesLow { get; init; }
 
+    /// <summary>
+    /// Its bow has no ammunition and it carries no other weapon it may wield
+    /// (<see cref="SosariaAI.Skills.GearEquip.ShootsDry"/>): no hunt or dungeon until it has arrows.
+    /// </summary>
+    public bool ShootsDry { get; init; }
+
     /// <summary>A red lost its combat kit or its weapon and can re-arm in the Den (see <see cref="SosariaAI.Combat.SpareKitRules.MustReArm"/>).</summary>
     public bool MustReArm { get; init; }
 
