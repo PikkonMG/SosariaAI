@@ -53,7 +53,7 @@
         </ProjectReference>
         <PackageReference Include="ModernUO.Serialization.Annotations" Version="4.2.0" />
         <PackageReference Include="ModernUO.Serialization.Generator" Version="4.2.0" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+        <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.13" />
     </ItemGroup>
     <ItemGroup>
         <AdditionalFiles Include="Migrations/*.v*.json" />
